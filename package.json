@@ -1,0 +1,30 @@
+{
+  "name": "turnier-hub",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "clean": "rimraf node_modules client/node_modules server/node_modules client/dist server/dist",
+    "clean:install": "npm run clean && npm install",
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w server && npm run build -w client",
+    "lint": "npm run lint -w client",
+    "lint:fix": "npm run lint:fix -w client",
+    "prod:prepare": "npm run db:generate -w server && npm run build",
+    "prod:start": "NODE_ENV=production npm run start:prod -w server",
+    "prod": "npm run prod:prepare && npm run prod:start",
+    "db:push": "npm run db:push -w server",
+    "db:push:test": "npm run db:push:test -w server",
+    "db:deploy": "npm run db:deploy -w server",
+    "db:studio": "npm run db:studio -w server",
+    "dev:test": "npm run dev:test -w server",
+    "db:generate": "npm run db:generate -w server",
+    "db:seed": "npm run db:seed -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "rimraf": "^6.0.1"
+  }
+}

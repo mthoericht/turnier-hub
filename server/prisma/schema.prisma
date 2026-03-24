@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String        @id @default(cuid())
+  username      String?       @unique
+  email         String        @unique
+  passwordHash  String
+  createdAt     DateTime      @default(now())
+  players       Player[]
+  schoolClasses SchoolClass[]
+  tournaments   Tournament[]
+}
+
+/// Eine Schulklasse (Name pro Benutzer eindeutig); Spieler verweisen optional darauf.
+model SchoolClass {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  players   Player[]
+  createdAt DateTime @default(now())
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Player {
+  id                    String                 @id @default(cuid())
+  name                  String
+  schoolClassId         String?
+  schoolClass           SchoolClass?           @relation(fields: [schoolClassId], references: [id], onDelete: SetNull)
+  userId                String
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournamentMemberships TournamentTeamMember[]
+  createdAt             DateTime               @default(now())
+
+  @@index([userId])
+  @@index([schoolClassId])
+}
+
+model Tournament {
+  id                 String                 @id @default(cuid())
+  name               String
+  sport              String
+  phase              TournamentPhase        @default(GROUP)
+  advancesPerGroup   Int                    @default(2)
+  userId             String
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teams              TournamentTeam[]
+  teamMembers        TournamentTeamMember[]
+  matches            Match[]
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  @@index([userId])
+}
+
+/// Team vs team (not single-player sides).
+model TournamentTeam {
+  id           String                 @id @default(cuid())
+  tournamentId String
+  name         String
+  sortOrder    Int                    @default(0)
+  tournament   Tournament             @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  members      TournamentTeamMember[]
+  homeMatches  Match[]                @relation("HomeTeam")
+  awayMatches  Match[]                @relation("AwayTeam")
+
+  @@unique([tournamentId, name])
+  @@index([tournamentId])
+}
+
+enum TournamentPhase {
+  GROUP
+  QUARTER
+  SEMI
+  FINAL
+  COMPLETED
+}
+
+/// Player on a team's roster for a tournament.
+model TournamentTeamMember {
+  id           String         @id @default(cuid())
+  tournamentId String
+  teamId       String
+  playerId     String
+  tournament   Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team         TournamentTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player       Player         @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, playerId])
+  @@unique([teamId, playerId])
+  @@index([teamId])
+  @@index([tournamentId])
+}
+
+enum MatchPhase {
+  GROUP
+  QUARTER
+  SEMI
+  FINAL
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  PAUSED
+  FINISHED
+  CANCELLED
+}
+
+model Match {
+  id                  String          @id @default(cuid())
+  tournamentId        String
+  phase               MatchPhase
+  roundOrder          Int             @default(0)
+  slotIndex           Int             @default(0)
+  homeTeamId          String?
+  awayTeamId          String?
+  homeScore           Int?
+  awayScore           Int?
+  status              MatchStatus     @default(SCHEDULED)
+  matchStartedAt      DateTime?
+  totalPausedMs       Int             @default(0)
+  pausedAt            DateTime?
+  elapsedSnapshotMs   Int?
+
+  tournament          Tournament      @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  homeTeam            TournamentTeam? @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: SetNull)
+  awayTeam            TournamentTeam? @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: SetNull)
+
+  @@index([tournamentId])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+}
