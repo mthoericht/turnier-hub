@@ -50,12 +50,10 @@ export async function advanceTournamentPhase(
   const groupMatches = tournament.matches.filter((m) => m.phase === MatchPhase.GROUP);
 
   const table = computePoolStandings(teamIds, teamsById, groupMatches);
-  const adv = tournament.advancesPerGroup;
-  const qualifiers: string[] = [];
-  for (let i = 0; i < adv && i < table.length; i++) 
-  {
-    qualifiers.push(table[i]!.teamId);
-  }
+  // Qualifikanten werden für die KO-Runden fest aus der Vorrunden-Tabelle abgeleitet.
+  // (Die UI/Server-Seite ignoriert damit advancesPerGroup für die Erzeugung von VF/HF/F.)
+  const qualifiersNeeded = target === "QUARTER" ? 8 : target === "SEMI" ? 4 : 2;
+  const qualifiers: string[] = table.slice(0, qualifiersNeeded).map((r) => r.teamId);
 
   if (target === "QUARTER") {
     if (qualifiers.length < 8) {

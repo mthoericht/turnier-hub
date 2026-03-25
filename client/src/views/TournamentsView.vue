@@ -1,84 +1,22 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
-import {
-  deleteTournament,
-  fetchTournaments,
-  postTournament,
-  type TournamentListRow,
-} from "@/api/tournamentsApi";
-import { useAuthStore } from "@/stores/auth";
 import { formatCreator } from "@/types";
+import { useTournamentsListState } from "@/composables/tournaments/useTournamentsListState";
 
-const auth = useAuthStore();
-const scope = ref<"all" | "own">("all");
-const list = ref<TournamentListRow[]>([]);
-const loading = ref(true);
-const error = ref("");
-const name = ref("");
-const sport = ref("Volleyball");
+const {
+  scope,
+  list,
+  loading,
+  error,
+  name,
+  sport,
+  createT,
+  remove,
+  isMine,
+} = useTournamentsListState();
 
 const inputClass =
-  "min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 outline-none focus:ring-2 focus:ring-court-600 dark:border-slate-700 dark:bg-slate-950 dark:text-white sm:min-h-0 sm:py-2 sm:text-sm";
-
-async function load(): Promise<void> 
-{
-  loading.value = true;
-  error.value = "";
-  try 
-  {
-    list.value = await fetchTournaments(scope.value);
-  }
-  catch (e) 
-  {
-    error.value = e instanceof Error ? e.message : "Laden fehlgeschlagen";
-  }
-  finally 
-  {
-    loading.value = false;
-  }
-}
-
-function isMine(t: TournamentListRow): boolean 
-{
-  return !!auth.user && t.createdBy.id === auth.user.id;
-}
-
-watch(scope, () => void load());
-
-async function createT(): Promise<void> 
-{
-  if (!name.value.trim()) return;
-  try 
-  {
-    await postTournament({
-      name: name.value.trim(),
-      sport: sport.value,
-    });
-    name.value = "";
-    await load();
-  }
-  catch (e) 
-  {
-    error.value = e instanceof Error ? e.message : "Anlegen fehlgeschlagen";
-  }
-}
-
-async function remove(id: string): Promise<void> 
-{
-  if (!confirm("Turnier wirklich löschen?")) return;
-  try 
-  {
-    await deleteTournament(id);
-    await load();
-  }
-  catch (e) 
-  {
-    error.value = e instanceof Error ? e.message : "Löschen fehlgeschlagen";
-  }
-}
-
-onMounted(() => void load());
+  "min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-white sm:min-h-0 sm:py-2 sm:text-sm";
 </script>
 
 <template>
@@ -101,7 +39,7 @@ onMounted(() => void load());
           :class="[
             'rounded-md px-3 py-2 text-sm font-medium transition sm:py-1.5',
             scope === 'all'
-              ? 'bg-court-600 text-white'
+              ? 'bg-blue-600 text-white'
               : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
           ]"
           @click="scope = 'all'"
@@ -113,7 +51,7 @@ onMounted(() => void load());
           :class="[
             'rounded-md px-3 py-2 text-sm font-medium transition sm:py-1.5',
             scope === 'own'
-              ? 'bg-court-600 text-white'
+              ? 'bg-blue-600 text-white'
               : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
           ]"
           @click="scope = 'own'"
@@ -145,7 +83,7 @@ onMounted(() => void load());
       </select>
       <button
         type="submit"
-        class="min-h-[48px] rounded-lg bg-court-600 px-4 py-3 text-base font-medium text-white hover:bg-court-600/90 sm:min-h-0 sm:py-2 sm:text-sm"
+        class="min-h-[48px] rounded-lg bg-blue-600 px-4 py-3 text-base font-medium text-white hover:bg-blue-600/90 sm:min-h-0 sm:py-2 sm:text-sm"
       >
         Anlegen
       </button>
@@ -161,7 +99,7 @@ onMounted(() => void load());
         <div>
           <RouterLink
             :to="{ name: 'tournament-roster', params: { id: t.id } }"
-            class="font-medium text-court-800 hover:underline dark:text-court-100"
+            class="font-medium text-blue-800 hover:underline dark:text-blue-100"
           >
             {{ t.name }}
           </RouterLink>

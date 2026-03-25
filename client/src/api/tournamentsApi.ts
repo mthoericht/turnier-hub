@@ -100,6 +100,26 @@ export async function removeTeamMember(
   );
 }
 
+export type TransferKaderResult = {
+  createdTeams: number;
+  addedMembers: number;
+};
+
+export async function transferTournamentKader(
+  tournamentId: string,
+  sourceTournamentId: string,
+  body?: { overwriteExistingMembers?: boolean }
+): Promise<TransferKaderResult> 
+{
+  return api<TransferKaderResult>(
+    `/api/tournaments/${tournamentId}/transfer-kader-from/${sourceTournamentId}`,
+    {
+      method: "POST",
+      body: JSON.stringify(body ?? {}),
+    }
+  );
+}
+
 export async function patchTournamentAdvances(
   tournamentId: string,
   advancesPerGroup: number

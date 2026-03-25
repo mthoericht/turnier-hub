@@ -21,7 +21,9 @@
     "db:studio": "npm run db:studio -w server",
     "dev:test": "npm run dev:test -w server",
     "db:generate": "npm run db:generate -w server",
-    "db:seed": "npm run db:seed -w server"
+    "db:seed": "npm run db:seed -w server",
+    "db:clear": "npm run db:clear -w server --",
+    "db:clear:test": "npm run db:clear:test -w server --"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

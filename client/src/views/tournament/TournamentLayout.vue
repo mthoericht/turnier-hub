@@ -31,7 +31,7 @@ const { tournament, loading, error, formatPhaseLabel } = ctx;
       <p class="mb-1 text-sm text-slate-500 dark:text-slate-500">
         <RouterLink
           to="/tournaments"
-          class="text-court-800 hover:underline dark:text-court-100 dark:hover:text-court-100"
+            class="text-blue-800 hover:underline dark:text-blue-100 dark:hover:text-blue-100"
           >Turniere</RouterLink
         >
         /
@@ -44,7 +44,7 @@ const { tournament, loading, error, formatPhaseLabel } = ctx;
       </h1>
       <p class="text-sm text-slate-600 dark:text-slate-400 sm:text-base">
         {{ tournament.sport }} · Turnierphase:
-        <span class="text-court-800 dark:text-court-100">{{
+          <span class="text-blue-800 dark:text-blue-100">{{
           formatPhaseLabel(tournament.phase)
         }}</span>
       </p>

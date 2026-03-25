@@ -8,7 +8,7 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - **Users:** Each account has a **username** (unique, normalized) and email. **Players** and **tournaments** belong to that user.
 - **Classes:** CRUD for **school classes** (names unique per user); players optionally belong to one class. Routes `/classes` (API `/api/classes`).
 - **Players:** CRUD for players; optional class is chosen from your managed classes. Scoped list views (all vs. own) like tournaments.
-- **Tournaments:** Create tournaments, add **teams** (no pools — one league table), assign players to **team rosters**, generate **round-robin group matches** for all teams, view **standings** (one table), configure **how many teams advance** from the group table, then advance to **quarter-finals**, **semi-finals**, or **final** with pairings computed on the server; scoped to the signed-in user. The tournament UI uses tabs **Roster** then **Matches** (default `/tournaments/:id` opens **roster**). Under **Matches**, the German labels **Übersicht** and **Spielbetrieb** map to routes `tournament-matches-overview` and `tournament-matches-setup` (paths `/tournaments/:id/matches` and `/tournaments/:id/matches/setup`; legacy `/matches/spielbetrieb` redirects to setup). Legacy `/kader` and `/spiele` redirect to roster and matches overview respectively.
+- **Tournaments:** Create tournaments, add **teams** (no pools — one league table), assign players to **team rosters** (optionally transfer rosters from another tournament in the **Roster / Kader** tab), generate **round-robin group matches** for all teams, view **standings** (one table), configure **how many teams advance** from the group table, then advance to **quarter-finals**, **semi-finals**, or **final** with pairings computed on the server; scoped to the signed-in user. The tournament UI uses tabs **Roster** then **Matches** (default `/tournaments/:id` opens **roster**). Under **Matches**, the German labels **Übersicht** and **Spielbetrieb** map to routes `tournament-matches-overview` and `tournament-matches-setup` (paths `/tournaments/:id/matches` and `/tournaments/:id/matches/setup`).
 - **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. While a match timer is running, periodic reloads **merge** the score draft with the server so unsaved typing is not wiped. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
 - **Feedback:** **Toasts** (global, bottom of the screen) surface validation hints and API errors for tournament actions (for example advance rules or save issues).
 - **UI:** Vue front end with **light and dark** themes (persisted), **responsive** layout including a mobile navigation menu.
@@ -62,6 +62,20 @@ The SQLite file lives under `data/` (for example `data/dev.db`). Database files 
 
    The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`), eight players, shared demo **school classes**, and a **“Demo: Fußball Schulcup”** tournament with **four teams**, **six** group-stage matches (all-play-all), and `advancesPerGroup` set to **4** so you can try knockout flows. Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
 
+3.1. **Wipe demo data (dev/test) without deleting users**
+
+If you want to remove all demo content but keep `User` rows intact:
+
+```bash
+npm run db:clear -- --yes
+```
+
+For the test database:
+
+```bash
+npm run db:clear:test -- --yes
+```
+
 4. **Run the app in development** (API + Vite dev server with proxy):
 
    ```bash
@@ -87,11 +101,36 @@ The SQLite file lives under `data/` (for example `data/dev.db`). Database files 
 | `npm run db:studio` | Opens Prisma Studio against the database from `server/.env`. |
 | `npm run db:generate` | Generates the Prisma client. |
 | `npm run db:seed` | Runs the Prisma seed (dev database). |
+| `npm run db:clear` | Clears all tables except `User` (dev database). Pass `-- --yes` for confirmation. |
 | `npm run db:push:test` | Pushes schema using `server/.env.test` (test DB). |
 | `npm run db:seed:test` | Seeds the test database. |
+| `npm run db:clear:test` | Clears all tables except `User` (test DB). Pass `-- --yes` for confirmation. |
 | `npm run dev:test` | Runs the server with `NODE_ENV=test` (loads `server/.env.test`, default port `3002`). |
 | `npm run clean` | Removes `node_modules` and `dist` folders in the monorepo. |
 | `npm run clean:install` | Runs `clean` then `npm install`. |
+
+## Database Profiles (dev / test / production)
+
+### Dev DB
+- Environment file: `server/.env`
+- Apply schema: `npm run db:push`
+- Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)
+- Clear demo content (keep `User`): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
+- Internally, `db:seed` runs Prisma’s configured seed script via `server/package.json` → `prisma.seed: "tsx scripts/seed.ts"`.
+- Internally, `db:clear` runs `tsx scripts/clearDbExceptUsers.ts` from `server/package.json`.
+
+### Test DB
+- Environment file: `server/.env.test`
+- Apply schema: `npm run db:push:test`
+- Seed demo data: `npm run db:seed:test` (same script: `server/scripts/seed.ts`)
+- Clear demo content (keep `User`): `npm run db:clear:test -- --yes` (same script: `server/scripts/clearDbExceptUsers.ts`)
+- Internally, `db:seed:test` reuses the same seed file (`server/scripts/seed.ts`) but executes under `server/.env.test`.
+- Internally, `db:clear:test` runs the same clear file (`server/scripts/clearDbExceptUsers.ts`) but executes under `server/.env.test`.
+
+### Production
+- Environment variables: `DATABASE_URL` and other secrets are provided by the host (no local `.env` reliance)
+- Apply schema: `npm run db:deploy`
+- Seed/clear: not part of the standard flow; avoid `npm run db:clear` on production.
 
 ## Production
 
@@ -118,6 +157,9 @@ The SQLite file lives under `data/` (for example `data/dev.db`). Database files 
    npm run prod:start
    ```
 
+Notes:
+- `db:seed` / `db:clear` are for development/test workflows. On production, use `db:deploy` only (and seed manually only if you explicitly want demo data).
+
    Or use `npm run prod` to run steps 2–4’s build/start in one go after `npm ci` (run `db:deploy` separately when the database is ready).
 
    Equivalent from the server workspace after a root build: `npm run start:prod -w server`.
@@ -133,8 +175,9 @@ turnier-hub/
 │   │   ├── tournament/        # Types, API, pure logic, composables, UI class tokens
 │   │   └── views/
 │   │       └── tournament/    # TournamentLayout, Matches (layout + overview + setup view; UI: Übersicht / Spielbetrieb), Roster
-├── server/                    # Express API, Prisma schema & seed
+├── server/                    # Express API, Prisma schema & scripts
 │   ├── prisma/
+│   ├── scripts/
 │   └── src/
 ├── data/                      # SQLite files (created locally; .gitignored)
 └── package.json               # npm workspaces + shared scripts
@@ -148,6 +191,7 @@ The client uses **project references**: root `tsconfig.json` points at `tsconfig
 
 - `server/.env.test` defines a separate SQLite file (for example `data/test.db`) and port `3002`.
 - Use `npm run db:push:test` and `npm run db:seed:test` against that database.
+- Use `npm run db:clear:test -- --yes` to wipe demo content while keeping `User`.
 - If you run only the test API, point the client proxy at port `3002` or call the API directly.
 
 ## License

@@ -24,13 +24,13 @@ const router = createRouter({
     {
       path: "/players",
       name: "players",
-      component: () => import("@/views/PlayersView.vue"),
+      component: () => import("@/views/PlayersViewPreset.vue"),
       meta: { auth: true },
     },
     {
       path: "/classes",
       name: "classes",
-      component: () => import("@/views/ClassesView.vue"),
+      component: () => import("@/views/ClassesViewPreset.vue"),
       meta: { auth: true },
     },
     {
@@ -48,20 +48,6 @@ const router = createRouter({
           path: "",
           name: "tournament-detail",
           redirect: { name: "tournament-roster" },
-        },
-        {
-          path: "spiele",
-          redirect: (to) => ({
-            name: "tournament-matches-overview",
-            params: { id: to.params.id as string },
-          }),
-        },
-        {
-          path: "kader",
-          redirect: (to) => ({
-            name: "tournament-roster",
-            params: { id: to.params.id as string },
-          }),
         },
         {
           path: "matches",
@@ -83,13 +69,6 @@ const router = createRouter({
               name: "tournament-matches-setup",
               component: () =>
                 import("@/views/tournament/TournamentMatchesSetupView.vue"),
-            },
-            {
-              path: "spielbetrieb",
-              redirect: (to) => ({
-                name: "tournament-matches-setup",
-                params: { id: to.params.id as string },
-              }),
             },
           ],
         },

@@ -89,6 +89,7 @@ export type TournamentLayoutContext = {
   removeTeam: (teamId: string) => Promise<void>;
   addMember: () => Promise<void>;
   removeMember: (teamId: string, playerId: string) => Promise<void>;
+  transferKaderFromTournament: (sourceTournamentId: string) => Promise<void>;
   saveAdvances: () => Promise<void>;
   generateGroup: () => Promise<void>;
   advance: (target: "QUARTER" | "SEMI" | "FINAL") => Promise<void>;

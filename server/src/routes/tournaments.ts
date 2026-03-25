@@ -387,6 +387,102 @@ router.delete("/:id/teams/:teamId/members/:playerId", async (req, res) => {
   res.status(204).send();
 });
 
+const transferKaderBodySchema = z.object({
+  // Wenn `true`, werden alle bestehenden Kader-Zuordnungen im Ziel-Turnier gelöscht,
+  // bevor der Quell-Kader übertragen wird.
+  overwriteExistingMembers: z.boolean().optional(),
+});
+
+router.post(
+  "/:id/transfer-kader-from/:sourceTournamentId",
+  async (req, res) => {
+    const parsed = transferKaderBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Ungültige Eingaben" });
+      return;
+    }
+
+    const targetOwned = await requireTournamentOwner(
+      res,
+      req.params.id,
+      req.userId!
+    );
+    if (!targetOwned) return;
+
+    const sourceOwned = await requireTournamentOwner(
+      res,
+      req.params.sourceTournamentId,
+      req.userId!
+    );
+    if (!sourceOwned) return;
+
+    const overwriteExistingMembers =
+      parsed.data.overwriteExistingMembers ?? false;
+
+    const sourceTournament = await prisma.tournament.findUnique({
+      where: { id: req.params.sourceTournamentId },
+      include: {
+        teams: {
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+          include: {
+            members: {
+              select: { playerId: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!sourceTournament) {
+      res.status(404).json({ error: "Quell-Turnier nicht gefunden" });
+      return;
+    }
+
+    if (overwriteExistingMembers) {
+      await prisma.tournamentTeamMember.deleteMany({
+        where: { tournamentId: req.params.id },
+      });
+    }
+
+    let createdTeams = 0;
+    let addedMembers = 0;
+
+    for (const sTeam of sourceTournament.teams) {
+      let tTeam = await prisma.tournamentTeam.findFirst({
+        where: { tournamentId: req.params.id, name: sTeam.name },
+      });
+
+      if (!tTeam) {
+        tTeam = await prisma.tournamentTeam.create({
+          data: {
+            tournamentId: req.params.id,
+            name: sTeam.name,
+            sortOrder: sTeam.sortOrder,
+          },
+        });
+        createdTeams++;
+      }
+
+      for (const m of sTeam.members) {
+        try {
+          await prisma.tournamentTeamMember.create({
+            data: {
+              tournamentId: req.params.id,
+              teamId: tTeam!.id,
+              playerId: m.playerId,
+            },
+          });
+          addedMembers++;
+        } catch {
+          // Eindeutigkeit pro Turnier/Spieler: bereits zugeordnet -> überspringen.
+        }
+      }
+    }
+
+    res.json({ createdTeams, addedMembers });
+  }
+);
+
 const STANDINGS_GROUP_KEY = "Vorrunde";
 
 router.post("/:id/generate-group-matches", async (req, res) => {

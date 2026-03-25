@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject } from "vue";
+import { computed, inject } from "vue";
 import { tournamentLayoutKey } from "@/tournament/tournamentContext";
 
 const ctx = inject(tournamentLayoutKey);
@@ -10,7 +10,25 @@ if (!ctx)
   );
 }
 
-const { tournament, canEdit, cardClass, generateGroup, advance } = ctx;
+const { tournament, canEdit, cardClass, matchesByPhase, generateGroup, advance } = ctx;
+
+const hasGroupMatches = computed(() =>
+  matchesByPhase.value.some((b) => b.phase === "GROUP" && b.matches.length > 0)
+);
+
+const hasQuarterMatches = computed(() =>
+  matchesByPhase.value.some(
+    (b) => b.phase === "QUARTER" && b.matches.length > 0
+  )
+);
+
+const hasSemiMatches = computed(() =>
+  matchesByPhase.value.some((b) => b.phase === "SEMI" && b.matches.length > 0)
+);
+
+const hasFinalMatches = computed(() =>
+  matchesByPhase.value.some((b) => b.phase === "FINAL" && b.matches.length > 0)
+);
 </script>
 
 <template>
@@ -55,12 +73,24 @@ const { tournament, canEdit, cardClass, generateGroup, advance } = ctx;
         >
           2. K.-o.-Runden
         </h3>
-        <p class="text-xs text-slate-500 dark:text-slate-500">
-          Nur sinnvoll, wenn die Vorrunde (oder die vorherige Runde) weitgehend
-          beendet ist — sonst fehlen Paarungen oder Tabellenplätze.
+        <p v-if="!hasGroupMatches" class="text-xs text-slate-500 dark:text-slate-500">
+          Erzeuge zuerst die Vorrunde, damit die passenden Tabellenplätze für die
+          K.-o.-Runden feststehen.
         </p>
-        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+
+        <template v-else>
+          <p class="text-xs text-slate-500 dark:text-slate-500">
+            Nur sinnvoll, wenn die Vorrunde (oder die vorherige Runde) weitgehend
+            beendet ist — sonst fehlen Paarungen oder Tabellenplätze.
+          </p>
+
+          <p class="text-xs text-slate-500 dark:text-slate-500">
+            Es werden nur Phasen angeboten, die noch nicht angelegt sind.
+          </p>
+
+          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <button
+            v-if="!hasQuarterMatches"
             type="button"
             class="min-h-[44px] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-left text-sm text-amber-950 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50 sm:min-h-0 sm:py-1.5"
             @click="advance('QUARTER')"
@@ -69,6 +99,7 @@ const { tournament, canEdit, cardClass, generateGroup, advance } = ctx;
             <span class="block text-xs opacity-90">8 Mannschaften</span>
           </button>
           <button
+            v-if="!hasSemiMatches"
             type="button"
             class="min-h-[44px] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-left text-sm text-amber-950 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50 sm:min-h-0 sm:py-1.5"
             @click="advance('SEMI')"
@@ -77,6 +108,7 @@ const { tournament, canEdit, cardClass, generateGroup, advance } = ctx;
             <span class="block text-xs opacity-90">aus VF oder direkt</span>
           </button>
           <button
+            v-if="!hasFinalMatches"
             type="button"
             class="min-h-[44px] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-left text-sm text-amber-950 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50 sm:min-h-0 sm:py-1.5"
             @click="advance('FINAL')"
@@ -84,7 +116,15 @@ const { tournament, canEdit, cardClass, generateGroup, advance } = ctx;
             <span class="font-medium">Finale</span>
             <span class="block text-xs opacity-90">2 Teams</span>
           </button>
-        </div>
+          </div>
+
+          <p
+            v-if="hasQuarterMatches && hasSemiMatches && hasFinalMatches"
+            class="mt-3 text-xs text-slate-600 dark:text-slate-400"
+          >
+            K.-o.-Spiele sind bereits angelegt.
+          </p>
+        </template>
       </div>
     </section>
   </div>

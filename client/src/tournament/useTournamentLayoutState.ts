@@ -45,6 +45,7 @@ import {
   postGenerateGroupMatches,
   postMatchTimer,
   removeTeamMember,
+  transferTournamentKader,
 } from "@/api/tournamentsApi";
 import {
   tournamentCardClass,
@@ -259,6 +260,25 @@ export function useTournamentLayoutState(
     }
   }
 
+  async function transferKaderFromTournament(
+    sourceTournamentId: string
+  ): Promise<void> 
+  {
+    const targetId = tournamentId.value;
+    if (!targetId || !sourceTournamentId) return;
+    if (sourceTournamentId === targetId) return;
+    try
+    {
+      await transferTournamentKader(targetId, sourceTournamentId);
+      await load();
+      toast.showSuccess("Kader aus Turnier übertragen.");
+    }
+    catch (e) 
+    {
+      notifyActionError(e);
+    }
+  }
+
   async function saveAdvances(): Promise<void> 
   {
     try 
@@ -415,6 +435,7 @@ export function useTournamentLayoutState(
     removeTeam,
     addMember,
     removeMember,
+    transferKaderFromTournament,
     saveAdvances,
     generateGroup,
     advance,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject } from "vue";
+import { computed, inject, ref } from "vue";
 import { RouterLink } from "vue-router";
 import {
   tournamentLayoutKey,
@@ -33,6 +33,40 @@ const {
   timerBtnClass,
 } = ctx;
 
+type MatchesTab = "overview" | "group" | "quarter" | "semi" | "final";
+
+const activeMatchesTab = ref<MatchesTab>("overview");
+
+const hasQuarterMatches = computed(() =>
+  matchesByPhase.value.some(
+    (b) => b.phase === "QUARTER" && b.matches.length > 0
+  )
+);
+
+const hasSemiMatches = computed(() =>
+  matchesByPhase.value.some(
+    (b) => b.phase === "SEMI" && b.matches.length > 0
+  )
+);
+
+const hasFinalMatches = computed(() =>
+  matchesByPhase.value.some(
+    (b) => b.phase === "FINAL" && b.matches.length > 0
+  )
+);
+
+const visibleMatchesByPhase = computed(() => 
+  activeMatchesTab.value === "group"
+    ? matchesByPhase.value.filter((b) => b.phase === "GROUP")
+    : activeMatchesTab.value === "quarter"
+      ? matchesByPhase.value.filter((b) => b.phase === "QUARTER")
+      : activeMatchesTab.value === "semi"
+        ? matchesByPhase.value.filter((b) => b.phase === "SEMI")
+        : activeMatchesTab.value === "final"
+          ? matchesByPhase.value.filter((b) => b.phase === "FINAL")
+          : matchesByPhase.value
+);
+
 function isKnockoutPhase(phase: MatchPhase): boolean 
 {
   return phase === "QUARTER" || phase === "SEMI" || phase === "FINAL";
@@ -58,7 +92,7 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
             :class="{
               'border-emerald-500/70 bg-emerald-50/90 dark:border-emerald-600/50 dark:bg-emerald-950/30':
                 stepState(index) === 'done',
-              'border-court-600 bg-court-50 shadow-sm dark:border-court-400 dark:bg-court-950/40':
+              'border-blue-600 bg-blue-50 shadow-sm dark:border-blue-400 dark:bg-blue-950/40':
                 stepState(index) === 'current',
               'border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-900/30':
                 stepState(index) === 'upcoming',
@@ -69,7 +103,7 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
               :class="{
                 'text-emerald-800 dark:text-emerald-200':
                   stepState(index) === 'done',
-                'text-court-900 dark:text-court-100':
+                'text-blue-900 dark:text-blue-100':
                   stepState(index) === 'current',
                 'text-slate-500 dark:text-slate-400':
                   stepState(index) === 'upcoming',
@@ -104,15 +138,83 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
               name: 'tournament-matches-setup',
               params: { id: tournament.id },
             }"
-            class="text-court-800 underline hover:no-underline dark:text-court-100"
+            class="text-blue-800 underline hover:no-underline dark:text-blue-100"
           >Spielbetrieb</RouterLink
           >.</template
         >
       </p>
     </section>
 
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div class="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-900/40">
+        <button
+          type="button"
+          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+          :class="[
+            activeMatchesTab === 'group'
+              ? 'bg-blue-600 text-white dark:bg-blue-500'
+              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ]"
+          @click="activeMatchesTab = 'group'"
+        >
+          Vorrunde
+        </button>
+        <button
+          v-if="hasQuarterMatches"
+          type="button"
+          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+          :class="[
+            activeMatchesTab === 'quarter'
+              ? 'bg-blue-600 text-white dark:bg-blue-500'
+              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ]"
+          @click="activeMatchesTab = 'quarter'"
+        >
+          Viertelfinale
+        </button>
+        <button
+          v-if="hasSemiMatches"
+          type="button"
+          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+          :class="[
+            activeMatchesTab === 'semi'
+              ? 'bg-blue-600 text-white dark:bg-blue-500'
+              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ]"
+          @click="activeMatchesTab = 'semi'"
+        >
+          Halbfinale
+        </button>
+        <button
+          v-if="hasFinalMatches"
+          type="button"
+          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+          :class="[
+            activeMatchesTab === 'final'
+              ? 'bg-blue-600 text-white dark:bg-blue-500'
+              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ]"
+          @click="activeMatchesTab = 'final'"
+        >
+          Finale
+        </button>
+        <button
+          type="button"
+          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+          :class="[
+            activeMatchesTab === 'overview'
+              ? 'bg-blue-600 text-white dark:bg-blue-500'
+              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ]"
+          @click="activeMatchesTab = 'overview'"
+        >
+          Übersicht
+        </button>
+      </div>
+    </div>
+
     <section
-      v-if="Object.keys(standingsGroups).length"
+      v-if="(activeMatchesTab === 'overview' || activeMatchesTab === 'group') && Object.keys(standingsGroups).length"
       :class="[cardClass, 'space-y-4']"
     >
       <h2
@@ -127,7 +229,7 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
       >
         <h3
           v-if="Object.keys(standingsGroups).length > 1"
-          class="mb-2 text-sm text-court-800 dark:text-court-100"
+          class="mb-2 text-sm text-blue-800 dark:text-blue-100"
         >
           {{ poolName }}
         </h3>
@@ -166,7 +268,7 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
               <td class="py-2 pr-2">{{ row.losses }}</td>
               <td class="py-2 pr-2">{{ row.goalsFor }}:{{ row.goalsAgainst }}</td>
               <td
-                class="py-2 font-medium text-court-800 dark:text-court-100"
+                class="py-2 font-medium text-blue-800 dark:text-blue-100"
               >
                 {{ row.points }}
               </td>
@@ -177,13 +279,13 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
     </section>
 
     <section
-      v-for="block in matchesByPhase"
+      v-for="block in visibleMatchesByPhase"
       :key="block.phase"
       :class="[
         cardClass,
         'space-y-4',
         isKnockoutPhase(block.phase as MatchPhase)
-          ? 'border-court-200/80 bg-court-50/40 dark:border-court-800/50 dark:bg-court-950/25'
+          ? 'border-blue-200/80 bg-blue-50/40 dark:border-blue-800/50 dark:bg-blue-950/25'
           : '',
       ]"
     >
@@ -227,7 +329,7 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
           </span>
         </div>
         <div
-          class="font-mono text-3xl text-court-800 tabular-nums dark:text-court-100 sm:text-2xl"
+          class="font-mono text-3xl text-blue-800 tabular-nums dark:text-blue-100 sm:text-2xl"
         >
           {{ formatMs(m.elapsedMs) }}
         </div>

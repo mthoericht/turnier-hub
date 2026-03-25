@@ -1,6 +1,6 @@
 /** Shared Tailwind classes for tournament forms and cards (presentation only). */
 export const tournamentFieldClass =
-  "min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 outline-none focus:ring-2 focus:ring-court-600 dark:border-slate-700 dark:bg-slate-950 dark:text-white sm:min-h-0 sm:w-auto sm:py-2 sm:text-sm";
+  "min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-white sm:min-h-0 sm:w-auto sm:py-2 sm:text-sm";
 
 export const tournamentFieldSmClass =
   "min-h-[44px] w-16 rounded border border-slate-300 bg-white px-2 py-2 text-center text-base text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white sm:min-h-0 sm:py-1 sm:text-sm";
@@ -21,4 +21,4 @@ export const tournamentTabInactiveClass =
   "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-200";
 
 export const tournamentTabActiveClass =
-  "border-court-600 text-court-800 dark:border-court-400 dark:text-court-100";
+  "border-blue-600 text-blue-800 dark:border-blue-400 dark:text-blue-100";

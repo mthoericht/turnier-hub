@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { inject } from "vue";
+import { inject, ref, watch } from "vue";
 import { tournamentLayoutKey } from "@/tournament/tournamentContext";
 import { formatCreator } from "@/types";
+import { fetchTournaments, type TournamentListRow } from "@/api/tournamentsApi";
 
 const ctx = inject(tournamentLayoutKey);
 if (!ctx) 
@@ -15,16 +16,59 @@ const {
   newTeamName,
   addMemberTeamId,
   addPlayerId,
-  advancesInput,
   availablePlayers,
   createTeam,
   removeTeam,
   addMember,
   removeMember,
-  saveAdvances,
   fieldClass,
   cardClass,
+  transferKaderFromTournament,
 } = ctx;
+
+const transferFromTournamentId = ref<string>("");
+const sourceTournaments = ref<TournamentListRow[]>([]);
+const loadingSources = ref(false);
+
+watch(
+  tournament,
+  async (t) =>
+  {
+    if (!t) return;
+    loadingSources.value = true;
+    try
+    {
+      const own = await fetchTournaments("own");
+      sourceTournaments.value = own.filter((x) => x.id !== t.id);
+    }
+    finally
+    {
+      loadingSources.value = false;
+    }
+  },
+  { immediate: true }
+);
+
+async function transferKaderFromSource(): Promise<void> 
+{
+  if (!transferFromTournamentId.value) return;
+  if (!tournament.value) return;
+
+  const hasExistingMembers = tournament.value.teams.some(
+    (team) => team.members.length > 0
+  );
+
+  if (hasExistingMembers)
+  {
+    const ok = confirm(
+      "Im Ziel gibt es bereits Kader-Zuordnungen. Spieler, die im Ziel bereits zugeordnet sind, werden übersprungen. Fortfahren?"
+    );
+    if (!ok) return;
+  }
+
+  await transferKaderFromTournament(transferFromTournamentId.value);
+  transferFromTournamentId.value = "";
+}
 </script>
 
 <template>
@@ -39,6 +83,51 @@ const {
         In der Vorrunde spielt jede Mannschaft einmal gegen jede andere
         (Hin- und Rückrunde gibt es nicht — ein Spiel pro Paarung).
       </p>
+
+      <div
+        v-if="canEdit"
+        class="rounded-xl border border-blue-200/80 bg-blue-50/40 p-4 dark:border-blue-800/60 dark:bg-blue-950/20"
+      >
+        <h3 class="mb-2 font-display text-sm font-semibold text-slate-900 dark:text-white">
+          Kader aus Turnier übertragen
+        </h3>
+        <p class="mb-3 text-xs text-slate-600 dark:text-slate-400">
+          Übernimmt Mannschaften und Kader-Zuordnungen aus einem anderen deiner Turniere.
+          Teams werden nach Namen angelegt; Spieler, die im Ziel bereits zugeordnet sind, werden übersprungen.
+        </p>
+        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
+          <div class="min-w-0 flex-1 sm:max-w-xs">
+            <label class="mb-1 block text-xs text-slate-600 dark:text-slate-500">
+              Von Turnier
+            </label>
+            <select
+              v-model="transferFromTournamentId"
+              :disabled="loadingSources || sourceTournaments.length === 0"
+              :class="fieldClass"
+            >
+              <option value="" disabled>Turnier wählen …</option>
+              <option
+                v-for="t in sourceTournaments"
+                :key="t.id"
+                :value="t.id"
+              >
+                {{ t.name }}
+              </option>
+            </select>
+          </div>
+          <button
+            type="button"
+            class="min-h-[44px] rounded-lg bg-blue-600 px-4 py-3 text-base font-medium text-white hover:bg-blue-600/90 disabled:opacity-50 sm:min-h-0 sm:py-2 sm:text-sm"
+            :disabled="
+              !transferFromTournamentId || loadingSources || sourceTournaments.length === 0
+            "
+            @click="transferKaderFromSource"
+          >
+            Kader übertragen
+          </button>
+        </div>
+      </div>
+
       <div
         v-if="canEdit"
         class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end"
@@ -162,7 +251,7 @@ const {
         </div>
         <button
           type="button"
-          class="min-h-[48px] rounded-lg bg-court-600 px-4 py-3 text-base font-medium text-white hover:bg-court-600/90 disabled:opacity-50 sm:min-h-0 sm:py-2 sm:text-sm"
+          class="min-h-[48px] rounded-lg bg-blue-600 px-4 py-3 text-base font-medium text-white hover:bg-blue-600/90 disabled:opacity-50 sm:min-h-0 sm:py-2 sm:text-sm"
           :disabled="
             !addMemberTeamId || !addPlayerId || tournament.teams.length === 0
           "
@@ -175,32 +264,6 @@ const {
         Kader siehst du oben; bearbeiten nur als Ersteller.
       </p>
 
-      <div
-        v-if="canEdit"
-        class="flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-800 sm:flex-row sm:flex-wrap sm:items-end"
-      >
-        <div>
-          <label
-            class="mb-1 block text-xs text-slate-600 dark:text-slate-500"
-            title="Die besten N Plätze der Vorrunden-Tabelle gelten als qualifiziert für die K.-o.-Runde (je nachdem, ob du VF, HF oder Finale anlegst)."
-            >Anzahl Teams für K.-o. (nach Tabelle)</label
-          >
-          <input
-            v-model.number="advancesInput"
-            type="number"
-            min="1"
-            max="8"
-            :class="[fieldClass, '!w-full sm:!w-24']"
-          />
-        </div>
-        <button
-          type="button"
-          class="min-h-[48px] rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 sm:min-h-0 sm:py-2 sm:text-sm"
-          @click="saveAdvances"
-        >
-          Speichern
-        </button>
-      </div>
     </section>
   </div>
 </template>
