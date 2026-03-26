@@ -26,11 +26,17 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Test DB schema + seed | `npm run db:push:test` / `npm run db:seed:test` |
 | Clear DB (test, keep `User`) | `npm run db:clear:test -- --yes` |
 | API only, test env (`PORT` 3002) | `npm run dev:test` |
+| Vitest (all: server + client) | `npm run test` |
+| Vitest (client tests: unit + integration) | `npm run test:client` |
+| Vitest unit only (server) | `npm run test:unit` |
+| Vitest integration (client-API flow + test DB push) | `npm run test:integration` |
 | Clean install | `npm run clean:install` |
 
 - **Server** entry: `server/src/index.ts` (dev: `tsx watch`). Production: `node server/dist/index.js` (`start` / `start:prod` in server workspace).
 - **Client** dev server proxies `/api` to the backend (default `http://localhost:3001`).
 - **Client** ESLint: flat config in `client/eslint.config.js` (`typescript-eslint`, `eslint-plugin-vue`; stylistic rules include semicolons, Allman braces, 2-space indent).
+- Tests live in the repository root under `tests/` (`tests/server/**`, `tests/client/**`), executed via each workspace's Vitest config.
+- Client TypeScript config uses `tsconfig.base.json` + `tsconfig.app.json`/`tsconfig.node.json`; `*.tsbuildinfo` is cache-only and ignored.
 
 ## Environment and secrets
 
@@ -62,7 +68,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 ## API surface (high level)
 
-- REST under `/api`: `/api/auth`, `/api/classes`, `/api/players`, `/api/tournaments` (nested routes for teams, roster members, matches, timer, advance, standings, etc.).
+- REST under `/api`: `/api/auth`, `/api/classes`, `/api/players`, `/api/tournaments` (nested routes for teams, roster members, matches, timer, advance, standings, delete all matches, etc.).
 - Auth: `Authorization: Bearer <JWT>`; client stores token in **localStorage** key `turnier_hub_token`.
 
 ## Front end
@@ -70,8 +76,15 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - **Pinia** (`auth`, `theme`, **`toast`**), **Vue Router**, Tailwind with **`darkMode: 'class'`** on `<html>`.
 - Theme persistence: `localStorage` key `turnier_hub_theme`.
 - **Toasts:** `client/src/stores/toast.ts` (`showError` / `showSuccess` / `showInfo`); **`ToastHost.vue`** is mounted in `App.vue` (fixed overlay, no `Teleport` + `TransitionGroup` together — known Vue pitfall).
-- **Tournaments:** parent layout `TournamentLayout.vue` loads data once, `provide`s `tournamentLayoutKey` from `client/src/tournament/tournamentContext.ts`; child routes **Roster** (`TournamentRosterView.vue`) and **Matches** (`TournamentMatchesLayout.vue` with nested overview + setup views), tabs **Kader** then **Spiele**; under **Spiele**, UI labels **Übersicht** / **Spielbetrieb** (code: `tournament-matches-overview`, `tournament-matches-setup`, `TournamentMatchesSetupView.vue`). Default redirect is **roster**. **Logic** lives under `client/src/tournament/` (API, pure derive/format helpers, UI class tokens, `useTournamentLayoutState`, `useTournamentPhaseStepper`); views stay thin. Paths `roster`, `matches`, `matches/setup`.
-- **Score draft:** `buildScoreDraftFromMatches` / `mergeScoreDraftFromMatches` in `tournamentDerive.ts` — merge on `load()` avoids overwriting in-progress edits when the match timer poll refetches; draft defaults missing DB scores to **`"0"`**; **`parseScoreDraftForPatch`** requires **both** goals when saving (no partial PATCH). Tournament action errors use **toasts** from `useTournamentLayoutState` (initial load failure still uses layout `error`). **Regenerate group / advance** confirm dialogs when existing results would be lost (`groupRegenerateRisksDataLoss`, `advanceTargetRisksDataLoss` in `tournamentDerive.ts`).
+- **Tournaments:** parent layout `TournamentLayout.vue` loads data once, `provide`s `tournamentLayoutKey` from `client/src/tournament/tournamentContext.ts`; child routes **Mannschaften** (`TournamentRosterView.vue`) and **Spiele** (`TournamentMatchesLayout.vue` with nested overview + setup views), tabs **Mannschaften** then **Spiele**; under **Spiele**, UI labels **Übersicht** / **Spielbetrieb** (code: `tournament-matches-overview`, `tournament-matches-setup`, `TournamentMatchesSetupView.vue`). Default redirect is **roster**. In `GROUP_KO`, `groupCount` is configured in Spielbetrieb next to "Gruppenspiele erzeugen"; `advancesPerGroup` is saved via "Einstellungen speichern". **Logic** lives under `client/src/tournament/` (API, pure derive/format helpers, UI class tokens, `useTournamentLayoutState`, `useTournamentPhaseStepper`); views stay thin. Paths `roster`, `matches`, `matches/setup`.
+- **Tournament modes** (`TournamentMode` enum): `GROUP_KO` (classic group stage → knockout), `DIRECT_KO` (direct knockout, supports arbitrary team counts with byes), `ROUND_ROBIN` (everyone vs everyone, no knockout). Mode is set at tournament creation. `teamsAreIndividuals` flag makes players into teams directly (e.g. Badminton). `groupCount` distributes teams into N groups for GROUP_KO mode.
+- **Phase flow** is mode-aware: GROUP_KO shows `Gruppen → K.O. → Ende`; DIRECT_KO shows `K.O. → Ende`; ROUND_ROBIN shows `Spiele → Ende`. KO phases include `ROUND_OF_16`, `QUARTER`, `SEMI`, `FINAL`.
+- **Round-robin scheduling** uses the circle method with parallel rounds (`roundOrder` on Match); UI shows "Spielrunde N (X Spiele parallel)".
+- **KO bracket** generation: `server/src/services/knockoutBracket.ts` seeds teams and handles byes (null `awayTeamId`). Bye matches are auto-resolved when advancing.
+- **Score draft:** `buildScoreDraftFromMatches` / `mergeScoreDraftFromMatches` in `tournamentDerive.ts` — merge on `load()` avoids overwriting in-progress edits when the match timer poll refetches; draft defaults missing DB scores to **`"0"`**; **`parseScoreDraftForPatch`** requires **both** goals when saving (no partial PATCH). Tournament action errors use **toasts** from `useTournamentLayoutState` (initial load failure still uses layout `error`). **Regenerate group / advance** confirm dialogs when existing results would be lost (`groupRegenerateRisksDataLoss`, `advanceTargetRisksDataLoss` in `tournamentDerive.ts`). "Freilos" replaces `—` for null awayTeam in KO matches.
+- **Delete all matches:** `DELETE /api/tournaments/:id/matches` removes every match and resets the phase to `GROUP`. In the Spielbetrieb view a **"Gefahrenzone"** section (visible when matches exist) offers a red **"Alle Spiele löschen"** button with a `confirm()` dialog. Client: `deleteAllMatches` in `tournamentsApi.ts` / `useTournamentLayoutState`.
+- **Group generation guard:** `POST /api/tournaments/:id/generate-group-matches` only includes teams with at least one member; empty teams are excluded and their `groupLabel` stays/gets `null`.
+- **Renaming:** Team names can be changed via `PATCH /api/tournaments/:id/teams/:teamId`; group labels via `PATCH /api/tournaments/:id/groups/rename`.
 - **Server KO advancement:** `requireKnockoutWinnerTeamId` in `server/src/services/standings.ts` (used by `advancePhase.ts`) — winners come from **persisted** `homeScore`/`awayScore` only; timer **end** alone does not set them.
 - **Classes:** route `/classes`, view `ClassesView.vue`, API `client/src/api/classesApi.ts` (scope all/own like players).
 - Prefer **responsive** patterns already used: mobile nav in `App.vue`, `sm:` / `md:` breakpoints elsewhere.
@@ -90,7 +103,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | ---- | ---- |
 | API routes | `server/src/routes/` |
 | Auth middleware | `server/src/middleware/auth.ts` |
-| Tournament logic | `server/src/services/` |
+| Tournament logic | `server/src/services/` (`advancePhase`, `standings`, `matchTimer`, `roundRobinSchedule`, `knockoutBracket`) |
 | DB seed | `server/scripts/seed.ts` |
 | DB clear (keep User) | `server/scripts/clearDbExceptUsers.ts` |
 | Client views | `client/src/views/` |
@@ -105,4 +118,4 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 ## Product context (short)
 
-School-style tournaments: scoped per **user**; **school classes** are managed per user (`SchoolClass`); **players** optionally link to a class and are assigned to **team rosters** per tournament. **Matches are team vs. team**: one **group stage** (every team vs. every other team), standings in a **single table**, top **`advancesPerGroup`** rows feed knockout pairings (server-side). **Manual scores**; **match timer** (including **end** from scheduled state without starting the clock). Sign-up requires the configured **invite code**.
+School-style tournaments: scoped per **user**; **school classes** are managed per user (`SchoolClass`); **players** optionally link to a class and are assigned to **team rosters** per tournament. **Matches are team vs. team** (or player vs. player with `teamsAreIndividuals`). Three **tournament modes**: `GROUP_KO` (group stage → knockout), `DIRECT_KO` (knockout only, 2+ teams), `ROUND_ROBIN` (everyone vs everyone). GROUP_KO supports multiple groups (`groupCount`); top **`advancesPerGroup`** per group feed knockout pairings. KO supports `ROUND_OF_16`/`QUARTER`/`SEMI`/`FINAL` with byes for non-power-of-2 counts. Round-robin matches are organized in parallel rounds. **Manual scores**; **match timer** (including **end** from scheduled state without starting the clock). Sign-up requires the configured **invite code**.

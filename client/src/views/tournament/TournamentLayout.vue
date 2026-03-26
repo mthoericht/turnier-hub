@@ -9,6 +9,7 @@ import {
 } from "@/tournament/tournamentUi";
 import { useTournamentLayoutState } from "@/tournament/useTournamentLayoutState";
 import { formatCreator } from "@/types";
+import { formatTournamentMode } from "@/tournament/tournamentFormat";
 
 const route = useRoute();
 const tournamentId = computed(() => route.params.id as string);
@@ -43,15 +44,25 @@ const { tournament, loading, error, formatPhaseLabel } = ctx;
         {{ tournament.name }}
       </h1>
       <p class="text-sm text-slate-600 dark:text-slate-400 sm:text-base">
-        {{ tournament.sport }} · Turnierphase:
+        {{ tournament.sport }} · {{ formatTournamentMode(tournament.mode) }}
+        · Turnierphase:
           <span class="text-blue-800 dark:text-blue-100">{{
           formatPhaseLabel(tournament.phase)
         }}</span>
       </p>
-      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+      <p
+        v-if="tournament.teamsAreIndividuals"
+        class="mt-1 text-sm text-slate-600 dark:text-slate-400"
+      >
+        Einzelpersonen-Turnier — jeder Spieler ist eine eigene Mannschaft.
+      </p>
+      <p
+        v-else
+        class="mt-2 text-sm text-slate-600 dark:text-slate-400"
+      >
         Spiele laufen
         <strong class="font-medium">Mannschaft gegen Mannschaft</strong>.
-        Mannschaften und Kader verwaltest du unter „Kader“.
+        Mannschaften verwaltest du unter „Mannschaften".
       </p>
       <p
         class="mt-2 text-sm text-slate-500 dark:text-slate-500"
@@ -80,7 +91,7 @@ const { tournament, loading, error, formatPhaseLabel } = ctx;
             : tournamentTabInactiveClass,
         ]"
       >
-        Kader
+        Mannschaften
       </RouterLink>
       <RouterLink
         :to="{ name: 'tournament-matches-overview', params: { id: tournamentId } }"

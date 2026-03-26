@@ -8,6 +8,7 @@ export {
   formatPhaseLabel,
   formatMatchStatusLabel,
   formatMatchDurationMs,
+  formatTournamentMode,
 } from "@/tournament/tournamentFormat";
 
 export * from "@/tournament/tournamentContext";

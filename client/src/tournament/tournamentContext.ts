@@ -1,7 +1,8 @@
 import type { ComputedRef, Ref } from "vue";
 import type { CreatedBy, Player } from "@/types";
 
-export type MatchPhase = "GROUP" | "QUARTER" | "SEMI" | "FINAL";
+export type TournamentMode = "GROUP_KO" | "DIRECT_KO" | "ROUND_ROBIN";
+export type MatchPhase = "GROUP" | "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL";
 export type MatchStatus =
   | "SCHEDULED"
   | "LIVE"
@@ -14,6 +15,8 @@ export type TeamRef = { id: string; name: string };
 export type MatchRow = {
   id: string;
   phase: MatchPhase;
+  roundOrder: number;
+  groupLabel: string | null;
   homeTeamId: string | null;
   awayTeamId: string | null;
   homeTeam: TeamRef | null;
@@ -36,6 +39,7 @@ export type TournamentTeam = {
   id: string;
   name: string;
   sortOrder: number;
+  groupLabel: string | null;
   members: TournamentTeamMember[];
 };
 
@@ -43,9 +47,13 @@ export type TournamentDetail = {
   id: string;
   name: string;
   sport: string;
+  mode: TournamentMode;
   phase: string;
+  groupCount: number;
   advancesPerGroup: number;
+  teamsAreIndividuals: boolean;
   createdBy: CreatedBy;
+  notices?: string[];
   teams: TournamentTeam[];
   matches: MatchRow[];
 };
@@ -71,6 +79,7 @@ export type TournamentLayoutContext = {
   newTeamName: Ref<string>;
   addMemberTeamId: Ref<string>;
   addPlayerId: Ref<string>;
+  groupCountInput: Ref<number>;
   advancesInput: Ref<number>;
   standings: Ref<Record<string, unknown> | null>;
   scoreDraft: Ref<Record<string, { home: string; away: string }>>;
@@ -87,12 +96,17 @@ export type TournamentLayoutContext = {
   loadPlayers: () => Promise<void>;
   createTeam: () => Promise<void>;
   removeTeam: (teamId: string) => Promise<void>;
+  renameTeam: (teamId: string, newName: string) => Promise<void>;
+  renameGroupLabel: (oldLabel: string, newLabel: string) => Promise<void>;
   addMember: () => Promise<void>;
   removeMember: (teamId: string, playerId: string) => Promise<void>;
   transferKaderFromTournament: (sourceTournamentId: string) => Promise<void>;
+  saveGroupCount: () => Promise<void>;
   saveAdvances: () => Promise<void>;
   generateGroup: () => Promise<void>;
-  advance: (target: "QUARTER" | "SEMI" | "FINAL") => Promise<void>;
+  generateKnockout: () => Promise<void>;
+  deleteAllMatches: () => Promise<void>;
+  advance: (target: "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL" | "COMPLETED") => Promise<void>;
   patchScores: (matchId: string) => Promise<void>;
   timerAction: (
     matchId: string,

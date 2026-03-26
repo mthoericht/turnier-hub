@@ -1,26 +1,30 @@
 import { computed, type Ref } from "vue";
 import type { TournamentDetail } from "@/tournament/tournamentContext";
 import {
-  PHASE_FLOW_STEPS,
+  phaseFlowForMode,
   phaseFlowIndexForTournamentPhase,
   phaseStepState,
 } from "@/tournament/tournamentPhaseFlow";
 
 export function useTournamentPhaseStepper(
   tournament: Ref<TournamentDetail | null>
-) 
+)
 {
-  const currentPhaseIndex = computed(() =>
-    phaseFlowIndexForTournamentPhase(tournament.value?.phase)
+  const phaseFlow = computed(() =>
+    phaseFlowForMode(tournament.value?.mode)
   );
 
-  function stepState(index: number) 
+  const currentPhaseIndex = computed(() =>
+    phaseFlowIndexForTournamentPhase(tournament.value?.phase, tournament.value?.mode)
+  );
+
+  function stepState(index: number)
   {
     return phaseStepState(index, currentPhaseIndex.value);
   }
 
   return {
-    phaseFlow: PHASE_FLOW_STEPS,
+    phaseFlow,
     currentPhaseIndex,
     stepState,
   };

@@ -1,6 +1,6 @@
 # Turnier-Hub
 
-Turnier-Hub is a small full-stack web application for managing school sports tournaments (for example volleyball, football, or two-field ball). It covers user registration with an invite code, **school classes** (managed separately and linked to players), player rosters, tournament setup with **teams**, a **single group stage** where every team plays every other team once, knockout phases (quarter / semi / final), manual score entry, and a per-match stopwatch.
+Turnier-Hub is a small full-stack web application for managing school sports tournaments (for example volleyball, football, or two-field ball). It covers user registration with an invite code, **school classes** (managed separately and linked to players), player rosters, tournament setup with **teams** (or individuals), three **tournament modes** (group stage → knockout, direct knockout, round-robin), multiple **groups**, knockout phases (round of 16 / quarter / semi / final), manual score entry, and a per-match stopwatch.
 
 ## Features
 
@@ -8,7 +8,7 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - **Users:** Each account has a **username** (unique, normalized) and email. **Players** and **tournaments** belong to that user.
 - **Classes:** CRUD for **school classes** (names unique per user); players optionally belong to one class. Routes `/classes` (API `/api/classes`).
 - **Players:** CRUD for players; optional class is chosen from your managed classes. Scoped list views (all vs. own) like tournaments.
-- **Tournaments:** Create tournaments, add **teams** (no pools — one league table), assign players to **team rosters** (optionally transfer rosters from another tournament in the **Roster / Kader** tab), generate **round-robin group matches** for all teams, view **standings** (one table), configure **how many teams advance** from the group table, then advance to **quarter-finals**, **semi-finals**, or **final** with pairings computed on the server; scoped to the signed-in user. The tournament UI uses tabs **Roster** then **Matches** (default `/tournaments/:id` opens **roster**). Under **Matches**, the German labels **Übersicht** and **Spielbetrieb** map to routes `tournament-matches-overview` and `tournament-matches-setup` (paths `/tournaments/:id/matches` and `/tournaments/:id/matches/setup`).
+- **Tournaments:** Create tournaments with one of three **modes**: **Group → K.O.** (classic group stage feeding knockout rounds), **Direct K.O.** (knockout only, supports arbitrary team counts with byes), or **Round-Robin** (everyone vs everyone, no knockout). Optionally mark **teams as individuals** (e.g. Badminton — players become teams directly). In **Spielbetrieb**, Group → K.O. lets you set **group count** directly next to "Gruppenspiele erzeugen" and save **advancers per group** separately via "Einstellungen speichern". Add **teams**, assign players to **team rosters** (optionally transfer rosters from another tournament in the **Mannschaften** tab), generate **group / round-robin matches** (organized in parallel rounds), view **standings** (per group when applicable), then advance through **round of 16 → quarter → semi → final** with pairings computed on the server; scoped to the signed-in user. Group generation ignores teams without members. Group and team names are editable in the roster UI. All matches can be **deleted at once** via "Alle Spiele löschen" in Spielbetrieb. The tournament UI uses tabs **Mannschaften** then **Spiele** (default `/tournaments/:id` opens **Mannschaften**). Under **Spiele**, the German labels **Übersicht** and **Spielbetrieb** map to routes `tournament-matches-overview` and `tournament-matches-setup` (paths `/tournaments/:id/matches` and `/tournaments/:id/matches/setup`).
 - **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. While a match timer is running, periodic reloads **merge** the score draft with the server so unsaved typing is not wiped. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
 - **Feedback:** **Toasts** (global, bottom of the screen) surface validation hints and API errors for tournament actions (for example advance rules or save issues).
 - **UI:** Vue front end with **light and dark** themes (persisted), **responsive** layout including a mobile navigation menu.
@@ -60,7 +60,7 @@ The SQLite file lives under `data/` (for example `data/dev.db`). Database files 
 
    If `db:push` fails because of existing rows (e.g. after a breaking schema change), reset the **local** SQLite file (this deletes all data), then push and seed again — for example delete `data/dev.db` or use `npx prisma db push --force-reset` from `server/` (development only).
 
-   The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`), eight players, shared demo **school classes**, and a **“Demo: Fußball Schulcup”** tournament with **four teams**, **six** group-stage matches (all-play-all), and `advancesPerGroup` set to **4** so you can try knockout flows. Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
+   The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`), twelve players, shared demo **school classes**, and three demo tournaments covering each mode: **"Demo: Fußball Schulcup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), and **"Demo: Badminton Jeder gegen Jeden"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
 
 3.1. **Wipe demo data (dev/test) without deleting users**
 
@@ -106,6 +106,10 @@ npm run db:clear:test -- --yes
 | `npm run db:seed:test` | Seeds the test database. |
 | `npm run db:clear:test` | Clears all tables except `User` (test DB). Pass `-- --yes` for confirmation. |
 | `npm run dev:test` | Runs the server with `NODE_ENV=test` (loads `server/.env.test`, default port `3002`). |
+| `npm run test` | Runs Vitest suites for server + client. |
+| `npm run test:client` | Runs all client tests (unit + client-API integration). |
+| `npm run test:unit` | Runs server unit tests only (Vitest). |
+| `npm run test:integration` | Pushes test schema and runs client-API integration tests (Vitest, against test DB/API). |
 | `npm run clean` | Removes `node_modules` and `dist` folders in the monorepo. |
 | `npm run clean:install` | Runs `clean` then `npm install`. |
 
@@ -116,7 +120,7 @@ npm run db:clear:test -- --yes
 - Apply schema: `npm run db:push`
 - Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)
 - Clear demo content (keep `User`): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
-- Internally, `db:seed` runs Prisma’s configured seed script via `server/package.json` → `prisma.seed: "tsx scripts/seed.ts"`.
+- Internally, `db:seed` runs Prisma's configured seed script via `server/package.json` → `prisma.seed: "tsx scripts/seed.ts"`.
 - Internally, `db:clear` runs `tsx scripts/clearDbExceptUsers.ts` from `server/package.json`.
 
 ### Test DB
@@ -160,7 +164,7 @@ npm run db:clear:test -- --yes
 Notes:
 - `db:seed` / `db:clear` are for development/test workflows. On production, use `db:deploy` only (and seed manually only if you explicitly want demo data).
 
-   Or use `npm run prod` to run steps 2–4’s build/start in one go after `npm ci` (run `db:deploy` separately when the database is ready).
+   Or use `npm run prod` to run steps 2–4's build/start in one go after `npm ci` (run `db:deploy` separately when the database is ready).
 
    Equivalent from the server workspace after a root build: `npm run start:prod -w server`.
 
@@ -168,6 +172,9 @@ Notes:
 
 ```
 turnier-hub/
+├── tests/                     # Shared root test tree (server + client Vitest tests)
+│   ├── server/
+│   └── client/
 ├── client/                    # Vue SPA (Vite)
 │   ├── eslint.config.js       # ESLint flat config
 │   ├── src/
@@ -185,7 +192,7 @@ turnier-hub/
 
 ## TypeScript (client)
 
-The client uses **project references**: root `tsconfig.json` points at `tsconfig.app.json` (application sources) and `tsconfig.node.json` (Vite config). Run `vue-tsc --build --noEmit` from `client/` for a full typecheck.
+The client uses **project references**: root `tsconfig.json` points at `tsconfig.app.json` (application sources) and `tsconfig.node.json` (Vite config). Shared options live in `tsconfig.base.json`. Run `vue-tsc --build --noEmit` from `client/` for a full typecheck. `*.tsbuildinfo` files are local caches and ignored by git.
 
 ## Test Environment
 
@@ -193,6 +200,7 @@ The client uses **project references**: root `tsconfig.json` points at `tsconfig
 - Use `npm run db:push:test` and `npm run db:seed:test` against that database.
 - Use `npm run db:clear:test -- --yes` to wipe demo content while keeping `User`.
 - If you run only the test API, point the client proxy at port `3002` or call the API directly.
+- Client integration tests (`tests/client/integration`) reset the test DB and seed a small minimal dataset per test for faster runs.
 
 ## License
 

@@ -33,29 +33,28 @@ export function groupRegenerateRisksDataLoss(matches: MatchRow[]): boolean
   );
 }
 
+const KO_PHASES_ORDER: MatchPhase[] = ["ROUND_OF_16", "QUARTER", "SEMI", "FINAL"];
+
 function phasesClearedByAdvance(
-  target: "QUARTER" | "SEMI" | "FINAL",
+  target: "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL",
   tournamentPhase: string
-): MatchPhase[] 
+): MatchPhase[]
 {
-  if (target === "QUARTER") return ["QUARTER", "SEMI", "FINAL"];
-  if (target === "SEMI") 
+  const idx = KO_PHASES_ORDER.indexOf(target);
+  const cleared = idx >= 0 ? KO_PHASES_ORDER.slice(idx) : [];
+  if (tournamentPhase === "GROUP")
   {
-    if (tournamentPhase === "QUARTER") return ["SEMI", "FINAL"];
-    const out: MatchPhase[] = ["SEMI", "FINAL"];
-    if (tournamentPhase === "GROUP") out.push("QUARTER");
-    return out;
+    const before = KO_PHASES_ORDER.slice(0, idx);
+    return [...before, ...cleared];
   }
-  if (target === "FINAL") return ["FINAL"];
-  return [];
+  return cleared;
 }
 
-/** Entspricht dem Server: welche Phasen beim Advance geleert werden, sofern betroffene Spiele Fortschritt haben. */
 export function advanceTargetRisksDataLoss(
   matches: MatchRow[],
-  target: "QUARTER" | "SEMI" | "FINAL",
+  target: "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL",
   tournamentPhase: string
-): boolean 
+): boolean
 {
   const cleared = new Set(phasesClearedByAdvance(target, tournamentPhase));
   return matches.some(
@@ -115,29 +114,25 @@ export function mergeScoreDraftFromMatches(
 
 function matchPhaseForTournamentPhase(
   tournamentPhase: string | undefined
-): MatchPhase | null 
+): MatchPhase | null
 {
   const tp = tournamentPhase ?? "GROUP";
+  if (tp === "ROUND_OF_16") return "ROUND_OF_16";
   if (tp === "QUARTER") return "QUARTER";
   if (tp === "SEMI") return "SEMI";
   if (tp === "FINAL" || tp === "COMPLETED") return "FINAL";
   return null;
 }
 
-/**
- * Liefert Spiele gruppiert nach Phase. K.-o.-Phasen (VF/HF/Finale) erscheinen
- * auch als leerer Block, wenn das Turnier in dieser Phase ist — damit die UI
- * einen Container zeigen kann, sobald die Runde angelegt wurde.
- */
 export function getMatchesByPhase(
   matches: MatchRow[],
   tournamentPhase?: string
-): { phase: MatchPhase; matches: MatchRow[] }[] 
+): { phase: MatchPhase; matches: MatchRow[] }[]
 {
-  const order: MatchPhase[] = ["GROUP", "QUARTER", "SEMI", "FINAL"];
+  const order: MatchPhase[] = ["GROUP", "ROUND_OF_16", "QUARTER", "SEMI", "FINAL"];
   const map = new Map<MatchPhase, MatchRow[]>();
   for (const ph of order) map.set(ph, []);
-  for (const m of matches) 
+  for (const m of matches)
   {
     map.get(m.phase)?.push(m);
   }
@@ -145,20 +140,20 @@ export function getMatchesByPhase(
   const currentKo = matchPhaseForTournamentPhase(tournamentPhase);
   const out: { phase: MatchPhase; matches: MatchRow[] }[] = [];
 
-  for (const ph of order) 
+  for (const ph of order)
   {
     const list = map.get(ph) ?? [];
-    if (ph === "GROUP") 
+    if (ph === "GROUP")
     {
       if (list.length > 0) out.push({ phase: ph, matches: list });
       continue;
     }
-    if (list.length > 0) 
+    if (list.length > 0)
     {
       out.push({ phase: ph, matches: list });
       continue;
     }
-    if (currentKo === ph) 
+    if (currentKo === ph)
     {
       out.push({ phase: ph, matches: [] });
     }

@@ -10,247 +10,433 @@ import {
   computePoolStandings,
   requireKnockoutWinnerTeamId,
 } from "./standings.js";
+import { collectKoRoundWinners } from "./knockoutBracket.js";
 
 type Tx = Omit<
   PrismaClient,
   "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends"
 >;
 
-function interleavedQuarterPairings(ordered: string[]): [string, string][] {
-  if (ordered.length !== 8)
-    throw new Error("Viertelfinale benötigt genau 8 Qualifikanten");
-  const pairs: [string, string][] = [
-    [ordered[0], ordered[7]],
-    [ordered[3], ordered[4]],
-    [ordered[1], ordered[6]],
-    [ordered[2], ordered[5]],
-  ];
+export type AdvanceTeamRow = {
+  id: string;
+  name: string;
+  sortOrder: number;
+  groupLabel: string | null;
+};
+
+type QualifierSelectionResult = {
+  teamIds: string[];
+  notices: string[];
+};
+
+/**
+ * Builds a stable 32-bit hash from a string input.
+ */
+function seedFromString(input: string): number
+{
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++)
+  {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/**
+ * Creates a deterministic pseudo-random number generator in range [0, 1).
+ */
+function mulberry32(seed: number): () => number
+{
+  let t = seed >>> 0;
+  return () =>
+  {
+    t += 0x6D2B79F5;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Produces knockout pairings by matching top-vs-bottom in ordered qualifiers.
+ */
+function interleavedPairings(ordered: string[]): [string, string][]
+{
+  const pairs: [string, string][] = [];
+  const half = ordered.length / 2;
+  for (let i = 0; i < half; i++)
+  {
+    pairs.push([ordered[i]!, ordered[ordered.length - 1 - i]!]);
+  }
   return pairs;
 }
 
-export type AdvanceTeamRow = { id: string; name: string; sortOrder: number };
+/**
+ * Returns the knockout match phase that fits a participant count.
+ */
+function koPhaseFromCount(count: number): MatchPhase
+{
+  if (count <= 2) return MatchPhase.FINAL;
+  if (count <= 4) return MatchPhase.SEMI;
+  if (count <= 8) return MatchPhase.QUARTER;
+  return MatchPhase.ROUND_OF_16;
+}
 
+/**
+ * Maps a knockout match phase to the tournament phase enum.
+ */
+function tournamentPhaseFromMatch(mp: MatchPhase): TournamentPhase
+{
+  switch (mp)
+  {
+    case MatchPhase.ROUND_OF_16: return TournamentPhase.ROUND_OF_16;
+    case MatchPhase.QUARTER: return TournamentPhase.QUARTER;
+    case MatchPhase.SEMI: return TournamentPhase.SEMI;
+    case MatchPhase.FINAL: return TournamentPhase.FINAL;
+    default: return TournamentPhase.GROUP;
+  }
+}
+
+/**
+ * Selects qualifiers from group standings and returns optional tie-break notices.
+ *
+ * For multi-group tournaments, selection is performed per group using the
+ * configured `advancesPerGroup`. For a single group, selection is performed
+ * from the global group table.
+ */
+function collectGroupQualifiers(
+  tournamentId: string,
+  teams: AdvanceTeamRow[],
+  matches: Match[],
+  groupCount: number,
+  advancesPerGroup: number
+): QualifierSelectionResult
+{
+  const teamsById = new Map(
+    teams.map((t) => [t.id, { id: t.id, name: t.name }] as const)
+  );
+  const groupMatches = matches.filter((m) => m.phase === MatchPhase.GROUP);
+
+  if (groupCount > 1)
+  {
+    const labels = [...new Set(teams.map((t) => t.groupLabel).filter(Boolean))] as string[];
+    labels.sort();
+    const allQualifiers: string[] = [];
+    const notices: string[] = [];
+    for (const label of labels)
+    {
+      const gTeamIds = teams
+        .filter((t) => t.groupLabel === label)
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+        .map((t) => t.id);
+      const gMatches = groupMatches.filter((m) => m.groupLabel === label);
+      const table = computePoolStandings(gTeamIds, teamsById, gMatches);
+      const picked = pickQualifiersWithRandomPointsTie(
+        tournamentId,
+        table,
+        advancesPerGroup,
+        `Gruppe ${label}`
+      );
+      allQualifiers.push(...picked.teamIds);
+      notices.push(...picked.notices);
+    }
+    return { teamIds: allQualifiers, notices };
+  }
+
+  const teamsSorted = [...teams].sort((a, b) =>
+    a.sortOrder !== b.sortOrder
+      ? a.sortOrder - b.sortOrder
+      : a.name.localeCompare(b.name)
+  );
+  const table = computePoolStandings(
+    teamsSorted.map((t) => t.id),
+    teamsById,
+    groupMatches
+  );
+  return pickQualifiersWithRandomPointsTie(
+    tournamentId,
+    table,
+    Math.min(teamsSorted.length, advancesPerGroup),
+    "Gruppenspiele"
+  );
+}
+
+/**
+ * Selects the first `limit` teams from a standings table.
+ *
+ * If the cutoff position is tied on points across multiple teams, deterministic
+ * pseudo-random selection is used for the remaining slots and a notice is emitted.
+ */
+export function pickQualifiersWithRandomPointsTie(
+  tournamentId: string,
+  table: ReturnType<typeof computePoolStandings>,
+  limit: number,
+  label: string
+): QualifierSelectionResult
+{
+  if (limit <= 0 || table.length === 0)
+  {
+    return { teamIds: [], notices: [] };
+  }
+  if (limit >= table.length)
+  {
+    return { teamIds: table.map((r) => r.teamId), notices: [] };
+  }
+
+  const boundaryPoints = table[limit - 1]!.points;
+  const firstTieIdx = table.findIndex((r) => r.points === boundaryPoints);
+  const tieRows: typeof table = [];
+  for (const row of table)
+  {
+    if (row.points === boundaryPoints) tieRows.push(row);
+  }
+  const fixedBefore = table.slice(0, firstTieIdx);
+  const slotsFromTie = limit - fixedBefore.length;
+
+  if (slotsFromTie <= 0 || slotsFromTie >= tieRows.length)
+  {
+    return { teamIds: table.slice(0, limit).map((r) => r.teamId), notices: [] };
+  }
+
+  const shuffled = [...tieRows];
+  const rand = mulberry32(
+    seedFromString(`${tournamentId}|${label}|${boundaryPoints}|${limit}|${tieRows.length}`)
+  );
+  for (let i = shuffled.length - 1; i > 0; i--)
+  {
+    const j = Math.floor(rand() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+  }
+  const chosen = shuffled.slice(0, slotsFromTie);
+  const chosenNames = chosen.map((r) => r.team.name).sort((a, b) => a.localeCompare(b));
+  const notice =
+    `${label}: Mehrere Teams hatten gleich viele Punkte auf dem Qualifikationsplatz. `
+    + `Die Auswahl für die K.-o.-Phase wurde per Zufallsprinzip getroffen `
+    + `(${chosenNames.join(", ")}).`;
+
+  return {
+    teamIds: [...fixedBefore, ...chosen].map((r) => r.teamId),
+    notices: [notice],
+  };
+}
+
+/**
+ * Persists knockout matches for a specific phase and ordered pairings.
+ */
+async function createKoRoundMatches(
+  tx: Tx,
+  tournamentId: string,
+  phase: MatchPhase,
+  pairs: [string, string][]
+): Promise<void>
+{
+  let order = 0;
+  for (const [home, away] of pairs)
+  {
+    await tx.match.create({
+      data: {
+        tournamentId,
+        phase,
+        roundOrder: order++,
+        homeTeamId: home,
+        awayTeamId: away,
+        status: MatchStatus.SCHEDULED,
+      },
+    });
+  }
+}
+
+const KO_PHASES_ORDER: MatchPhase[] = [
+  MatchPhase.ROUND_OF_16,
+  MatchPhase.QUARTER,
+  MatchPhase.SEMI,
+  MatchPhase.FINAL,
+];
+
+/**
+ * Returns all knockout phases at or after a target phase.
+ */
+function phasesAtOrAfter(target: MatchPhase): MatchPhase[]
+{
+  const idx = KO_PHASES_ORDER.indexOf(target);
+  return idx >= 0 ? KO_PHASES_ORDER.slice(idx) : [];
+}
+
+/**
+ * Collects winners from the previous knockout phase.
+ *
+ * Bye matches auto-advance the home team. Non-bye matches must be finished
+ * and provide a persisted winner.
+ */
+function collectWinnersFromPreviousPhase(
+  prevKoMatches: Match[],
+  prevKoPhase: MatchPhase
+): string[]
+{
+  const winners: string[] = [];
+  for (const m of prevKoMatches)
+  {
+    if (m.awayTeamId === null && m.homeTeamId)
+    {
+      winners.push(m.homeTeamId);
+      continue;
+    }
+    if (m.status !== MatchStatus.FINISHED)
+    {
+      throw new Error(
+        `Alle ${formatPhaseName(prevKoPhase)}-Spiele müssen beendet sein`
+      );
+    }
+    winners.push(
+      requireKnockoutWinnerTeamId(
+        m,
+        `${formatPhaseName(prevKoPhase)} (Spiel ${m.roundOrder + 1})`
+      )
+    );
+  }
+  return winners;
+}
+
+/**
+ * Returns the participant count required for a requested knockout phase.
+ */
+function requiredQualifierCount(targetMatchPhase: MatchPhase): number
+{
+  return targetMatchPhase === MatchPhase.ROUND_OF_16 ? 16
+    : targetMatchPhase === MatchPhase.QUARTER ? 8
+      : targetMatchPhase === MatchPhase.SEMI ? 4
+        : 2;
+}
+
+/**
+ * Deletes target and later knockout rounds, recreates the target phase
+ * with provided pairings, and updates the tournament phase.
+ */
+async function rebuildKnockoutFromPairs(
+  prisma: PrismaClient,
+  tournament: Tournament & {
+    teams: AdvanceTeamRow[];
+    matches: Match[];
+    groupCount: number;
+  },
+  targetMatchPhase: MatchPhase,
+  targetTournamentPhase: TournamentPhase,
+  pairs: [string, string][]
+): Promise<void>
+{
+  await prisma.$transaction(async (tx: Tx) =>
+  {
+    await tx.match.deleteMany({
+      where: {
+        tournamentId: tournament.id,
+        phase: { in: phasesAtOrAfter(targetMatchPhase) },
+      },
+    });
+    if (tournament.phase === TournamentPhase.GROUP)
+    {
+      const extraPhases = KO_PHASES_ORDER.filter(
+        (p) => KO_PHASES_ORDER.indexOf(p) < KO_PHASES_ORDER.indexOf(targetMatchPhase)
+      );
+      if (extraPhases.length > 0)
+      {
+        await tx.match.deleteMany({
+          where: { tournamentId: tournament.id, phase: { in: extraPhases } },
+        });
+      }
+    }
+    await createKoRoundMatches(tx, tournament.id, targetMatchPhase, pairs);
+    await tx.tournament.update({
+      where: { id: tournament.id },
+      data: { phase: targetTournamentPhase },
+    });
+  });
+}
+
+/**
+ * Advances or (re)builds a knockout phase and returns informational notices.
+ *
+ * If a previous knockout round exists, winners from that round are used.
+ * Otherwise, qualifiers are derived from group standings.
+ */
 export async function advanceTournamentPhase(
   prisma: PrismaClient,
   tournament: Tournament & {
     teams: AdvanceTeamRow[];
     matches: Match[];
+    groupCount: number;
   },
-  target: "QUARTER" | "SEMI" | "FINAL"
-) {
-  const teamsSorted = [...tournament.teams].sort((a, b) =>
-    a.sortOrder !== b.sortOrder
-      ? a.sortOrder - b.sortOrder
-      : a.name.localeCompare(b.name)
+  target: "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL"
+): Promise<{ notices: string[] }>
+{
+  const targetMatchPhase = MatchPhase[target];
+  const targetTournamentPhase = tournamentPhaseFromMatch(targetMatchPhase);
+
+  const prevKoPhaseIdx = KO_PHASES_ORDER.indexOf(targetMatchPhase) - 1;
+  const prevKoPhase = prevKoPhaseIdx >= 0 ? KO_PHASES_ORDER[prevKoPhaseIdx] : null;
+
+  const prevKoMatches = prevKoPhase
+    ? tournament.matches
+      .filter((m) => m.phase === prevKoPhase)
+      .sort((a, b) => a.roundOrder - b.roundOrder)
+    : null;
+
+  if (prevKoMatches && prevKoMatches.length > 0)
+  {
+    const winners = collectWinnersFromPreviousPhase(prevKoMatches, prevKoPhase!);
+    const pairs = interleavedPairings(winners);
+    await rebuildKnockoutFromPairs(
+      prisma,
+      tournament,
+      targetMatchPhase,
+      targetTournamentPhase,
+      pairs
+    );
+    return { notices: [] };
+  }
+
+  const qualifierResult = collectGroupQualifiers(
+    tournament.id,
+    tournament.teams,
+    tournament.matches,
+    tournament.groupCount,
+    tournament.advancesPerGroup
   );
-  const teamIds = teamsSorted.map((t) => t.id);
-  const teamsById = new Map(
-    tournament.teams.map((t) => [t.id, { id: t.id, name: t.name }] as const)
+
+  const qualNeeded = requiredQualifierCount(targetMatchPhase);
+
+  const effectiveQualifiers = qualifierResult.teamIds.slice(0, qualNeeded);
+
+  if (effectiveQualifiers.length < 2)
+  {
+    throw new Error(
+      `Für ${formatPhaseName(targetMatchPhase)} werden mindestens 2 qualifizierte Mannschaften benötigt (aktuell: ${effectiveQualifiers.length}).`
+    );
+  }
+
+  const pairs = interleavedPairings(effectiveQualifiers);
+
+  await rebuildKnockoutFromPairs(
+    prisma,
+    tournament,
+    targetMatchPhase,
+    targetTournamentPhase,
+    pairs
   );
-  const groupMatches = tournament.matches.filter((m) => m.phase === MatchPhase.GROUP);
+  return { notices: qualifierResult.notices };
+}
 
-  const table = computePoolStandings(teamIds, teamsById, groupMatches);
-  // Qualifikanten werden für die KO-Runden fest aus der Vorrunden-Tabelle abgeleitet.
-  // (Die UI/Server-Seite ignoriert damit advancesPerGroup für die Erzeugung von VF/HF/F.)
-  const qualifiersNeeded = target === "QUARTER" ? 8 : target === "SEMI" ? 4 : 2;
-  const qualifiers: string[] = table.slice(0, qualifiersNeeded).map((r) => r.teamId);
-
-  if (target === "QUARTER") {
-    if (qualifiers.length < 8) {
-      throw new Error(
-        `Für das Viertelfinale werden 8 qualifizierte Mannschaften benötigt (aktuell: ${qualifiers.length}). Erhöhe die Mannschaftszahl oder die Weiterkommen-Plätze in der Vorrunde.`
-      );
-    }
-    const ordered = qualifiers.slice(0, 8);
-    const pairs = interleavedQuarterPairings(ordered);
-    await prisma.$transaction(async (tx: Tx) => {
-      await tx.match.deleteMany({
-        where: {
-          tournamentId: tournament.id,
-          phase: { in: [MatchPhase.QUARTER, MatchPhase.SEMI, MatchPhase.FINAL] },
-        },
-      });
-      let order = 0;
-      for (const [home, away] of pairs) {
-        await tx.match.create({
-          data: {
-            tournamentId: tournament.id,
-            phase: MatchPhase.QUARTER,
-            roundOrder: order++,
-            homeTeamId: home,
-            awayTeamId: away,
-            status: MatchStatus.SCHEDULED,
-          },
-        });
-      }
-      await tx.tournament.update({
-        where: { id: tournament.id },
-        data: { phase: TournamentPhase.QUARTER },
-      });
-    });
-    return;
-  }
-
-  if (target === "SEMI") {
-    if (tournament.phase === TournamentPhase.QUARTER) {
-      const qf = tournament.matches
-        .filter((m) => m.phase === MatchPhase.QUARTER)
-        .sort((a, b) => a.roundOrder - b.roundOrder);
-      const winners: string[] = [];
-      for (const m of qf) {
-        if (m.status !== MatchStatus.FINISHED) {
-          throw new Error("Alle Viertelfinalspiele müssen beendet sein");
-        }
-        winners.push(
-          requireKnockoutWinnerTeamId(
-            m,
-            `Viertelfinale (Spiel ${m.roundOrder + 1})`
-          )
-        );
-      }
-      if (winners.length !== 4) {
-        throw new Error(
-          "Nach dem Viertelfinale werden vier Sieger für das Halbfinale benötigt"
-        );
-      }
-      const pairs: [string, string][] = [
-        [winners[0]!, winners[3]!],
-        [winners[1]!, winners[2]!],
-      ];
-      await prisma.$transaction(async (tx: Tx) => {
-        await tx.match.deleteMany({
-          where: {
-            tournamentId: tournament.id,
-            phase: { in: [MatchPhase.SEMI, MatchPhase.FINAL] },
-          },
-        });
-        let order = 0;
-        for (const [home, away] of pairs) {
-          await tx.match.create({
-            data: {
-              tournamentId: tournament.id,
-              phase: MatchPhase.SEMI,
-              roundOrder: order++,
-              homeTeamId: home,
-              awayTeamId: away,
-              status: MatchStatus.SCHEDULED,
-            },
-          });
-        }
-        await tx.tournament.update({
-          where: { id: tournament.id },
-          data: { phase: TournamentPhase.SEMI },
-        });
-      });
-      return;
-    }
-
-    if (qualifiers.length < 4) {
-      throw new Error(
-        `Für das Halbfinale werden mindestens 4 qualifizierte Mannschaften benötigt (aktuell: ${qualifiers.length}).`
-      );
-    }
-
-    const q = qualifiers.slice(0, 4);
-    const pairs: [string, string][] = [
-      [q[0]!, q[3]!],
-      [q[1]!, q[2]!],
-    ];
-
-    await prisma.$transaction(async (tx: Tx) => {
-      await tx.match.deleteMany({
-        where: {
-          tournamentId: tournament.id,
-          phase: { in: [MatchPhase.SEMI, MatchPhase.FINAL] },
-        },
-      });
-      if (tournament.phase === TournamentPhase.GROUP) {
-        await tx.match.deleteMany({
-          where: { tournamentId: tournament.id, phase: MatchPhase.QUARTER },
-        });
-      }
-      let order = 0;
-      for (const [home, away] of pairs) {
-        await tx.match.create({
-          data: {
-            tournamentId: tournament.id,
-            phase: MatchPhase.SEMI,
-            roundOrder: order++,
-            homeTeamId: home,
-            awayTeamId: away,
-            status: MatchStatus.SCHEDULED,
-          },
-        });
-      }
-      await tx.tournament.update({
-        where: { id: tournament.id },
-        data: { phase: TournamentPhase.SEMI },
-      });
-    });
-    return;
-  }
-
-  if (target === "FINAL") {
-    const semis = tournament.matches.filter((m) => m.phase === MatchPhase.SEMI);
-    const winners: string[] = [];
-    for (const m of semis.sort((a, b) => a.roundOrder - b.roundOrder)) {
-      if (m.status !== MatchStatus.FINISHED && m.status !== MatchStatus.CANCELLED) {
-        throw new Error("Alle Halbfinalspiele müssen beendet oder abgebrochen sein");
-      }
-      if (m.status === MatchStatus.CANCELLED) continue;
-      winners.push(
-        requireKnockoutWinnerTeamId(
-          m,
-          `Halbfinale (Spiel ${m.roundOrder + 1})`
-        )
-      );
-    }
-
-    if (winners.length !== 2) {
-      if (qualifiers.length >= 2 && semis.length === 0) {
-        const q2 = qualifiers.slice(0, 2);
-        await prisma.$transaction(async (tx: Tx) => {
-          await tx.match.deleteMany({
-            where: { tournamentId: tournament.id, phase: MatchPhase.FINAL },
-          });
-          await tx.match.create({
-            data: {
-              tournamentId: tournament.id,
-              phase: MatchPhase.FINAL,
-              roundOrder: 0,
-              homeTeamId: q2[0]!,
-              awayTeamId: q2[1]!,
-              status: MatchStatus.SCHEDULED,
-            },
-          });
-          await tx.tournament.update({
-            where: { id: tournament.id },
-            data: { phase: TournamentPhase.FINAL },
-          });
-        });
-        return;
-      }
-      throw new Error("Für das Finale werden genau zwei Halbfinal-Sieger benötigt");
-    }
-
-    await prisma.$transaction(async (tx: Tx) => {
-      await tx.match.deleteMany({
-        where: { tournamentId: tournament.id, phase: MatchPhase.FINAL },
-      });
-      await tx.match.create({
-        data: {
-          tournamentId: tournament.id,
-          phase: MatchPhase.FINAL,
-          roundOrder: 0,
-          homeTeamId: winners[0]!,
-          awayTeamId: winners[1]!,
-          status: MatchStatus.SCHEDULED,
-        },
-      });
-      await tx.tournament.update({
-        where: { id: tournament.id },
-        data: { phase: TournamentPhase.FINAL },
-      });
-    });
-  }
+/**
+ * Formats a knockout/group phase identifier into a German UI label.
+ */
+function formatPhaseName(phase: MatchPhase): string
+{
+  const names: Record<string, string> = {
+    ROUND_OF_16: "Achtelfinale",
+    QUARTER: "Viertelfinale",
+    SEMI: "Halbfinale",
+    FINAL: "Finale",
+    GROUP: "Gruppenspiele",
+  };
+  return names[phase] ?? phase;
 }

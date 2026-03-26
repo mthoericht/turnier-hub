@@ -6,10 +6,11 @@ import {
   type TournamentListRow,
 } from "@/api/tournamentsApi";
 import { useAuthStore } from "@/stores/auth";
+import type { TournamentMode } from "@/tournament/tournamentContext";
 
 export type TournamentsScope = "all" | "own";
 
-export function useTournamentsListState() 
+export function useTournamentsListState()
 {
   const auth = useAuthStore();
 
@@ -20,59 +21,67 @@ export function useTournamentsListState()
 
   const name = ref("");
   const sport = ref("Volleyball");
+  const mode = ref<TournamentMode>("GROUP_KO");
+  const teamsAreIndividuals = ref(false);
 
-  async function load(): Promise<void> 
+  async function load(): Promise<void>
   {
     loading.value = true;
     error.value = "";
-    try 
+    try
     {
       list.value = await fetchTournaments(scope.value);
     }
-    catch (e) 
+    catch (e)
     {
       error.value = e instanceof Error ? e.message : "Laden fehlgeschlagen";
     }
-    finally 
+    finally
     {
       loading.value = false;
     }
   }
 
-  function isMine(t: TournamentListRow): boolean 
+  function isMine(t: TournamentListRow): boolean
   {
     return !!auth.user && t.createdBy.id === auth.user.id;
   }
 
   watch(scope, () => void load());
 
-  async function createT(): Promise<void> 
+  async function createT(): Promise<TournamentListRow | null>
   {
-    if (!name.value.trim()) return;
-    try 
+    if (!name.value.trim()) return null;
+    try
     {
-      await postTournament({
+      const result = await postTournament({
         name: name.value.trim(),
         sport: sport.value,
+        mode: mode.value,
+        teamsAreIndividuals: teamsAreIndividuals.value,
       });
       name.value = "";
+      mode.value = "GROUP_KO";
+      teamsAreIndividuals.value = false;
       await load();
+      return result;
     }
-    catch (e) 
+    catch (e)
     {
       error.value = e instanceof Error ? e.message : "Anlegen fehlgeschlagen";
+      return null;
     }
   }
 
-  async function remove(id: string): Promise<void> 
+  async function remove(id: string): Promise<void>
   {
     if (!confirm("Turnier wirklich löschen?")) return;
-    try 
+    try
     {
       await deleteTournament(id);
       await load();
     }
-    catch (e) 
+    catch (e)
     {
       error.value = e instanceof Error ? e.message : "Löschen fehlgeschlagen";
     }
@@ -87,9 +96,10 @@ export function useTournamentsListState()
     error,
     name,
     sport,
+    mode,
+    teamsAreIndividuals,
     createT,
     remove,
     isMine,
   };
 }
-

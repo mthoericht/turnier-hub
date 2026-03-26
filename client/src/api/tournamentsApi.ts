@@ -1,5 +1,5 @@
 import { api } from "@/api/http";
-import type { MatchRow, TournamentDetail } from "@/tournament/tournamentContext";
+import type { MatchRow, TournamentDetail, TournamentMode } from "@/tournament/tournamentContext";
 import type { CreatedBy } from "@/types";
 
 export type TournamentsScope = "all" | "own";
@@ -8,6 +8,7 @@ export type TournamentListRow = {
   id: string;
   name: string;
   sport: string;
+  mode: TournamentMode;
   phase: string;
   createdBy: CreatedBy;
   _count: { teams: number; matches: number };
@@ -23,9 +24,13 @@ export async function fetchTournaments(
 export async function postTournament(body: {
   name: string;
   sport: string;
-}): Promise<void> 
+  mode?: TournamentMode;
+  groupCount?: number;
+  advancesPerGroup?: number;
+  teamsAreIndividuals?: boolean;
+}): Promise<TournamentListRow>
 {
-  await api("/api/tournaments", {
+  return api<TournamentListRow>("/api/tournaments", {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -63,12 +68,27 @@ export async function createTournamentTeam(
   });
 }
 
+export async function patchTournamentTeam(
+  tournamentId: string,
+  teamId: string,
+  body: { name?: string; sortOrder?: number }
+): Promise<{ id: string; name: string; sortOrder: number }>
+{
+  return api<{ id: string; name: string; sortOrder: number }>(
+    `/api/tournaments/${tournamentId}/teams/${teamId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }
+  );
+}
+
 export async function deleteTournamentTeam(
   tournamentId: string,
   teamId: string
-): Promise<void> 
+): Promise<{ deletedTeamId: string; removedGroupMatches: number }>
 {
-  await api(`/api/tournaments/${tournamentId}/teams/${teamId}`, {
+  return api<{ deletedTeamId: string; removedGroupMatches: number }>(`/api/tournaments/${tournamentId}/teams/${teamId}`, {
     method: "DELETE",
   });
 }
@@ -100,6 +120,21 @@ export async function removeTeamMember(
   );
 }
 
+export async function patchTournamentGroupLabel(
+  tournamentId: string,
+  oldLabel: string,
+  newLabel: string
+): Promise<TournamentDetail>
+{
+  return api<TournamentDetail>(
+    `/api/tournaments/${tournamentId}/groups/rename`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ oldLabel, newLabel }),
+    }
+  );
+}
+
 export type TransferKaderResult = {
   createdTeams: number;
   addedMembers: number;
@@ -120,20 +155,23 @@ export async function transferTournamentKader(
   );
 }
 
-export async function patchTournamentAdvances(
+export async function patchTournamentSettings(
   tournamentId: string,
-  advancesPerGroup: number
-): Promise<void> 
+  body: {
+    groupCount?: number;
+    advancesPerGroup?: number;
+  }
+): Promise<TournamentDetail> 
 {
-  await api(`/api/tournaments/${tournamentId}`, {
+  return api<TournamentDetail>(`/api/tournaments/${tournamentId}`, {
     method: "PATCH",
-    body: JSON.stringify({ advancesPerGroup }),
+    body: JSON.stringify(body),
   });
 }
 
 export async function postGenerateGroupMatches(
   tournamentId: string
-): Promise<TournamentDetail> 
+): Promise<TournamentDetail>
 {
   return api<TournamentDetail>(
     `/api/tournaments/${tournamentId}/generate-group-matches`,
@@ -141,14 +179,34 @@ export async function postGenerateGroupMatches(
   );
 }
 
+export async function deleteAllMatches(
+  tournamentId: string
+): Promise<TournamentDetail>
+{
+  return api<TournamentDetail>(
+    `/api/tournaments/${tournamentId}/matches`,
+    { method: "DELETE" }
+  );
+}
+
 export async function postAdvancePhase(
   tournamentId: string,
-  target: "QUARTER" | "SEMI" | "FINAL"
-): Promise<TournamentDetail> 
+  target: "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL" | "COMPLETED"
+): Promise<TournamentDetail>
 {
   return api<TournamentDetail>(
     `/api/tournaments/${tournamentId}/advance`,
     { method: "POST", body: JSON.stringify({ target }) }
+  );
+}
+
+export async function postGenerateKnockout(
+  tournamentId: string
+): Promise<TournamentDetail>
+{
+  return api<TournamentDetail>(
+    `/api/tournaments/${tournamentId}/generate-knockout`,
+    { method: "POST" }
   );
 }
 

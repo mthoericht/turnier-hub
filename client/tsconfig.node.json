@@ -1,12 +1,7 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2023"],
-    "module": "ESNext",
-    "skipLibCheck": true,
-    "moduleResolution": "bundler",
-    "strict": true,
-    "noEmit": true
+    "lib": ["ES2023"]
   },
   "include": ["vite.config.ts"]
 }

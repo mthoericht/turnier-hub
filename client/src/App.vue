@@ -71,7 +71,7 @@ function navLinkClass(prefix: string): string
               <path d="M7 6H4a2 2 0 0 0 2 2h1" />
               <path d="M17 6h3a2 2 0 0 1-2 2h-1" />
             </svg>
-            Turnierverwaltung
+            Turnier-Hub
           </RouterLink>
           <div class="flex shrink-0 items-center gap-1 sm:gap-2">
             <button

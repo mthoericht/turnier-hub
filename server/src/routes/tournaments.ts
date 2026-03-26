@@ -1,6 +1,6 @@
 import { Router, type Response } from "express";
 import { z } from "zod";
-import { MatchPhase, MatchStatus, TournamentPhase, type Match } from "@prisma/client";
+import { MatchPhase, MatchStatus, TournamentMode, TournamentPhase, type Match } from "@prisma/client";
 import { prisma } from "../db.js";
 import { authMiddleware } from "../middleware/auth.js";
 import {
@@ -13,15 +13,21 @@ import {
 import { advanceTournamentPhase } from "../services/advancePhase.js";
 import { computePoolStandings } from "../services/standings.js";
 import { computeElapsedMs } from "../services/matchTimer.js";
+import {
+  distributeIntoGroups,
+  generateRoundRobinSchedule,
+} from "../services/roundRobinSchedule.js";
+import { generateKoBracketFirstRound } from "../services/knockoutBracket.js";
 
 const router = Router();
 router.use(authMiddleware);
 
 const phaseOrder: Record<MatchPhase, number> = {
   GROUP: 0,
-  QUARTER: 1,
-  SEMI: 2,
-  FINAL: 3,
+  ROUND_OF_16: 1,
+  QUARTER: 2,
+  SEMI: 3,
+  FINAL: 4,
 };
 
 function sortMatches<T extends { phase: MatchPhase; roundOrder: number; slotIndex: number }>(
@@ -93,6 +99,7 @@ function serializeTournamentDetail(
       id: team.id,
       name: team.name,
       sortOrder: team.sortOrder,
+      groupLabel: team.groupLabel ?? null,
       members: team.members.map((m) => ({
         id: m.id,
         tournamentId: m.tournamentId,
@@ -127,7 +134,10 @@ async function requireTournamentOwner(
 const createTournamentSchema = z.object({
   name: z.string().min(1),
   sport: z.string().min(1),
+  mode: z.enum(["GROUP_KO", "DIRECT_KO", "ROUND_ROBIN"]).optional(),
+  groupCount: z.number().int().min(1).max(16).optional(),
   advancesPerGroup: z.number().int().min(1).max(8).optional(),
+  teamsAreIndividuals: z.boolean().optional(),
 });
 
 router.get("/", async (req, res) => {
@@ -155,12 +165,22 @@ router.post("/", async (req, res) => {
     res.status(400).json({ error: "Ungültige Eingaben" });
     return;
   }
+  const mode = parsed.data.mode
+    ? (TournamentMode[parsed.data.mode as keyof typeof TournamentMode])
+    : TournamentMode.GROUP_KO;
+  const defaultPhase = mode === TournamentMode.DIRECT_KO
+    ? TournamentPhase.QUARTER
+    : TournamentPhase.GROUP;
   const t = await prisma.tournament.create({
     data: {
       name: parsed.data.name,
       sport: parsed.data.sport,
+      mode,
+      phase: defaultPhase,
+      groupCount: parsed.data.groupCount ?? 1,
       userId: req.userId!,
       advancesPerGroup: parsed.data.advancesPerGroup ?? 2,
+      teamsAreIndividuals: parsed.data.teamsAreIndividuals ?? false,
     },
     include: {
       user: { select: createdBySelect },
@@ -186,6 +206,7 @@ router.get("/:id", async (req, res) => {
 const patchTournamentSchema = z.object({
   name: z.string().min(1).optional(),
   sport: z.string().min(1).optional(),
+  groupCount: z.number().int().min(1).max(16).optional(),
   advancesPerGroup: z.number().int().min(1).max(8).optional(),
 });
 
@@ -220,6 +241,11 @@ const createTeamSchema = z.object({
 const patchTeamSchema = z.object({
   name: z.string().min(1).max(60).optional(),
   sortOrder: z.number().int().optional(),
+});
+
+const renameGroupSchema = z.object({
+  oldLabel: z.string().trim().min(1).max(40),
+  newLabel: z.string().trim().min(1).max(40),
 });
 
 router.post("/:id/teams", async (req, res) => {
@@ -300,26 +326,114 @@ router.delete("/:id/teams/:teamId", async (req, res) => {
     res.status(404).json({ error: "Mannschaft nicht gefunden" });
     return;
   }
-  const [memCount, mCount] = await Promise.all([
+  const [memCount, teamMatches] = await Promise.all([
     prisma.tournamentTeamMember.count({ where: { teamId: req.params.teamId } }),
-    prisma.match.count({
+    prisma.match.findMany({
       where: {
+        tournamentId: req.params.id,
         OR: [
           { homeTeamId: req.params.teamId },
           { awayTeamId: req.params.teamId },
         ],
       },
+      select: { id: true, status: true, phase: true },
     }),
   ]);
-  if (memCount > 0 || mCount > 0) {
+  const removableGroupMatchIds = teamMatches
+    .filter((m) => m.phase === MatchPhase.GROUP)
+    .map((m) => m.id);
+  const blockingMatchCount = teamMatches.length - removableGroupMatchIds.length;
+
+  if (blockingMatchCount > 0)
+  {
     res.status(400).json({
       error:
-        "Mannschaft ist noch belegt (Kader oder Spiele). Entferne zuerst Spieler bzw. Spiele.",
+        "Mannschaft ist noch in K.-o.-Spielen enthalten. "
+        + "Bitte diese Spiele zuerst löschen oder zurücksetzen.",
     });
     return;
   }
-  await prisma.tournamentTeam.delete({ where: { id: req.params.teamId } });
-  res.status(204).send();
+
+  if (memCount > 0)
+  {
+    if (!owned.teamsAreIndividuals)
+    {
+      res.status(400).json({
+        error:
+          "Mannschaft ist noch belegt (Kader). Entferne zuerst Spieler aus der Mannschaft.",
+      });
+      return;
+    }
+    await prisma.tournamentTeamMember.deleteMany({
+      where: { tournamentId: req.params.id, teamId: req.params.teamId },
+    });
+  }
+
+  if (removableGroupMatchIds.length > 0)
+  {
+    await prisma.match.deleteMany({
+      where: { id: { in: removableGroupMatchIds } },
+    });
+  }
+
+  try
+  {
+    await prisma.tournamentTeam.delete({ where: { id: req.params.teamId } });
+  }
+  catch
+  {
+    res.status(400).json({
+      error:
+        "Mannschaft konnte nicht gelöscht werden. Bitte prüfe vorhandene Zuordnungen.",
+    });
+    return;
+  }
+  res.status(200).json({
+    deletedTeamId: req.params.teamId,
+    removedGroupMatches: removableGroupMatchIds.length,
+  });
+});
+
+router.patch("/:id/groups/rename", async (req, res) => {
+  const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+  if (!owned) return;
+  const parsed = renameGroupSchema.safeParse(req.body);
+  if (!parsed.success)
+  {
+    res.status(400).json({ error: "Ungültige Gruppennamen" });
+    return;
+  }
+  const oldLabel = parsed.data.oldLabel;
+  const newLabel = parsed.data.newLabel;
+  if (oldLabel === newLabel)
+  {
+    const full = await loadTournamentById(req.params.id);
+    res.json(serializeTournamentDetail(full!));
+    return;
+  }
+  const existingNew = await prisma.tournamentTeam.count({
+    where: {
+      tournamentId: req.params.id,
+      groupLabel: newLabel,
+    },
+  });
+  if (existingNew > 0)
+  {
+    res.status(409).json({ error: "Gruppenname bereits vorhanden" });
+    return;
+  }
+  await prisma.$transaction([
+    prisma.tournamentTeam.updateMany({
+      where: { tournamentId: req.params.id, groupLabel: oldLabel },
+      data: { groupLabel: newLabel },
+    }),
+    prisma.match.updateMany({
+      where: { tournamentId: req.params.id, phase: MatchPhase.GROUP, groupLabel: oldLabel },
+      data: { groupLabel: newLabel },
+    }),
+  ]);
+  const full = await loadTournamentById(req.params.id);
+  res.json(serializeTournamentDetail(full!));
 });
 
 const addMemberSchema = z.object({
@@ -483,8 +597,6 @@ router.post(
   }
 );
 
-const STANDINGS_GROUP_KEY = "Vorrunde";
-
 router.post("/:id/generate-group-matches", async (req, res) => {
   const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
   if (!owned) return;
@@ -493,17 +605,18 @@ router.post("/:id/generate-group-matches", async (req, res) => {
     res.status(404).json({ error: "Turnier nicht gefunden" });
     return;
   }
-  const teamIds = [...t.teams]
-    .sort((a, b) =>
-      a.sortOrder !== b.sortOrder
-        ? a.sortOrder - b.sortOrder
-        : a.name.localeCompare(b.name)
-    )
-    .map((tm) => tm.id);
-  if (teamIds.length < 2) {
+  const teamsWithMembers = t.teams.filter((team) => team.members.length > 0);
+  const sortedTeams = [...teamsWithMembers].sort((a, b) =>
+    a.sortOrder !== b.sortOrder
+      ? a.sortOrder - b.sortOrder
+      : a.name.localeCompare(b.name)
+  );
+  const teamIds = sortedTeams.map((tm) => tm.id);
+  if (teamIds.length < 2)
+  {
     res.status(400).json({
       error:
-        "Für die Vorrunde werden mindestens zwei Mannschaften benötigt (Jeder gegen Jeden).",
+        "Für Gruppenspiele werden mindestens zwei Mannschaften mit Spielern benötigt.",
     });
     return;
   }
@@ -512,16 +625,39 @@ router.post("/:id/generate-group-matches", async (req, res) => {
     where: { tournamentId: t.id, phase: MatchPhase.GROUP },
   });
 
-  let slot = 0;
-  for (let i = 0; i < teamIds.length; i++) {
-    for (let j = i + 1; j < teamIds.length; j++) {
+  await prisma.tournamentTeam.updateMany({
+    where: { tournamentId: t.id },
+    data: { groupLabel: null },
+  });
+
+  const gc = t.groupCount;
+  const groups = gc > 1
+    ? distributeIntoGroups(teamIds, gc)
+    : [{ label: "A", teamIds }];
+
+  for (const group of groups)
+  {
+    await prisma.tournamentTeam.updateMany({
+      where: { id: { in: group.teamIds }, tournamentId: t.id },
+      data: { groupLabel: gc > 1 ? group.label : null },
+    });
+  }
+
+  let globalSlot = 0;
+  for (const group of groups)
+  {
+    const schedule = generateRoundRobinSchedule(group.teamIds);
+    for (const m of schedule)
+    {
       await prisma.match.create({
         data: {
           tournamentId: t.id,
           phase: MatchPhase.GROUP,
-          slotIndex: slot++,
-          homeTeamId: teamIds[i]!,
-          awayTeamId: teamIds[j]!,
+          groupLabel: gc > 1 ? group.label : null,
+          roundOrder: m.round,
+          slotIndex: globalSlot++,
+          homeTeamId: m.home,
+          awayTeamId: m.away,
           status: MatchStatus.SCHEDULED,
         },
       });
@@ -537,12 +673,114 @@ router.post("/:id/generate-group-matches", async (req, res) => {
   res.json(serializeTournamentDetail(full!));
 });
 
-router.get("/:id/standings", async (req, res) => {
+router.post("/:id/generate-knockout", async (req, res) => {
+  const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+  if (!owned) return;
   const t = await loadTournamentById(req.params.id);
-  if (!t) {
+  if (!t)
+  {
     res.status(404).json({ error: "Turnier nicht gefunden" });
     return;
   }
+  if (t.mode !== TournamentMode.DIRECT_KO)
+  {
+    res.status(400).json({ error: "K.O.-Generierung nur für Direkt-K.O.-Turniere" });
+    return;
+  }
+  const sortedTeams = [...t.teams].sort((a, b) =>
+    a.sortOrder !== b.sortOrder
+      ? a.sortOrder - b.sortOrder
+      : a.name.localeCompare(b.name)
+  );
+  if (sortedTeams.length < 2)
+  {
+    res.status(400).json({ error: "Mindestens 2 Mannschaften für K.O. benötigt" });
+    return;
+  }
+
+  await prisma.match.deleteMany({ where: { tournamentId: t.id } });
+
+  const { phase, tournamentPhase, matches } = generateKoBracketFirstRound(
+    sortedTeams.map((tm) => tm.id)
+  );
+
+  for (const m of matches)
+  {
+    await prisma.match.create({
+      data: {
+        tournamentId: t.id,
+        phase: m.phase,
+        roundOrder: m.roundOrder,
+        slotIndex: m.roundOrder,
+        homeTeamId: m.homeTeamId,
+        awayTeamId: m.awayTeamId,
+        status: MatchStatus.SCHEDULED,
+      },
+    });
+  }
+
+  await prisma.tournament.update({
+    where: { id: t.id },
+    data: { phase: tournamentPhase },
+  });
+
+  const full = await loadTournamentById(t.id);
+  res.json(serializeTournamentDetail(full!));
+});
+
+router.delete("/:id/matches", async (req, res) => {
+  const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+  if (!owned) return;
+  const t = await loadTournamentById(req.params.id);
+  if (!t)
+  {
+    res.status(404).json({ error: "Turnier nicht gefunden" });
+    return;
+  }
+  await prisma.match.deleteMany({ where: { tournamentId: t.id } });
+  await prisma.tournamentTeam.updateMany({
+    where: { tournamentId: t.id },
+    data: { groupLabel: null },
+  });
+  await prisma.tournament.update({
+    where: { id: t.id },
+    data: { phase: TournamentPhase.GROUP },
+  });
+  const full = await loadTournamentById(t.id);
+  res.json(serializeTournamentDetail(full!));
+});
+
+router.get("/:id/standings", async (req, res) => {
+  const t = await loadTournamentById(req.params.id);
+  if (!t)
+  {
+    res.status(404).json({ error: "Turnier nicht gefunden" });
+    return;
+  }
+
+  const teamsById = new Map(
+    t.teams.map((tm) => [tm.id, { id: tm.id, name: tm.name }] as const)
+  );
+  const groupMatches = t.matches.filter((m) => m.phase === MatchPhase.GROUP);
+
+  if (t.groupCount > 1)
+  {
+    const labels = [...new Set(t.teams.map((tm) => tm.groupLabel).filter(Boolean))] as string[];
+    labels.sort();
+    const groups: Record<string, ReturnType<typeof computePoolStandings>> = {};
+    for (const label of labels)
+    {
+      const gTeamIds = t.teams
+        .filter((tm) => tm.groupLabel === label)
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+        .map((tm) => tm.id);
+      const gMatches = groupMatches.filter((m) => m.groupLabel === label);
+      groups[`Gruppe ${label}`] = computePoolStandings(gTeamIds, teamsById, gMatches);
+    }
+    res.json({ groups });
+    return;
+  }
+
   const teamIds = [...t.teams]
     .sort((a, b) =>
       a.sortOrder !== b.sortOrder
@@ -550,16 +788,13 @@ router.get("/:id/standings", async (req, res) => {
         : a.name.localeCompare(b.name)
     )
     .map((tm) => tm.id);
-  const teamsById = new Map(
-    t.teams.map((tm) => [tm.id, { id: tm.id, name: tm.name }] as const)
-  );
-  const groupMatches = t.matches.filter((m) => m.phase === MatchPhase.GROUP);
   const rows = computePoolStandings(teamIds, teamsById, groupMatches);
-  res.json({ groups: { [STANDINGS_GROUP_KEY]: rows } });
+  const label = t.mode === TournamentMode.ROUND_ROBIN ? "Jeder gegen Jeden" : "Gruppenspiele";
+  res.json({ groups: { [label]: rows } });
 });
 
 const advanceSchema = z.object({
-  target: z.enum(["QUARTER", "SEMI", "FINAL"]),
+  target: z.enum(["ROUND_OF_16", "QUARTER", "SEMI", "FINAL", "COMPLETED"]),
 });
 
 router.post("/:id/advance", async (req, res) => {
@@ -575,8 +810,19 @@ router.post("/:id/advance", async (req, res) => {
     res.status(404).json({ error: "Turnier nicht gefunden" });
     return;
   }
-  try {
-    await advanceTournamentPhase(
+  if (parsed.data.target === "COMPLETED")
+  {
+    await prisma.tournament.update({
+      where: { id: t.id },
+      data: { phase: TournamentPhase.COMPLETED },
+    });
+    const full = await loadTournamentById(t.id);
+    res.json(serializeTournamentDetail(full!));
+    return;
+  }
+  try
+  {
+    const result = await advanceTournamentPhase(
       prisma,
       {
         ...t,
@@ -584,18 +830,25 @@ router.post("/:id/advance", async (req, res) => {
           id: tm.id,
           name: tm.name,
           sortOrder: tm.sortOrder,
+          groupLabel: tm.groupLabel,
         })),
         matches: t.matches,
       },
-      parsed.data.target
+      parsed.data.target as "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL"
     );
-  } catch (e) {
+    const full = await loadTournamentById(t.id);
+    res.json({
+      ...serializeTournamentDetail(full!),
+      notices: result.notices,
+    });
+    return;
+  }
+  catch (e)
+  {
     const msg = e instanceof Error ? e.message : "Fehler";
     res.status(400).json({ error: msg });
     return;
   }
-  const full = await loadTournamentById(t.id);
-  res.json(serializeTournamentDetail(full!));
 });
 
 const scoresSchema = z.object({

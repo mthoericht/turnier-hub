@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, ref } from "vue";
-import { RouterLink } from "vue-router";
+import TournamentMatchCard from "@/components/tournament/TournamentMatchCard.vue";
+import TournamentPhaseStepper from "@/components/tournament/TournamentPhaseStepper.vue";
 import {
   tournamentLayoutKey,
   type MatchPhase,
@@ -9,7 +10,7 @@ import {
 import { useTournamentPhaseStepper } from "@/tournament/useTournamentPhaseStepper";
 
 const ctx = inject(tournamentLayoutKey);
-if (!ctx) 
+if (!ctx)
 {
   throw new Error(
     "TournamentMatchesOverviewView must be used inside TournamentLayout"
@@ -33,9 +34,17 @@ const {
   timerBtnClass,
 } = ctx;
 
-type MatchesTab = "overview" | "group" | "quarter" | "semi" | "final";
+type MatchesTab = "overview" | "group" | "r16" | "quarter" | "semi" | "final";
 
 const activeMatchesTab = ref<MatchesTab>("overview");
+
+const hasGroupMatches = computed(() =>
+  matchesByPhase.value.some((b) => b.phase === "GROUP" && b.matches.length > 0)
+);
+
+const hasR16Matches = computed(() =>
+  matchesByPhase.value.some((b) => b.phase === "ROUND_OF_16" && b.matches.length > 0)
+);
 
 const hasQuarterMatches = computed(() =>
   matchesByPhase.value.some(
@@ -55,99 +64,70 @@ const hasFinalMatches = computed(() =>
   )
 );
 
-const visibleMatchesByPhase = computed(() => 
-  activeMatchesTab.value === "group"
-    ? matchesByPhase.value.filter((b) => b.phase === "GROUP")
-    : activeMatchesTab.value === "quarter"
-      ? matchesByPhase.value.filter((b) => b.phase === "QUARTER")
-      : activeMatchesTab.value === "semi"
-        ? matchesByPhase.value.filter((b) => b.phase === "SEMI")
-        : activeMatchesTab.value === "final"
-          ? matchesByPhase.value.filter((b) => b.phase === "FINAL")
-          : matchesByPhase.value
+const tabToPhases: Record<MatchesTab, MatchPhase[] | null> = {
+  overview: null,
+  group: ["GROUP"],
+  r16: ["ROUND_OF_16"],
+  quarter: ["QUARTER"],
+  semi: ["SEMI"],
+  final: ["FINAL"],
+};
+
+const visibleMatchesByPhase = computed(() =>
+{
+  const phases = tabToPhases[activeMatchesTab.value];
+  if (!phases) return matchesByPhase.value;
+  const phaseSet = new Set(phases);
+  return matchesByPhase.value.filter((b) => phaseSet.has(b.phase));
+});
+
+function isKnockoutPhase(phase: MatchPhase): boolean
+{
+  return phase === "ROUND_OF_16" || phase === "QUARTER" || phase === "SEMI" || phase === "FINAL";
+}
+
+const mode = computed(() => tournament.value?.mode ?? "GROUP_KO");
+
+const groupTabLabel = computed(() =>
+  mode.value === "ROUND_ROBIN" ? "Jeder gegen Jeden" : "Gruppenspiele"
 );
 
-function isKnockoutPhase(phase: MatchPhase): boolean 
+const groupMatchesByRound = computed(() =>
 {
-  return phase === "QUARTER" || phase === "SEMI" || phase === "FINAL";
-}
+  const groupBlock = matchesByPhase.value.find((b) => b.phase === "GROUP");
+  if (!groupBlock || groupBlock.matches.length === 0) return null;
+
+  const roundMap = new Map<number, typeof groupBlock.matches>();
+  for (const m of groupBlock.matches)
+  {
+    const key = m.roundOrder ?? 0;
+    if (!roundMap.has(key)) roundMap.set(key, []);
+    roundMap.get(key)!.push(m);
+  }
+  if (roundMap.size <= 1) return null;
+  return [...roundMap.entries()].sort(([a], [b]) => a - b);
+});
 
 const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
 </script>
 
 <template>
   <div v-if="tournament" class="space-y-8 sm:space-y-10">
-    <section :class="[cardClass, '!py-4 sm:!py-5']">
-      <h2
-        class="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
-      >
-        Phasen
-      </h2>
-      <div
-        class="flex flex-wrap items-stretch justify-center gap-2 sm:flex-nowrap sm:justify-between sm:gap-1"
-      >
-        <template v-for="(step, index) in phaseFlow" :key="step.phaseKey">
-          <div
-            class="flex min-w-[4.5rem] flex-1 flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-center sm:min-w-0 sm:flex-[1_1_0] sm:px-3 sm:py-2"
-            :class="{
-              'border-emerald-500/70 bg-emerald-50/90 dark:border-emerald-600/50 dark:bg-emerald-950/30':
-                stepState(index) === 'done',
-              'border-blue-600 bg-blue-50 shadow-sm dark:border-blue-400 dark:bg-blue-950/40':
-                stepState(index) === 'current',
-              'border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-900/30':
-                stepState(index) === 'upcoming',
-            }"
-          >
-            <span
-              class="text-xs font-semibold sm:text-sm"
-              :class="{
-                'text-emerald-800 dark:text-emerald-200':
-                  stepState(index) === 'done',
-                'text-blue-900 dark:text-blue-100':
-                  stepState(index) === 'current',
-                'text-slate-500 dark:text-slate-400':
-                  stepState(index) === 'upcoming',
-              }"
-            >
-              {{ step.shortLabel }}
-            </span>
-            <span
-              class="hidden text-[10px] leading-tight text-slate-500 sm:block dark:text-slate-500"
-            >
-              {{ step.hint }}
-            </span>
-          </div>
-          <span
-            v-if="index < phaseFlow.length - 1"
-            class="hidden shrink-0 self-center px-0.5 text-slate-300 dark:text-slate-600 sm:inline"
-            aria-hidden="true"
-            >→</span
-          >
-        </template>
-      </div>
-      <p class="mt-3 text-xs text-slate-500 dark:text-slate-500">
-        Aktuell: <strong class="font-medium text-slate-700 dark:text-slate-300">{{
-          formatPhaseLabel(tournament.phase)
-        }}</strong>
-        — K.-o.-Runden erzeugen die nächsten Spiele aus den Tabellen bzw.
-        Siegern der Vorstufe.
-        <template v-if="canEdit">
-          Aktionen unter
-          <RouterLink
-            :to="{
-              name: 'tournament-matches-setup',
-              params: { id: tournament.id },
-            }"
-            class="text-blue-800 underline hover:no-underline dark:text-blue-100"
-          >Spielbetrieb</RouterLink
-          >.</template
-        >
-      </p>
-    </section>
+    <TournamentPhaseStepper
+      :phase-flow="phaseFlow"
+      :step-state="stepState"
+      :tournament-id="tournament.id"
+      :tournament-phase="tournament.phase"
+      :mode="mode"
+      :can-edit="canEdit"
+      :card-class="cardClass"
+      :format-phase-label="formatPhaseLabel"
+    />
 
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div class="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-900/40">
+      <div class="inline-flex flex-wrap rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-900/40">
         <button
+          v-if="hasGroupMatches"
           type="button"
           class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
           :class="[
@@ -157,7 +137,20 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
           ]"
           @click="activeMatchesTab = 'group'"
         >
-          Vorrunde
+          {{ groupTabLabel }}
+        </button>
+        <button
+          v-if="hasR16Matches"
+          type="button"
+          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+          :class="[
+            activeMatchesTab === 'r16'
+              ? 'bg-blue-600 text-white dark:bg-blue-500'
+              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ]"
+          @click="activeMatchesTab = 'r16'"
+        >
+          Achtelfinale
         </button>
         <button
           v-if="hasQuarterMatches"
@@ -208,7 +201,7 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
           ]"
           @click="activeMatchesTab = 'overview'"
         >
-          Übersicht
+          Alle
         </button>
       </div>
     </div>
@@ -220,7 +213,7 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
       <h2
         class="font-display font-semibold text-lg text-slate-900 dark:text-white"
       >
-        Tabellen (Vorrunde)
+        Tabelle
       </h2>
       <div
         v-for="(rows, poolName) in standingsGroups"
@@ -229,7 +222,7 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
       >
         <h3
           v-if="Object.keys(standingsGroups).length > 1"
-          class="mb-2 text-sm text-blue-800 dark:text-blue-100"
+          class="mb-2 text-sm font-medium text-blue-800 dark:text-blue-100"
         >
           {{ poolName }}
         </h3>
@@ -278,6 +271,39 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
       </div>
     </section>
 
+    <template v-if="groupMatchesByRound && (activeMatchesTab === 'overview' || activeMatchesTab === 'group')">
+      <section
+        v-for="[roundIdx, roundMatches] in groupMatchesByRound"
+        :key="`round-${roundIdx}`"
+        :class="[cardClass, 'space-y-4']"
+      >
+        <h2
+          class="font-display font-semibold text-lg text-slate-900 dark:text-white"
+        >
+          Spielrunde {{ roundIdx + 1 }}
+          <span class="text-sm font-normal text-slate-500 dark:text-slate-400">
+            ({{ roundMatches.length }} {{ roundMatches.length === 1 ? 'Spiel' : 'Spiele' }} parallel)
+          </span>
+        </h2>
+        <TournamentMatchCard
+          v-for="m in roundMatches"
+          :key="m.id"
+          :match="m"
+          :can-edit="canEdit"
+          :draft-home="scoreDraft[m.id]?.home"
+          :draft-away="scoreDraft[m.id]?.away"
+          :match-card-class="matchCardClass"
+          :timer-btn-class="timerBtnClass"
+          :field-sm-class="fieldSmClass"
+          :format-ms="formatMs"
+          :format-match-status-label="formatMatchStatusLabel"
+          @timer="(action) => timerAction(m.id, action)"
+          @update-draft="(side, value) => { if (scoreDraft[m.id]) scoreDraft[m.id][side] = value; }"
+          @save-score="patchScores(m.id)"
+        />
+      </section>
+    </template>
+
     <section
       v-for="block in visibleMatchesByPhase"
       :key="block.phase"
@@ -289,149 +315,35 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
           : '',
       ]"
     >
-      <h2
-        class="font-display font-semibold text-xl text-slate-900 dark:text-white"
-      >
-        {{ formatPhaseLabel(block.phase as MatchPhase) }}
-      </h2>
-      <p
-        v-if="block.matches.length === 0"
-        class="text-sm text-slate-600 dark:text-slate-400"
-      >
-        Noch keine Spiele für diese Runde.
-      </p>
-      <div
-        v-for="m in block.matches"
-        :key="m.id"
-        :class="matchCardClass"
-      >
-        <div
-          class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between"
+      <template v-if="block.phase !== 'GROUP' || !groupMatchesByRound">
+        <h2
+          class="font-display font-semibold text-xl text-slate-900 dark:text-white"
         >
-          <div
-            class="min-w-0 break-words font-medium text-slate-900 dark:text-white"
-          >
-            <span class="block sm:inline">{{
-              m.homeTeam?.name ?? "—"
-            }}</span>
-            <span
-              class="mx-0 my-1 block text-center text-slate-500 sm:mx-2 sm:my-0 sm:inline dark:text-slate-500"
-              >vs</span
-            >
-            <span class="block sm:inline">{{
-              m.awayTeam?.name ?? "—"
-            }}</span>
-          </div>
-          <span
-            class="w-fit shrink-0 rounded bg-slate-200 px-2 py-1 text-xs uppercase tracking-wide text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-          >
-            {{ formatMatchStatusLabel(m.status) }}
-          </span>
-        </div>
-        <div
-          class="font-mono text-3xl text-blue-800 tabular-nums dark:text-blue-100 sm:text-2xl"
-        >
-          {{ formatMs(m.elapsedMs) }}
-        </div>
-        <div
-          class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2"
-        >
-          <button
-            type="button"
-            :class="[timerBtnClass, 'bg-emerald-700 hover:bg-emerald-600']"
-            :disabled="
-              !canEdit || (m.status !== 'SCHEDULED' && m.status !== 'CANCELLED')
-            "
-            @click="timerAction(m.id, 'start')"
-          >
-            Start
-          </button>
-          <button
-            type="button"
-            :class="[timerBtnClass, 'bg-amber-700 hover:bg-amber-600']"
-            :disabled="!canEdit || m.status !== 'LIVE'"
-            @click="timerAction(m.id, 'pause')"
-          >
-            Pause
-          </button>
-          <button
-            type="button"
-            :class="[timerBtnClass, 'bg-sky-700 hover:bg-sky-600']"
-            :disabled="!canEdit || m.status !== 'PAUSED'"
-            @click="timerAction(m.id, 'resume')"
-          >
-            Weiter
-          </button>
-          <button
-            type="button"
-            :class="[timerBtnClass, 'bg-slate-600 hover:bg-slate-500']"
-            :disabled="
-              !canEdit
-                || (
-                  m.status !== 'LIVE'
-                  && m.status !== 'PAUSED'
-                  && m.status !== 'SCHEDULED'
-                )
-            "
-            @click="timerAction(m.id, 'end')"
-          >
-            Beenden
-          </button>
-          <button
-            type="button"
-            class="col-span-2 min-h-[44px] rounded-lg bg-rose-900/60 px-3 py-2.5 text-sm text-rose-100 hover:bg-rose-800 disabled:opacity-40 sm:col-span-1 sm:min-h-0 sm:py-1.5"
-            :disabled="!canEdit"
-            @click="timerAction(m.id, 'cancel')"
-          >
-            Abbrechen
-          </button>
-        </div>
-        <div
-          v-if="canEdit && scoreDraft[m.id]"
-          class="flex flex-wrap items-center gap-2"
-        >
-          <span class="text-sm text-slate-600 dark:text-slate-500"
-            >Ergebnis</span
-          >
-          <input
-            v-model="scoreDraft[m.id].home"
-            type="number"
-            min="0"
-            :class="fieldSmClass"
-            placeholder="0"
-          />
-          <span class="text-slate-500 dark:text-slate-500">:</span>
-          <input
-            v-model="scoreDraft[m.id].away"
-            type="number"
-            min="0"
-            :class="fieldSmClass"
-            placeholder="0"
-          />
-          <button
-            type="button"
-            class="min-h-[44px] rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 sm:min-h-0 sm:px-3 sm:py-1"
-            @click="patchScores(m.id)"
-          >
-            Speichern
-          </button>
-        </div>
-        <div
-          v-else-if="canEdit"
+          {{ formatPhaseLabel(block.phase as MatchPhase) }}
+        </h2>
+        <p
+          v-if="block.matches.length === 0"
           class="text-sm text-slate-600 dark:text-slate-400"
         >
-          Ergebnis:
-          <span class="ml-1 font-medium tabular-nums text-slate-900 dark:text-white">
-            {{ m.homeScore ?? "—" }} : {{ m.awayScore ?? "—" }}
-          </span>
-        </div>
-        <div v-else class="text-sm text-slate-600 dark:text-slate-400">
-          Ergebnis:
-          <span class="ml-1 font-medium tabular-nums text-slate-900 dark:text-white">
-            {{ m.homeScore ?? "—" }} : {{ m.awayScore ?? "—" }}
-          </span>
-        </div>
-      </div>
+          Noch keine Spiele für diese Runde.
+        </p>
+        <TournamentMatchCard
+          v-for="m in block.matches"
+          :key="m.id"
+          :match="m"
+          :can-edit="canEdit"
+          :draft-home="scoreDraft[m.id]?.home"
+          :draft-away="scoreDraft[m.id]?.away"
+          :match-card-class="matchCardClass"
+          :timer-btn-class="timerBtnClass"
+          :field-sm-class="fieldSmClass"
+          :format-ms="formatMs"
+          :format-match-status-label="formatMatchStatusLabel"
+          @timer="(action) => timerAction(m.id, action)"
+          @update-draft="(side, value) => { if (scoreDraft[m.id]) scoreDraft[m.id][side] = value; }"
+          @save-score="patchScores(m.id)"
+        />
+      </template>
     </section>
   </div>
 </template>

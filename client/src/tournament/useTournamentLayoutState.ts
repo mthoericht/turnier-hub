@@ -36,13 +36,17 @@ import { fetchPlayersAll } from "@/api/playersApi";
 import {
   addTeamMember,
   createTournamentTeam,
+  deleteAllMatches as apiDeleteAllMatches,
   deleteTournamentTeam,
   fetchTournamentDetail,
   fetchTournamentStandings,
   patchMatchScores,
-  patchTournamentAdvances,
+  patchTournamentGroupLabel,
+  patchTournamentSettings,
+  patchTournamentTeam,
   postAdvancePhase,
   postGenerateGroupMatches,
+  postGenerateKnockout,
   postMatchTimer,
   removeTeamMember,
   transferTournamentKader,
@@ -76,6 +80,7 @@ export function useTournamentLayoutState(
   const newTeamName = ref("");
   const addMemberTeamId = ref("");
   const addPlayerId = ref("");
+  const groupCountInput = ref(1);
   const advancesInput = ref(2);
   const standings = ref<Record<string, unknown> | null>(null);
   const scoreDraft = ref<ScoreDraftMap>({});
@@ -89,6 +94,7 @@ export function useTournamentLayoutState(
     {
       const detail = await fetchTournamentDetail(tournamentId.value);
       tournament.value = detail;
+      groupCountInput.value = detail.groupCount;
       advancesInput.value = detail.advancesPerGroup;
       addMemberTeamId.value = resolveMemberTeamSelection(
         detail.teams,
@@ -208,9 +214,12 @@ export function useTournamentLayoutState(
 
   async function removeTeam(teamId: string): Promise<void> 
   {
+    const isIndividuals = tournament.value?.teamsAreIndividuals ?? false;
     if (
       !confirm(
-        "Mannschaft löschen? Nur ohne Kader und ohne zugeordnete Spiele möglich."
+        isIndividuals
+          ? "Teilnehmer entfernen? Zugeordnete Gruppenspiele werden mit gelöscht."
+          : "Mannschaft löschen? Zugeordnete Gruppenspiele werden mit gelöscht."
       )
     ) 
     {
@@ -218,11 +227,57 @@ export function useTournamentLayoutState(
     }
     try
     {
-      await deleteTournamentTeam(tournamentId.value, teamId);
+      const result = await deleteTournamentTeam(tournamentId.value, teamId);
       await load();
       await loadStandings();
+      if (result.removedGroupMatches > 0)
+      {
+        toast.showInfo(
+          `${result.removedGroupMatches} ${
+            result.removedGroupMatches === 1 ? "Gruppenspiel" : "Gruppenspiele"
+          } mit dieser Mannschaft wurden mit entfernt.`
+        );
+      }
     }
     catch (e) 
+    {
+      notifyActionError(e);
+    }
+  }
+
+  async function renameTeam(teamId: string, newName: string): Promise<void>
+  {
+    const next = newName.trim();
+    if (!next) return;
+    try
+    {
+      await patchTournamentTeam(tournamentId.value, teamId, { name: next });
+      await load();
+      await loadStandings();
+      toast.showSuccess("Mannschaft wurde umbenannt.");
+    }
+    catch (e)
+    {
+      notifyActionError(e);
+    }
+  }
+
+  async function renameGroupLabel(oldLabel: string, newLabel: string): Promise<void>
+  {
+    const next = newLabel.trim();
+    if (!next || next === oldLabel) return;
+    try
+    {
+      const detail = await patchTournamentGroupLabel(
+        tournamentId.value,
+        oldLabel,
+        next
+      );
+      tournament.value = detail;
+      await loadStandings();
+      toast.showSuccess(`Gruppe ${oldLabel} wurde in ${next} umbenannt.`);
+    }
+    catch (e)
     {
       notifyActionError(e);
     }
@@ -283,11 +338,11 @@ export function useTournamentLayoutState(
   {
     try 
     {
-      await patchTournamentAdvances(
-        tournamentId.value,
-        advancesInput.value
-      );
-      await load();
+      const detail = await patchTournamentSettings(tournamentId.value, {
+        advancesPerGroup: advancesInput.value,
+      });
+      tournament.value = detail;
+      await loadStandings();
     }
     catch (e) 
     {
@@ -295,56 +350,119 @@ export function useTournamentLayoutState(
     }
   }
 
-  async function generateGroup(): Promise<void> 
+  async function saveGroupCount(): Promise<void>
+  {
+    try
+    {
+      const detail = await patchTournamentSettings(tournamentId.value, {
+        groupCount: groupCountInput.value,
+      });
+      tournament.value = detail;
+      await loadStandings();
+    }
+    catch (e)
+    {
+      notifyActionError(e);
+    }
+  }
+
+  async function generateGroup(): Promise<void>
   {
     const t = tournament.value;
     if (
       t
       && groupRegenerateRisksDataLoss(t.matches)
       && !confirm(
-        "In der Vorrunde gibt es bereits Ergebnisse, laufende oder beendete Spiele. "
-          + "Wenn du die Vorrunden-Spiele neu erzeugst, werden alle Vorrunden-Spiele "
+        "Es gibt bereits Ergebnisse, laufende oder beendete Spiele. "
+          + "Wenn du die Gruppenspiele neu erzeugst, werden alle Gruppenspiele "
           + "und ihre Ergebnisse gelöscht. Fortfahren?"
       )
-    ) 
+    )
     {
       return;
     }
-    try 
+    try
     {
       const detail = await postGenerateGroupMatches(tournamentId.value);
       tournament.value = detail;
       scoreDraft.value = buildScoreDraftFromMatches(detail.matches);
       await loadStandings();
     }
-    catch (e) 
+    catch (e)
     {
       notifyActionError(e);
     }
   }
 
-  async function advance(target: "QUARTER" | "SEMI" | "FINAL"): Promise<void> 
+  async function generateKnockout(): Promise<void>
   {
     const t = tournament.value;
     if (
+      t
+      && t.matches.length > 0
+      && !confirm("Bestehende K.O.-Spiele werden gelöscht und neu erzeugt. Fortfahren?")
+    )
+    {
+      return;
+    }
+    try
+    {
+      const detail = await postGenerateKnockout(tournamentId.value);
+      tournament.value = detail;
+      scoreDraft.value = buildScoreDraftFromMatches(detail.matches);
+    }
+    catch (e)
+    {
+      notifyActionError(e);
+    }
+  }
+
+  async function deleteAllMatches(): Promise<void>
+  {
+    if (!confirm("Alle Spiele unwiderruflich löschen?")) return;
+    try
+    {
+      const detail = await apiDeleteAllMatches(tournamentId.value);
+      tournament.value = detail;
+      scoreDraft.value = buildScoreDraftFromMatches(detail.matches);
+      standings.value = null;
+    }
+    catch (e)
+    {
+      notifyActionError(e);
+    }
+  }
+
+  async function advance(target: "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL" | "COMPLETED"): Promise<void>
+  {
+    const t = tournament.value;
+    if (target === "COMPLETED")
+    {
+      if (!confirm("Turnier als abgeschlossen markieren?")) return;
+    }
+    else if (
       t
       && advanceTargetRisksDataLoss(t.matches, target, t.phase)
       && !confirm(
         "Es gibt bereits Ergebnisse oder Spielstände in K.-o.-Runden, die dabei "
           + "gelöscht oder überschrieben werden. Fortfahren?"
       )
-    ) 
+    )
     {
       return;
     }
-    try 
+    try
     {
       const detail = await postAdvancePhase(tournamentId.value, target);
       tournament.value = detail;
       scoreDraft.value = buildScoreDraftFromMatches(detail.matches);
+      for (const notice of detail.notices ?? [])
+      {
+        toast.showInfo(notice);
+      }
       await loadStandings();
     }
-    catch (e) 
+    catch (e)
     {
       notifyActionError(e);
     }
@@ -417,6 +535,7 @@ export function useTournamentLayoutState(
     newTeamName,
     addMemberTeamId,
     addPlayerId,
+    groupCountInput,
     advancesInput,
     standings,
     scoreDraft,
@@ -433,11 +552,16 @@ export function useTournamentLayoutState(
     loadPlayers,
     createTeam,
     removeTeam,
+    renameTeam,
+    renameGroupLabel,
     addMember,
     removeMember,
     transferKaderFromTournament,
+    saveGroupCount,
     saveAdvances,
     generateGroup,
+    generateKnockout,
+    deleteAllMatches,
     advance,
     patchScores,
     timerAction,

@@ -45,19 +45,28 @@ model Player {
   @@index([schoolClassId])
 }
 
+enum TournamentMode {
+  GROUP_KO
+  DIRECT_KO
+  ROUND_ROBIN
+}
+
 model Tournament {
-  id                 String                 @id @default(cuid())
-  name               String
-  sport              String
-  phase              TournamentPhase        @default(GROUP)
-  advancesPerGroup   Int                    @default(2)
-  userId             String
-  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  teams              TournamentTeam[]
-  teamMembers        TournamentTeamMember[]
-  matches            Match[]
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
+  id                  String                 @id @default(cuid())
+  name                String
+  sport               String
+  mode                TournamentMode         @default(GROUP_KO)
+  phase               TournamentPhase        @default(GROUP)
+  groupCount          Int                    @default(1)
+  advancesPerGroup    Int                    @default(2)
+  teamsAreIndividuals Boolean                @default(false)
+  userId              String
+  user                User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teams               TournamentTeam[]
+  teamMembers         TournamentTeamMember[]
+  matches             Match[]
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
   @@index([userId])
 }
@@ -68,6 +77,7 @@ model TournamentTeam {
   tournamentId String
   name         String
   sortOrder    Int                    @default(0)
+  groupLabel   String?
   tournament   Tournament             @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   members      TournamentTeamMember[]
   homeMatches  Match[]                @relation("HomeTeam")
@@ -79,6 +89,7 @@ model TournamentTeam {
 
 enum TournamentPhase {
   GROUP
+  ROUND_OF_16
   QUARTER
   SEMI
   FINAL
@@ -103,6 +114,7 @@ model TournamentTeamMember {
 
 enum MatchPhase {
   GROUP
+  ROUND_OF_16
   QUARTER
   SEMI
   FINAL
@@ -120,6 +132,7 @@ model Match {
   id                  String          @id @default(cuid())
   tournamentId        String
   phase               MatchPhase
+  groupLabel          String?
   roundOrder          Int             @default(0)
   slotIndex           Int             @default(0)
   homeTeamId          String?

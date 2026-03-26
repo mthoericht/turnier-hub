@@ -1,23 +1,51 @@
+import type { TournamentMode } from "@/tournament/tournamentContext";
+
 export type PhaseFlowStep = {
   phaseKey: string;
   shortLabel: string;
   hint: string;
 };
 
-export const PHASE_FLOW_STEPS: PhaseFlowStep[] = [
-  { phaseKey: "GROUP", shortLabel: "Vorrunde", hint: "Alle gegen alle" },
-  { phaseKey: "QUARTER", shortLabel: "VF", hint: "8 Teams" },
-  { phaseKey: "SEMI", shortLabel: "HF", hint: "Halbfinale" },
-  { phaseKey: "FINAL", shortLabel: "Finale", hint: "Sieger" },
+const FLOW_GROUP_KO: PhaseFlowStep[] = [
+  { phaseKey: "GROUP", shortLabel: "Gruppen", hint: "Gruppenspiele" },
+  { phaseKey: "KNOCKOUT", shortLabel: "K.O.", hint: "K.O.-Phase" },
   { phaseKey: "COMPLETED", shortLabel: "Ende", hint: "Turnier beendet" },
 ];
 
+const FLOW_DIRECT_KO: PhaseFlowStep[] = [
+  { phaseKey: "KNOCKOUT", shortLabel: "K.O.", hint: "K.O.-Phase" },
+  { phaseKey: "COMPLETED", shortLabel: "Ende", hint: "Turnier beendet" },
+];
+
+const FLOW_ROUND_ROBIN: PhaseFlowStep[] = [
+  { phaseKey: "GROUP", shortLabel: "Spiele", hint: "Jeder gegen Jeden" },
+  { phaseKey: "COMPLETED", shortLabel: "Ende", hint: "Turnier beendet" },
+];
+
+export const PHASE_FLOW_STEPS = FLOW_GROUP_KO;
+
+const KO_PHASES = new Set(["ROUND_OF_16", "QUARTER", "SEMI", "FINAL"]);
+
+export function phaseFlowForMode(mode: TournamentMode | undefined): PhaseFlowStep[]
+{
+  if (mode === "DIRECT_KO") return FLOW_DIRECT_KO;
+  if (mode === "ROUND_ROBIN") return FLOW_ROUND_ROBIN;
+  return FLOW_GROUP_KO;
+}
+
 export function phaseFlowIndexForTournamentPhase(
-  tournamentPhase: string | undefined
-): number 
+  tournamentPhase: string | undefined,
+  mode?: TournamentMode
+): number
 {
   const p = tournamentPhase ?? "GROUP";
-  const i = PHASE_FLOW_STEPS.findIndex((s) => s.phaseKey === p);
+  const flow = phaseFlowForMode(mode);
+  if (KO_PHASES.has(p))
+  {
+    const koIdx = flow.findIndex((s) => s.phaseKey === "KNOCKOUT");
+    if (koIdx >= 0) return koIdx;
+  }
+  const i = flow.findIndex((s) => s.phaseKey === p);
   return i >= 0 ? i : 0;
 }
 
@@ -26,7 +54,7 @@ export type PhaseStepState = "done" | "current" | "upcoming";
 export function phaseStepState(
   stepIndex: number,
   currentPhaseIndex: number
-): PhaseStepState 
+): PhaseStepState
 {
   if (stepIndex < currentPhaseIndex) return "done";
   if (stepIndex === currentPhaseIndex) return "current";

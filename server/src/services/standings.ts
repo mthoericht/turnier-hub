@@ -15,23 +15,38 @@ export type TeamStandingRow = {
   points: number;
 };
 
-function isMatchDecided(m: Match): boolean {
+/**
+ * Returns whether a match has a persisted and usable result.
+ */
+function isMatchDecided(m: Match): boolean
+{
   if (m.status === MatchStatus.CANCELLED) return false;
   return m.homeScore != null && m.awayScore != null;
 }
 
+/**
+ * Computes standings for a pool/group using decided group-phase matches.
+ *
+ * Sorting order:
+ * 1) points
+ * 2) goal difference
+ * 3) goals scored
+ * 4) team name
+ */
 export function computePoolStandings(
   teamIds: string[],
   teamsById: Map<string, TeamRef>,
   groupMatches: Match[]
-): TeamStandingRow[] {
+): TeamStandingRow[]
+{
   const idSet = new Set(teamIds);
   const stats = new Map<
     string,
     Omit<TeamStandingRow, "team" | "teamId"> & { teamId: string }
   >();
 
-  for (const tid of teamIds) {
+  for (const tid of teamIds)
+  {
     stats.set(tid, {
       teamId: tid,
       played: 0,
@@ -44,7 +59,8 @@ export function computePoolStandings(
     });
   }
 
-  for (const m of groupMatches) {
+  for (const m of groupMatches)
+  {
     if (m.phase !== MatchPhase.GROUP) continue;
     if (!m.homeTeamId || !m.awayTeamId) continue;
     if (!idSet.has(m.homeTeamId) || !idSet.has(m.awayTeamId)) continue;
@@ -63,15 +79,20 @@ export function computePoolStandings(
     a.goalsFor += as;
     a.goalsAgainst += hs;
 
-    if (hs > as) {
+    if (hs > as)
+    {
       h.wins += 1;
       h.points += 3;
       a.losses += 1;
-    } else if (as > hs) {
+    }
+    else if (as > hs)
+    {
       a.wins += 1;
       a.points += 3;
       h.losses += 1;
-    } else {
+    }
+    else
+    {
       h.draws += 1;
       a.draws += 1;
       h.points += 1;
@@ -79,14 +100,16 @@ export function computePoolStandings(
     }
   }
 
-  const rows: TeamStandingRow[] = teamIds.map((tid) => {
+  const rows: TeamStandingRow[] = teamIds.map((tid) =>
+  {
     const s = stats.get(tid)!;
     const team = teamsById.get(tid);
     if (!team) throw new Error(`Team ${tid} is missing`);
     return { ...s, teamId: tid, team };
   });
 
-  rows.sort((x, y) => {
+  rows.sort((x, y) =>
+  {
     if (y.points !== x.points) return y.points - x.points;
     const xgd = x.goalsFor - x.goalsAgainst;
     const ygd = y.goalsFor - y.goalsAgainst;
@@ -98,7 +121,11 @@ export function computePoolStandings(
   return rows;
 }
 
-export function winnerTeamId(m: Match): string | null {
+/**
+ * Returns the winning team id for a decided non-draw match.
+ */
+export function winnerTeamId(m: Match): string | null
+{
   if (m.homeScore == null || m.awayScore == null) return null;
   if (m.homeScore > m.awayScore) return m.homeTeamId;
   if (m.awayScore > m.homeScore) return m.awayTeamId;
@@ -106,27 +133,32 @@ export function winnerTeamId(m: Match): string | null {
 }
 
 /**
- * K.-o.-Fortschritt: Sieger nur aus gespeicherten, unterschiedlichen Torzahlen.
- * „Spiel beenden“ allein setzt nur den Status — ohne Speichern der Tore gibt es keinen Sieger.
+ * Resolves and validates the winner for a knockout match.
+ *
+ * The winner must come from persisted and non-draw scores.
  */
 export function requireKnockoutWinnerTeamId(
   m: Match,
   roundLabel: string
-): string {
-  if (m.homeScore == null || m.awayScore == null) {
+): string
+{
+  if (m.homeScore == null || m.awayScore == null)
+  {
     throw new Error(
       `${roundLabel}: Es fehlen gespeicherte Torzahlen. Beide Werte eintragen und „Speichern“ wählen — `
         + "„Spiel beenden“ beendet das Spiel nur, ermittelt aber keinen Sieger für die nächste Runde."
     );
   }
-  if (m.homeScore === m.awayScore) {
+  if (m.homeScore === m.awayScore)
+  {
     throw new Error(
       `${roundLabel}: Unentschieden — für die nächste Runde wird ein eindeutiger Sieger benötigt `
         + "(z. B. Ergebnis nach Verlängerung oder Elfmeterschießen als Tore)."
     );
   }
   const w = winnerTeamId(m);
-  if (!w) {
+  if (!w)
+  {
     throw new Error(`${roundLabel}: Sieger konnte nicht ermittelt werden`);
   }
   return w;
