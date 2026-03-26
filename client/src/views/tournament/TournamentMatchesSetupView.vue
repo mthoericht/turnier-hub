@@ -52,6 +52,21 @@ const hasFinalMatches = computed(() =>
   matchesByPhase.value.some((b) => b.phase === "FINAL" && b.matches.length > 0)
 );
 
+const currentTournamentPhase = computed(
+  () => tournament.value?.phase ?? "GROUP"
+);
+
+const isR16Current = computed(
+  () => currentTournamentPhase.value === "ROUND_OF_16"
+);
+const isQuarterCurrent = computed(
+  () => currentTournamentPhase.value === "QUARTER"
+);
+const isSemiCurrent = computed(() => currentTournamentPhase.value === "SEMI");
+const isFinalCurrent = computed(
+  () => currentTournamentPhase.value === "FINAL"
+);
+
 const hasAnyKoMatches = computed(() =>
   hasR16Matches.value || hasQuarterMatches.value || hasSemiMatches.value || hasFinalMatches.value
 );
@@ -78,11 +93,31 @@ const groupQualifierSlots = computed(() =>
 const r16MatchCount = computed(() =>
   matchesByPhase.value.find((b) => b.phase === "ROUND_OF_16")?.matches.length ?? 0
 );
+const r16HasScores = computed(() =>
+  matchesByPhase.value
+    .find((b) => b.phase === "ROUND_OF_16")
+    ?.matches.some((m) => m.homeScore != null || m.awayScore != null) ?? false
+);
 const quarterMatchCount = computed(() =>
   matchesByPhase.value.find((b) => b.phase === "QUARTER")?.matches.length ?? 0
 );
+const quarterHasScores = computed(() =>
+  matchesByPhase.value
+    .find((b) => b.phase === "QUARTER")
+    ?.matches.some((m) => m.homeScore != null || m.awayScore != null) ?? false
+);
 const semiMatchCount = computed(() =>
   matchesByPhase.value.find((b) => b.phase === "SEMI")?.matches.length ?? 0
+);
+const semiHasScores = computed(() =>
+  matchesByPhase.value
+    .find((b) => b.phase === "SEMI")
+    ?.matches.some((m) => m.homeScore != null || m.awayScore != null) ?? false
+);
+const finalHasScores = computed(() =>
+  matchesByPhase.value
+    .find((b) => b.phase === "FINAL")
+    ?.matches.some((m) => m.homeScore != null || m.awayScore != null) ?? false
 );
 
 const participantsForQuarter = computed(() =>
@@ -96,17 +131,23 @@ const participantsForFinal = computed(() =>
 );
 
 const canCreateR16 = computed(() =>
-  !hasR16Matches.value && !hasQuarterMatches.value && !hasSemiMatches.value && !hasFinalMatches.value
-  && groupQualifierSlots.value >= 16
+  !hasQuarterMatches.value
+  && !hasSemiMatches.value
+  && !hasFinalMatches.value
+  && (isR16Current.value
+    || (!hasR16Matches.value && groupQualifierSlots.value >= 16))
 );
 const canCreateQuarter = computed(() =>
-  !hasQuarterMatches.value && participantsForQuarter.value >= 8
+  isQuarterCurrent.value
+  || (!hasQuarterMatches.value && participantsForQuarter.value >= 8)
 );
 const canCreateSemi = computed(() =>
-  !hasSemiMatches.value && participantsForSemi.value >= 4
+  isSemiCurrent.value
+  || (!hasSemiMatches.value && participantsForSemi.value >= 4)
 );
 const canCreateFinal = computed(() =>
-  !hasFinalMatches.value && participantsForFinal.value >= 2
+  isFinalCurrent.value
+  || (!hasFinalMatches.value && participantsForFinal.value >= 2)
 );
 
 const hasAnyMatches = computed(() =>
@@ -251,6 +292,13 @@ async function generateGroupWithCurrentSettings(): Promise<void>
             >
               <span class="font-medium">Achtelfinale</span>
               <span class="block text-xs opacity-90">16 Mannschaften</span>
+              <span
+                v-if="hasR16Matches && isR16Current"
+                class="block text-[11px] opacity-85"
+              >
+                Bereits erzeugt
+                <span v-if="r16HasScores"> (Punkte vergeben)</span>
+              </span>
             </button>
             <button
               v-if="canCreateQuarter"
@@ -260,6 +308,13 @@ async function generateGroupWithCurrentSettings(): Promise<void>
             >
               <span class="font-medium">Viertelfinale</span>
               <span class="block text-xs opacity-90">8 Mannschaften</span>
+              <span
+                v-if="hasQuarterMatches && isQuarterCurrent"
+                class="block text-[11px] opacity-85"
+              >
+                Bereits erzeugt
+                <span v-if="quarterHasScores"> (Punkte vergeben)</span>
+              </span>
             </button>
             <button
               v-if="canCreateSemi"
@@ -269,6 +324,13 @@ async function generateGroupWithCurrentSettings(): Promise<void>
             >
               <span class="font-medium">Halbfinale</span>
               <span class="block text-xs opacity-90">4 Mannschaften</span>
+              <span
+                v-if="hasSemiMatches && isSemiCurrent"
+                class="block text-[11px] opacity-85"
+              >
+                Bereits erzeugt
+                <span v-if="semiHasScores"> (Punkte vergeben)</span>
+              </span>
             </button>
             <button
               v-if="canCreateFinal"
@@ -278,6 +340,13 @@ async function generateGroupWithCurrentSettings(): Promise<void>
             >
               <span class="font-medium">Finale</span>
               <span class="block text-xs opacity-90">2 Mannschaften</span>
+              <span
+                v-if="hasFinalMatches && isFinalCurrent"
+                class="block text-[11px] opacity-85"
+              >
+                Bereits erzeugt
+                <span v-if="finalHasScores"> (Punkte vergeben)</span>
+              </span>
             </button>
           </div>
 

@@ -85,7 +85,9 @@ export function useTournamentLayoutState(
   const standings = ref<Record<string, unknown> | null>(null);
   const scoreDraft = ref<ScoreDraftMap>({});
 
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let pollTimeout: ReturnType<typeof setTimeout> | null = null;
+  let pollDisposed = false;
+  let pollInFlight = false;
 
   async function load(): Promise<void> 
   {
@@ -164,14 +166,51 @@ export function useTournamentLayoutState(
       : []
   );
 
-  function setupPoll(): void 
+  function pollDelayMs(): number
   {
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(() => 
+    const t = tournament.value;
+    if (t?.matches.some((m) => m.status === "LIVE")) return 1000;
+    // Non-LIVE: 3-5s backoff with light jitter.
+    return 3000 + Math.floor(Math.random() * 2001);
+  }
+
+  function schedulePoll(): void
+  {
+    if (pollTimeout) clearTimeout(pollTimeout);
+    pollTimeout = setTimeout(() =>
     {
-      const t = tournament.value;
-      if (t?.matches.some(matchNeedsTimerPoll)) void load();
-    }, 1000);
+      if (pollDisposed) return;
+      void pollOnce();
+    }, pollDelayMs());
+  }
+
+  async function pollOnce(): Promise<void>
+  {
+    if (pollDisposed) return;
+    const t = tournament.value;
+    if (t?.matches.some(matchNeedsTimerPoll))
+    {
+      // Avoid overlapping `load()` calls when network is slow.
+      if (!pollInFlight)
+      {
+        pollInFlight = true;
+        try
+        {
+          await load();
+        }
+        finally
+        {
+          pollInFlight = false;
+        }
+      }
+    }
+    if (!pollDisposed) schedulePoll();
+  }
+
+  function setupPoll(): void
+  {
+    pollDisposed = false;
+    schedulePoll();
   }
 
   watch(tournamentId, () => 
@@ -191,7 +230,8 @@ export function useTournamentLayoutState(
 
   onUnmounted(() => 
   {
-    if (pollTimer) clearInterval(pollTimer);
+    pollDisposed = true;
+    if (pollTimeout) clearTimeout(pollTimeout);
   });
 
   async function createTeam(): Promise<void> 
@@ -440,16 +480,46 @@ export function useTournamentLayoutState(
     {
       if (!confirm("Turnier als abgeschlossen markieren?")) return;
     }
-    else if (
-      t
-      && advanceTargetRisksDataLoss(t.matches, target, t.phase)
-      && !confirm(
+    else if (t)
+    {
+      const targetMatches = t.matches.filter((m) => m.phase === target);
+      const alreadyGenerated = targetMatches.length > 0;
+      const pointsGiven = targetMatches.some(
+        (m) => m.homeScore != null || m.awayScore != null
+      );
+
+      const risks = advanceTargetRisksDataLoss(t.matches, target, t.phase);
+      if (alreadyGenerated)
+      {
+        if (risks)
+        {
+          const label = formatPhaseLabel(target);
+          const msg = pointsGiven
+            ? `Die K.-o.-Runde ${label} wurde bereits erzeugt und es wurden bereits Punkte vergeben. `
+              + "Dabei werden bestehende Ergebnisse/Spielstände in dieser und allen folgenden K.-o.-Runden gelöscht oder überschrieben. "
+              + "Fortfahren?"
+            : `Die K.-o.-Runde ${label} wurde bereits erzeugt. `
+              + "Dabei werden diese und alle folgenden K.-o.-Runden gelöscht und neu generiert. "
+              + "Fortfahren?";
+          if (!confirm(msg)) return;
+        }
+        else
+        {
+          const label = formatPhaseLabel(target);
+          toast.showInfo(
+            pointsGiven
+              ? `Die K.-o.-Runde ${label} wurde bereits erzeugt und Punkte wurden vergeben.`
+              : `Die K.-o.-Runde ${label} wurde bereits erzeugt und wird neu generiert.`
+          );
+        }
+      }
+      else if (risks && !confirm(
         "Es gibt bereits Ergebnisse oder Spielstände in K.-o.-Runden, die dabei "
           + "gelöscht oder überschrieben werden. Fortfahren?"
-      )
-    )
-    {
-      return;
+      ))
+      {
+        return;
+      }
     }
     try
     {
