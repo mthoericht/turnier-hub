@@ -28,6 +28,7 @@ import {
   formatMatchStatusLabel,
   formatPhaseLabel,
 } from "@/tournament/tournamentFormat";
+import { buildKnockoutAdvancePrompt } from "@/tournament/knockoutAdvancePrompt";
 import type {
   TournamentDetail,
   TournamentLayoutContext,
@@ -489,36 +490,22 @@ export function useTournamentLayoutState(
       );
 
       const risks = advanceTargetRisksDataLoss(t.matches, target, t.phase);
-      if (alreadyGenerated)
+
+      const phaseLabel = formatPhaseLabel(target);
+      const prompt = buildKnockoutAdvancePrompt({
+        phaseLabel,
+        alreadyGenerated,
+        pointsGiven,
+        risks,
+      });
+
+      if (prompt?.kind === "confirm")
       {
-        if (risks)
-        {
-          const label = formatPhaseLabel(target);
-          const msg = pointsGiven
-            ? `Die K.-o.-Runde ${label} wurde bereits erzeugt und es wurden bereits Punkte vergeben. `
-              + "Dabei werden bestehende Ergebnisse/Spielstände in dieser und allen folgenden K.-o.-Runden gelöscht oder überschrieben. "
-              + "Fortfahren?"
-            : `Die K.-o.-Runde ${label} wurde bereits erzeugt. `
-              + "Dabei werden diese und alle folgenden K.-o.-Runden gelöscht und neu generiert. "
-              + "Fortfahren?";
-          if (!confirm(msg)) return;
-        }
-        else
-        {
-          const label = formatPhaseLabel(target);
-          toast.showInfo(
-            pointsGiven
-              ? `Die K.-o.-Runde ${label} wurde bereits erzeugt und Punkte wurden vergeben.`
-              : `Die K.-o.-Runde ${label} wurde bereits erzeugt und wird neu generiert.`
-          );
-        }
+        if (!confirm(prompt.message)) return;
       }
-      else if (risks && !confirm(
-        "Es gibt bereits Ergebnisse oder Spielstände in K.-o.-Runden, die dabei "
-          + "gelöscht oder überschrieben werden. Fortfahren?"
-      ))
+      else if (prompt?.kind === "toastInfo")
       {
-        return;
+        toast.showInfo(prompt.message);
       }
     }
     try

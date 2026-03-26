@@ -6,6 +6,7 @@ export default defineConfig({
     environment: "node",
     include: ["../tests/client/**/*.test.ts"],
     globals: true,
+    maxWorkers: 1,
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },

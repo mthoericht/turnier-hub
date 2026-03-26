@@ -6,7 +6,9 @@ import {
   SEED_EMAIL,
   SEED_PASSWORD,
 } from "../../../server/src/seed/demoSeed.js";
-import { postAuthLogin } from "../../../client/src/api/authApi";
+import {
+  postAuthLogin,
+} from "../../../client/src/api/authApi";
 import {
   addTeamMember,
   createTournamentTeam,
