@@ -374,8 +374,8 @@ export function useTournamentLayoutState(
       && groupRegenerateRisksDataLoss(t.matches)
       && !confirm(
         "Es gibt bereits Ergebnisse, laufende oder beendete Spiele. "
-          + "Wenn du die Gruppenspiele neu erzeugst, werden alle Gruppenspiele "
-          + "und ihre Ergebnisse gelöscht. Fortfahren?"
+          + "Wenn du die Gruppenspiele neu erzeugst, werden alle Spiele "
+          + "(inkl. K.-o.) und ihre Ergebnisse gelöscht. Fortfahren?"
       )
     )
     {

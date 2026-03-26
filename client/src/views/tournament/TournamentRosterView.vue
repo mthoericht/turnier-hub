@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch } from "vue";
-import TournamentAddParticipantSection from "@/components/tournament/TournamentAddParticipantSection.vue";
+import TournamentAddMemberSection from "@/components/tournament/TournamentAddMemberSection.vue";
 import { tournamentLayoutKey, type TournamentTeam } from "@/tournament/tournamentContext";
 import { formatCreator } from "@/types";
 import { fetchTournaments, type TournamentListRow } from "@/api/tournamentsApi";
@@ -141,11 +141,6 @@ async function addIndividualAsTeam(): Promise<void>
   addPlayerId.value = "";
 }
 
-function playerLabel(name: string, schoolClassName: string | null): string
-{
-  return `${name}${schoolClassName ? ` (${schoolClassName})` : ""}`;
-}
-
 const addMemberGroupOptions = computed(() =>
 {
   if (!tournament.value) return [];
@@ -261,7 +256,7 @@ async function promptRenameTeam(team: TournamentTeam): Promise<void>
       </div>
 
       <template v-if="isIndividuals && canEdit">
-        <TournamentAddParticipantSection
+        <TournamentAddMemberSection
           :available-players="availablePlayers"
           :selected-class-id="selectedClassId"
           :selected-player-id="addPlayerId"
@@ -292,6 +287,30 @@ async function promptRenameTeam(team: TournamentTeam): Promise<void>
             Mannschaft anlegen
           </button>
         </div>
+      </template>
+
+      <template v-if="!isIndividuals">
+        <TournamentAddMemberSection
+          v-if="canEdit"
+          mode="member"
+          :has-groups="hasGroups"
+          :group-options="addMemberGroupOptions"
+          :selectable-teams="addMemberSelectableTeams"
+          :available-players="availablePlayers"
+          :selected-class-id="selectedClassId"
+          :selected-group-label="selectedAddGroupLabel"
+          :selected-team-id="addMemberTeamId"
+          :selected-player-id="addPlayerId"
+          :field-class="fieldClass"
+          @update:selected-class-id="selectedClassId = $event"
+          @update:selected-group-label="selectedAddGroupLabel = $event"
+          @update:selected-team-id="addMemberTeamId = $event"
+          @update:selected-player-id="addPlayerId = $event"
+          @add="addMember"
+        />
+        <p v-else class="text-sm text-slate-500 dark:text-slate-500">
+          Mannschaften siehst du unten; bearbeiten nur als Ersteller.
+        </p>
       </template>
 
       <!-- Gruppen-Ansicht: Teams nach Gruppen gegliedert -->
@@ -485,72 +504,6 @@ async function promptRenameTeam(team: TournamentTeam): Promise<void>
       >
         {{ isIndividuals ? "Noch keine Teilnehmer hinzugefügt." : "Noch keine Mannschaft angelegt." }}
       </p>
-
-      <template v-if="!isIndividuals">
-        <h3
-          class="border-t border-slate-200 pt-4 font-display font-semibold text-base text-slate-900 dark:border-slate-800 dark:text-white"
-        >
-          Spieler zur Mannschaft hinzufügen
-        </h3>
-        <div
-          v-if="canEdit"
-          class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
-        >
-          <div
-            v-if="hasGroups && addMemberGroupOptions.length > 0"
-            class="min-w-0 flex-1 sm:max-w-xs"
-          >
-            <label class="mb-1 block text-xs text-slate-600 dark:text-slate-500"
-              >Gruppe</label
-            >
-            <select v-model="selectedAddGroupLabel" :class="fieldClass">
-              <option value="">Alle Gruppen</option>
-              <option v-for="g in addMemberGroupOptions" :key="g" :value="g">
-                Gruppe {{ g }}
-              </option>
-            </select>
-          </div>
-          <div class="min-w-0 flex-1 sm:max-w-xs">
-            <label class="mb-1 block text-xs text-slate-600 dark:text-slate-500"
-              >Mannschaft</label
-            >
-            <select
-              v-model="addMemberTeamId"
-              :disabled="addMemberSelectableTeams.length === 0"
-              :class="fieldClass"
-            >
-              <option value="" disabled>Wählen …</option>
-              <option v-for="t in addMemberSelectableTeams" :key="t.id" :value="t.id">
-                {{ t.name }}
-              </option>
-            </select>
-          </div>
-          <div class="min-w-0 flex-1 sm:max-w-md">
-            <label class="mb-1 block text-xs text-slate-600 dark:text-slate-500"
-              >Spieler</label
-            >
-            <select v-model="addPlayerId" :class="fieldClass">
-              <option value="">— wählen —</option>
-              <option v-for="p in availablePlayers" :key="p.id" :value="p.id">
-                {{ playerLabel(p.name, p.schoolClass?.name ?? null) }}
-              </option>
-            </select>
-          </div>
-          <button
-            type="button"
-            class="min-h-[48px] rounded-lg bg-blue-600 px-4 py-3 text-base font-medium text-white hover:bg-blue-600/90 disabled:opacity-50 sm:min-h-0 sm:py-2 sm:text-sm"
-            :disabled="
-              !addMemberTeamId || !addPlayerId || addMemberSelectableTeams.length === 0
-            "
-            @click="addMember"
-          >
-            Hinzufügen
-          </button>
-        </div>
-        <p v-else class="text-sm text-slate-500 dark:text-slate-500">
-          Mannschaften siehst du oben; bearbeiten nur als Ersteller.
-        </p>
-      </template>
     </section>
   </div>
 </template>

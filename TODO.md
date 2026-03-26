@@ -30,19 +30,34 @@ Alle Punkte sind implementiert.
 - [x] Gruppenanzahl in „1. Gruppenspiele“ direkt neben „Gruppenspiele erzeugen“
 - [x] „Weiterkommen pro Gruppe“ separat speicherbar („Einstellungen speichern“)
 - [x] Mannschaften ohne Spieler bei Gruppengenerierung ignorieren
+- [x] Beim Erzeugen von Gruppenspielen bestehende K.O.-Spiele mit entfernen
+- [x] Gefahrenzone-Buttontext: „Alle Spiele und Gruppen löschen“
+- [x] Top-Level Navigation: „Spielbetrieb“ neben „Spiele“, Unter-Navigation entfernt
 
 ## Seed-Daten
-- [x] Drei Demo-Turniere (GROUP_KO, DIRECT_KO, ROUND_ROBIN)
+- [x] Vier Demo-Turniere (GROUP_KO, DIRECT_KO, DIRECT_KO mit 15 Teams, ROUND_ROBIN)
 - [x] 12 Spieler, Demo-Schulklassen
 
 ## Tests & Infrastruktur
 - [x] Vitest für Server (Unit + Integration gegen Test-DB)
 - [x] Vitest für Client (Unit + client-API Integration)
 - [x] Tests zentral unter `tests/` (server/client) organisiert
+- [x] Tournament-Routes in eigenes Verzeichnis modularisiert (`server/src/routes/tournaments/` mit `index/core/teams/matches/standings-advance/shared`)
 - [x] Seed-Fixtures in wiederverwendbares Modul ausgelagert (`server/src/seed/demoSeed.ts`)
 - [x] Client-TSConfig aufgeräumt (`tsconfig.base.json`), `*.tsbuildinfo` aus Git entfernt/ignoriert
 - [x] Client-Integrationstests beschleunigt (minimales Test-Seeding pro Test statt vollständigem Demo-Seed)
+- [x] Unit-Tests für zentrale K.O.-Hilfslogik ergänzt (`randomizeTeamIds`, `interleavedPairings`)
 
 ## UX-Verbesserungen
 - [x] Gruppennamen im Kader umbenennbar
 - [x] Mannschaftsnamen im Kader umbenennbar
+- [x] Exakte K.O.-Phase in „Phasen“ anzeigen (Achtel/Viertel/Halb/Finale statt nur „K.O.“)
+- [x] „Spieler zur Mannschaft hinzufügen“ über Teamliste platziert und als Komponente ausgelagert
+- [x] AddMember/AddParticipant in eine gemeinsame `TournamentAddMemberSection` zusammengeführt
+
+## Phase-Automation
+- [x] Nach beendetem Finale automatisch auf Turnierphase „Ende“ (`COMPLETED`) wechseln
+
+## K.O.-Losung & Freilose
+- [x] K.O.-Paarungen zufällig generieren (Direct-KO und Advance aus Qualifikanten)
+- [x] Freilos-Spiele bei Generierung direkt als „beendet“ (`FINISHED`) markieren

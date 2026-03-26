@@ -8,10 +8,62 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - **Users:** Each account has a **username** (unique, normalized) and email. **Players** and **tournaments** belong to that user.
 - **Classes:** CRUD for **school classes** (names unique per user); players optionally belong to one class. Routes `/classes` (API `/api/classes`).
 - **Players:** CRUD for players; optional class is chosen from your managed classes. Scoped list views (all vs. own) like tournaments.
-- **Tournaments:** Create tournaments with one of three **modes**: **Group → K.O.** (classic group stage feeding knockout rounds), **Direct K.O.** (knockout only, supports arbitrary team counts with byes), or **Round-Robin** (everyone vs everyone, no knockout). Optionally mark **teams as individuals** (e.g. Badminton — players become teams directly). In **Spielbetrieb**, Group → K.O. lets you set **group count** directly next to "Gruppenspiele erzeugen" and save **advancers per group** separately via "Einstellungen speichern". Add **teams**, assign players to **team rosters** (optionally transfer rosters from another tournament in the **Mannschaften** tab), generate **group / round-robin matches** (organized in parallel rounds), view **standings** (per group when applicable), then advance through **round of 16 → quarter → semi → final** with pairings computed on the server; scoped to the signed-in user. Group generation ignores teams without members. Group and team names are editable in the roster UI. All matches can be **deleted at once** via "Alle Spiele löschen" in Spielbetrieb. The tournament UI uses tabs **Mannschaften** then **Spiele** (default `/tournaments/:id` opens **Mannschaften**). Under **Spiele**, the German labels **Übersicht** and **Spielbetrieb** map to routes `tournament-matches-overview` and `tournament-matches-setup` (paths `/tournaments/:id/matches` and `/tournaments/:id/matches/setup`).
-- **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. While a match timer is running, periodic reloads **merge** the score draft with the server so unsaved typing is not wiped. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
+- **Tournaments:** Create tournaments with one of three **modes**: **Group → K.O.** (classic group stage feeding knockout rounds), **Direct K.O.** (knockout only, supports arbitrary team counts with byes), or **Round-Robin** (everyone vs everyone, no knockout). Optionally mark **teams as individuals** (e.g. Badminton — players become teams directly). In **Spielbetrieb**, Group → K.O. lets you set **group count** directly next to "Gruppenspiele erzeugen" and save **advancers per group** separately via "Einstellungen speichern". Add **teams**, assign players to **team rosters** (optionally transfer rosters from another tournament in the **Mannschaften** tab), generate **group / round-robin matches** (organized in parallel rounds), view **standings** (per group when applicable), then advance through **round of 16 → quarter → semi → final** with pairings computed on the server; scoped to the signed-in user. K.O. pairings are randomized when generated. Group generation ignores teams without members and regenerating group matches removes existing knockout matches. Group and team names are editable in the roster UI. All matches can be **deleted at once** via "Alle Spiele und Gruppen löschen" in Spielbetrieb. The tournament UI uses top tabs **Mannschaften**, **Spiele**, and (for owners) **Spielbetrieb**.
+- **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. When the final is finished, the tournament phase is automatically set to **Ende** (`COMPLETED`). Matches with a **Freilos** are created directly as **beendet** (`FINISHED`). While a match timer is running, periodic reloads **merge** the score draft with the server so unsaved typing is not wiped. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
 - **Feedback:** **Toasts** (global, bottom of the screen) surface validation hints and API errors for tournament actions (for example advance rules or save issues).
 - **UI:** Vue front end with **light and dark** themes (persisted), **responsive** layout including a mobile navigation menu.
+
+### Knockout bracket, phase flow, randomness
+
+- **Bracket (Turnierbaum):** In this project, "bracket" means the K.O. tournament tree (who plays whom and which winner advances to the next round).
+- **Phase flows:** Group+KO and Direct-KO display concrete KO phases (`ROUND_OF_16` -> `QUARTER` -> `SEMI` -> `FINAL` -> `COMPLETED`) depending on team count and current state; Round-Robin uses `GROUP` (match operation phase) -> `COMPLETED`.
+- **Randomness:** KO pairings are intentionally randomized during KO generation (direct KO) and during advancement from qualifiers; byes (`Freilos`) are handled automatically and created as finished matches.
+
+## How To Use (Typical Workflow)
+
+1. **Sign up / log in**
+   - Use the invite code configured on the server.
+   - After login, your JWT is stored in `localStorage` and sent to `/api/*` routes.
+
+2. **Prepare master data**
+   - In **Classes**, create school classes (optional but recommended).
+   - In **Players**, create participants and optionally link each player to a class.
+
+3. **Create a tournament**
+   - Choose mode:
+     - **Group -> K.O.** for group stage + playoffs,
+     - **Direct K.O.** for immediate bracket play,
+     - **Round-Robin** for everyone vs everyone.
+   - Optional: enable **teams as individuals** when each player should act as a team.
+
+4. **Set up teams in `Mannschaften`**
+   - Add teams (or participants in individual mode).
+   - Add/remove roster members per team.
+   - Rename team names and group labels directly in the roster UI.
+   - Optional: transfer roster structure from another tournament.
+
+5. **Run match generation in `Spielbetrieb`**
+   - **Group -> K.O.:** set `groupCount` next to "Gruppenspiele erzeugen", then generate groups.
+   - Save `advancesPerGroup` separately with "Einstellungen speichern".
+   - **Direct K.O.:** generate the initial knockout round.
+   - **Round-Robin:** generate league matches.
+   - Safety behavior:
+     - regenerating group matches clears existing KO matches,
+     - teams without members are excluded from group generation,
+     - byes are created as already `FINISHED`.
+
+6. **Operate matches in `Spiele`**
+   - Use timer controls: start, pause, resume, end, cancel.
+   - Enter and save **both** scores (`homeScore` + `awayScore`) to persist valid results.
+   - Standings update from persisted match data; unsaved score drafts are preserved during refreshes.
+
+7. **Advance phases**
+   - Trigger next phase from Spielbetrieb (as allowed by current state).
+   - KO pairings are randomized by server logic.
+   - If final match(es) are finished, tournament phase auto-switches to `COMPLETED`.
+
+8. **Reset when needed**
+   - Use "Alle Spiele und Gruppen löschen" in the danger zone to remove all matches and reset phase context.
 
 ## Tech Stack
 
@@ -60,7 +112,7 @@ The SQLite file lives under `data/` (for example `data/dev.db`). Database files 
 
    If `db:push` fails because of existing rows (e.g. after a breaking schema change), reset the **local** SQLite file (this deletes all data), then push and seed again — for example delete `data/dev.db` or use `npx prisma db push --force-reset` from `server/` (development only).
 
-   The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`), twelve players, shared demo **school classes**, and three demo tournaments covering each mode: **"Demo: Fußball Schulcup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), and **"Demo: Badminton Jeder gegen Jeden"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
+  The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`), twelve players, shared demo **school classes**, and four demo tournaments: **"Demo: Fußball Schulcup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), **"Demo: Direkt K.O. mit 15 Mannschaften"** (Direct K.O., 15 teams), and **"Demo: Badminton Jeder gegen Jeden"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
 
 3.1. **Wipe demo data (dev/test) without deleting users**
 
@@ -186,6 +238,8 @@ turnier-hub/
 │   ├── prisma/
 │   ├── scripts/
 │   └── src/
+│       └── routes/
+│           └── tournaments/   # Modular tournament routes (index/core/teams/matches/standings-advance/shared)
 ├── data/                      # SQLite files (created locally; .gitignored)
 └── package.json               # npm workspaces + shared scripts
 ```

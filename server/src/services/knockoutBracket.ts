@@ -7,6 +7,39 @@ export type KoBracketMatch = {
   awayTeamId: string | null;
 };
 
+function shuffledTeamIds(teamIds: string[]): string[]
+{
+  const arr = [...teamIds];
+  for (let i = arr.length - 1; i > 0; i--)
+  {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+  }
+  return arr;
+}
+
+/**
+ * Returns a shuffled copy using Fisher-Yates.
+ */
+export function randomizeTeamIds(teamIds: string[]): string[]
+{
+  return shuffledTeamIds(teamIds);
+}
+
+/**
+ * Produces knockout pairings by matching top-vs-bottom in ordered team ids.
+ */
+export function interleavedPairings(ordered: string[]): [string, string][]
+{
+  const pairs: [string, string][] = [];
+  const half = ordered.length / 2;
+  for (let i = 0; i < half; i++)
+  {
+    pairs.push([ordered[i]!, ordered[ordered.length - 1 - i]!]);
+  }
+  return pairs;
+}
+
 /**
  * Returns the next power of two greater than or equal to `n`.
  */
@@ -53,7 +86,8 @@ export function generateKoBracketFirstRound(
   seededTeamIds: string[]
 ): { phase: MatchPhase; tournamentPhase: TournamentPhase; matches: KoBracketMatch[] }
 {
-  const n = seededTeamIds.length;
+  const randomizedTeamIds = shuffledTeamIds(seededTeamIds);
+  const n = randomizedTeamIds.length;
   if (n < 2) throw new Error("Mindestens 2 Mannschaften für K.O. benötigt");
 
   const bracketSize = nextPowerOf2(n);
@@ -65,7 +99,7 @@ export function generateKoBracketFirstRound(
   const slots: (string | null)[] = new Array(bracketSize).fill(null);
   for (let i = 0; i < n; i++)
   {
-    slots[i] = seededTeamIds[i]!;
+    slots[i] = randomizedTeamIds[i]!;
   }
 
   const matches: KoBracketMatch[] = [];

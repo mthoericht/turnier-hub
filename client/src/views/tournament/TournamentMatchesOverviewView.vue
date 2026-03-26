@@ -2,10 +2,10 @@
 import { computed, inject, ref } from "vue";
 import TournamentMatchCard from "@/components/tournament/TournamentMatchCard.vue";
 import TournamentPhaseStepper from "@/components/tournament/TournamentPhaseStepper.vue";
+import TournamentStandingsTable from "@/components/tournament/TournamentStandingsTable.vue";
 import {
   tournamentLayoutKey,
   type MatchPhase,
-  type StandingTeamRow,
 } from "@/tournament/tournamentContext";
 import { useTournamentPhaseStepper } from "@/tournament/useTournamentPhaseStepper";
 
@@ -92,6 +92,11 @@ const groupTabLabel = computed(() =>
   mode.value === "ROUND_ROBIN" ? "Jeder gegen Jeden" : "Gruppenspiele"
 );
 
+const showStandingsTable = computed(() =>
+  hasGroupMatches.value
+  && (activeMatchesTab.value === "overview" || activeMatchesTab.value === "group")
+);
+
 const groupMatchesByRound = computed(() =>
 {
   const groupBlock = matchesByPhase.value.find((b) => b.phase === "GROUP");
@@ -150,7 +155,7 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
           ]"
           @click="activeMatchesTab = 'r16'"
         >
-          Achtelfinale
+          {{ formatPhaseLabel("ROUND_OF_16") }}
         </button>
         <button
           v-if="hasQuarterMatches"
@@ -206,70 +211,11 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
       </div>
     </div>
 
-    <section
-      v-if="(activeMatchesTab === 'overview' || activeMatchesTab === 'group') && Object.keys(standingsGroups).length"
-      :class="[cardClass, 'space-y-4']"
-    >
-      <h2
-        class="font-display font-semibold text-lg text-slate-900 dark:text-white"
-      >
-        Tabelle
-      </h2>
-      <div
-        v-for="(rows, poolName) in standingsGroups"
-        :key="poolName"
-        class="-mx-1 overflow-x-auto px-1 sm:mx-0 sm:px-0"
-      >
-        <h3
-          v-if="Object.keys(standingsGroups).length > 1"
-          class="mb-2 text-sm font-medium text-blue-800 dark:text-blue-100"
-        >
-          {{ poolName }}
-        </h3>
-        <table
-          class="w-full min-w-[18rem] text-left text-sm text-slate-900 dark:text-slate-100"
-        >
-          <thead>
-            <tr
-              class="border-b border-slate-200 text-slate-600 dark:border-slate-800 dark:text-slate-500"
-            >
-              <th class="py-2 pr-4">#</th>
-              <th class="py-2 pr-4">Mannschaft</th>
-              <th class="py-2 pr-2">Sp</th>
-              <th class="py-2 pr-2">S</th>
-              <th class="py-2 pr-2">U</th>
-              <th class="py-2 pr-2">N</th>
-              <th class="py-2 pr-2">Tore</th>
-              <th class="py-2">Pkt</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="(row, idx) in rows as StandingTeamRow[]"
-              :key="row.team.id"
-              class="border-b border-slate-200/90 dark:border-slate-800/80"
-            >
-              <td class="py-2 pr-4 text-slate-500 dark:text-slate-500">
-                {{ idx + 1 }}
-              </td>
-              <td class="py-2 pr-4 font-medium text-slate-900 dark:text-white">
-                {{ row.team.name }}
-              </td>
-              <td class="py-2 pr-2">{{ row.played }}</td>
-              <td class="py-2 pr-2">{{ row.wins }}</td>
-              <td class="py-2 pr-2">{{ row.draws }}</td>
-              <td class="py-2 pr-2">{{ row.losses }}</td>
-              <td class="py-2 pr-2">{{ row.goalsFor }}:{{ row.goalsAgainst }}</td>
-              <td
-                class="py-2 font-medium text-blue-800 dark:text-blue-100"
-              >
-                {{ row.points }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <TournamentStandingsTable
+      v-if="showStandingsTable"
+      :standings-groups="standingsGroups"
+      :card-class="cardClass"
+    />
 
     <template v-if="groupMatchesByRound && (activeMatchesTab === 'overview' || activeMatchesTab === 'group')">
       <section

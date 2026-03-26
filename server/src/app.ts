@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import authRouter from "./routes/auth.js";
 import classesRouter from "./routes/classes.js";
 import playersRouter from "./routes/players.js";
-import tournamentsRouter from "./routes/tournaments.js";
+import tournamentsRouter from "./routes/tournaments/index.js";
 
 export function createApp()
 {

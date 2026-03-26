@@ -8,12 +8,18 @@ export type PhaseFlowStep = {
 
 const FLOW_GROUP_KO: PhaseFlowStep[] = [
   { phaseKey: "GROUP", shortLabel: "Gruppen", hint: "Gruppenspiele" },
-  { phaseKey: "KNOCKOUT", shortLabel: "K.O.", hint: "K.O.-Phase" },
+  { phaseKey: "ROUND_OF_16", shortLabel: "Achtel", hint: "Achtelfinale" },
+  { phaseKey: "QUARTER", shortLabel: "Viertel", hint: "Viertelfinale" },
+  { phaseKey: "SEMI", shortLabel: "Halb", hint: "Halbfinale" },
+  { phaseKey: "FINAL", shortLabel: "Finale", hint: "Finale" },
   { phaseKey: "COMPLETED", shortLabel: "Ende", hint: "Turnier beendet" },
 ];
 
 const FLOW_DIRECT_KO: PhaseFlowStep[] = [
-  { phaseKey: "KNOCKOUT", shortLabel: "K.O.", hint: "K.O.-Phase" },
+  { phaseKey: "ROUND_OF_16", shortLabel: "Achtel", hint: "Achtelfinale" },
+  { phaseKey: "QUARTER", shortLabel: "Viertel", hint: "Viertelfinale" },
+  { phaseKey: "SEMI", shortLabel: "Halb", hint: "Halbfinale" },
+  { phaseKey: "FINAL", shortLabel: "Finale", hint: "Finale" },
   { phaseKey: "COMPLETED", shortLabel: "Ende", hint: "Turnier beendet" },
 ];
 
@@ -23,8 +29,6 @@ const FLOW_ROUND_ROBIN: PhaseFlowStep[] = [
 ];
 
 export const PHASE_FLOW_STEPS = FLOW_GROUP_KO;
-
-const KO_PHASES = new Set(["ROUND_OF_16", "QUARTER", "SEMI", "FINAL"]);
 
 export function phaseFlowForMode(mode: TournamentMode | undefined): PhaseFlowStep[]
 {
@@ -40,11 +44,6 @@ export function phaseFlowIndexForTournamentPhase(
 {
   const p = tournamentPhase ?? "GROUP";
   const flow = phaseFlowForMode(mode);
-  if (KO_PHASES.has(p))
-  {
-    const koIdx = flow.findIndex((s) => s.phaseKey === "KNOCKOUT");
-    if (koIdx >= 0) return koIdx;
-  }
   const i = flow.findIndex((s) => s.phaseKey === p);
   return i >= 0 ? i : 0;
 }

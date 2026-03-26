@@ -98,12 +98,23 @@ const { tournament, loading, error, formatPhaseLabel } = ctx;
         :class="[
           tournamentTabBaseClass,
           route.name === 'tournament-matches-overview'
-            || route.name === 'tournament-matches-setup'
             ? tournamentTabActiveClass
             : tournamentTabInactiveClass,
         ]"
       >
         Spiele
+      </RouterLink>
+      <RouterLink
+        v-if="ctx.canEdit"
+        :to="{ name: 'tournament-matches-setup', params: { id: tournamentId } }"
+        :class="[
+          tournamentTabBaseClass,
+          route.name === 'tournament-matches-setup'
+            ? tournamentTabActiveClass
+            : tournamentTabInactiveClass,
+        ]"
+      >
+        Spielbetrieb
       </RouterLink>
     </nav>
 

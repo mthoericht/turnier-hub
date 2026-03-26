@@ -195,7 +195,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
         slotIndex: m.roundOrder,
         homeTeamId: m.homeTeamId,
         awayTeamId: m.awayTeamId,
-        status: MatchStatus.SCHEDULED,
+        status: m.awayTeamId === null ? MatchStatus.FINISHED : MatchStatus.SCHEDULED,
       },
     });
   }
@@ -244,6 +244,52 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
         homeTeamId: m.home,
         awayTeamId: m.away,
         status: MatchStatus.SCHEDULED,
+      },
+    });
+  }
+
+  const tDirectKo15 = await prisma.tournament.create({
+    data: {
+      name: "Demo: Direkt K.O. mit 15 Mannschaften",
+      sport: "Fußball",
+      mode: TournamentMode.DIRECT_KO,
+      phase: TournamentPhase.ROUND_OF_16,
+      groupCount: 1,
+      advancesPerGroup: 1,
+      teamsAreIndividuals: false,
+      userId: user.id,
+    },
+  });
+
+  const dko15TeamNames = [
+    "Team 01", "Team 02", "Team 03", "Team 04", "Team 05",
+    "Team 06", "Team 07", "Team 08", "Team 09", "Team 10",
+    "Team 11", "Team 12", "Team 13", "Team 14", "Team 15",
+  ];
+  const dko15Teams = await Promise.all(
+    dko15TeamNames.map((name, i) =>
+      prisma.tournamentTeam.create({
+        data: { tournamentId: tDirectKo15.id, name, sortOrder: i },
+      })
+    )
+  );
+
+  const dko15Result = generateKoBracketFirstRound(dko15Teams.map((t) => t.id));
+  await prisma.tournament.update({
+    where: { id: tDirectKo15.id },
+    data: { phase: dko15Result.tournamentPhase },
+  });
+  for (const m of dko15Result.matches)
+  {
+    await prisma.match.create({
+      data: {
+        tournamentId: tDirectKo15.id,
+        phase: m.phase,
+        roundOrder: m.roundOrder,
+        slotIndex: m.roundOrder,
+        homeTeamId: m.homeTeamId,
+        awayTeamId: m.awayTeamId,
+        status: m.awayTeamId === null ? MatchStatus.FINISHED : MatchStatus.SCHEDULED,
       },
     });
   }

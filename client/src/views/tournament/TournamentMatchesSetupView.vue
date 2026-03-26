@@ -325,7 +325,7 @@ async function generateGroupWithCurrentSettings(): Promise<void>
           class="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
           @click="deleteAllMatches"
         >
-          Alle Spiele löschen
+          Alle Spiele und Gruppen löschen
         </button>
       </div>
     </section>

@@ -10,7 +10,12 @@ import {
   computePoolStandings,
   requireKnockoutWinnerTeamId,
 } from "./standings.js";
-import { collectKoRoundWinners } from "./knockoutBracket.js";
+import {
+  collectKoRoundWinners,
+  interleavedPairings,
+  randomizeTeamIds,
+  tournamentPhaseForMatchPhase,
+} from "./knockoutBracket.js";
 
 type Tx = Omit<
   PrismaClient,
@@ -59,20 +64,6 @@ function mulberry32(seed: number): () => number
 }
 
 /**
- * Produces knockout pairings by matching top-vs-bottom in ordered qualifiers.
- */
-function interleavedPairings(ordered: string[]): [string, string][]
-{
-  const pairs: [string, string][] = [];
-  const half = ordered.length / 2;
-  for (let i = 0; i < half; i++)
-  {
-    pairs.push([ordered[i]!, ordered[ordered.length - 1 - i]!]);
-  }
-  return pairs;
-}
-
-/**
  * Returns the knockout match phase that fits a participant count.
  */
 function koPhaseFromCount(count: number): MatchPhase
@@ -81,21 +72,6 @@ function koPhaseFromCount(count: number): MatchPhase
   if (count <= 4) return MatchPhase.SEMI;
   if (count <= 8) return MatchPhase.QUARTER;
   return MatchPhase.ROUND_OF_16;
-}
-
-/**
- * Maps a knockout match phase to the tournament phase enum.
- */
-function tournamentPhaseFromMatch(mp: MatchPhase): TournamentPhase
-{
-  switch (mp)
-  {
-    case MatchPhase.ROUND_OF_16: return TournamentPhase.ROUND_OF_16;
-    case MatchPhase.QUARTER: return TournamentPhase.QUARTER;
-    case MatchPhase.SEMI: return TournamentPhase.SEMI;
-    case MatchPhase.FINAL: return TournamentPhase.FINAL;
-    default: return TournamentPhase.GROUP;
-  }
 }
 
 /**
@@ -370,7 +346,7 @@ export async function advanceTournamentPhase(
 ): Promise<{ notices: string[] }>
 {
   const targetMatchPhase = MatchPhase[target];
-  const targetTournamentPhase = tournamentPhaseFromMatch(targetMatchPhase);
+  const targetTournamentPhase = tournamentPhaseForMatchPhase(targetMatchPhase);
 
   const prevKoPhaseIdx = KO_PHASES_ORDER.indexOf(targetMatchPhase) - 1;
   const prevKoPhase = prevKoPhaseIdx >= 0 ? KO_PHASES_ORDER[prevKoPhaseIdx] : null;
@@ -414,7 +390,8 @@ export async function advanceTournamentPhase(
     );
   }
 
-  const pairs = interleavedPairings(effectiveQualifiers);
+  const randomQualifiers = randomizeTeamIds(effectiveQualifiers);
+  const pairs = interleavedPairings(randomQualifiers);
 
   await rebuildKnockoutFromPairs(
     prisma,
