@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { computed, inject, ref, watch } from "vue";
+import { inject } from "vue";
 import TournamentAddMemberSection from "@/components/tournament/TournamentAddMemberSection.vue";
 import TournamentTeamMembersList from "@/components/tournament/TournamentTeamMembersList.vue";
-import { tournamentLayoutKey, type TournamentTeam } from "@/tournament/tournamentContext";
-import { fetchTournaments, type TournamentListRow } from "@/api/tournamentsApi";
+import {
+  useTournamentRosterAddIndividual,
+  useTournamentRosterAddMemberForm,
+  useTournamentRosterGroupsDisplay,
+  useTournamentRosterRenamePrompts,
+  useTournamentRosterTransfer,
+} from "@/composables/tournaments";
+import { tournamentLayoutKey } from "@/tournament/tournamentContext";
 
 const ctx = inject(tournamentLayoutKey);
 if (!ctx)
@@ -29,169 +35,43 @@ const {
   transferKaderFromTournament,
 } = ctx;
 
-const isIndividuals = computed(() => tournament.value?.teamsAreIndividuals ?? false);
-
-const hasGroups = computed(() =>
-  tournament.value?.teams.some((t) => t.groupLabel) ?? false
-);
-
-const GROUP_COLORS: Record<string, string> = {
-  A: "border-l-blue-500 dark:border-l-blue-400",
-  B: "border-l-emerald-500 dark:border-l-emerald-400",
-  C: "border-l-amber-500 dark:border-l-amber-400",
-  D: "border-l-rose-500 dark:border-l-rose-400",
-  E: "border-l-violet-500 dark:border-l-violet-400",
-  F: "border-l-cyan-500 dark:border-l-cyan-400",
-  G: "border-l-orange-500 dark:border-l-orange-400",
-  H: "border-l-pink-500 dark:border-l-pink-400",
-};
-
-const GROUP_BG: Record<string, string> = {
-  A: "bg-blue-50/50 dark:bg-blue-950/20",
-  B: "bg-emerald-50/50 dark:bg-emerald-950/20",
-  C: "bg-amber-50/50 dark:bg-amber-950/20",
-  D: "bg-rose-50/50 dark:bg-rose-950/20",
-  E: "bg-violet-50/50 dark:bg-violet-950/20",
-  F: "bg-cyan-50/50 dark:bg-cyan-950/20",
-  G: "bg-orange-50/50 dark:bg-orange-950/20",
-  H: "bg-pink-50/50 dark:bg-pink-950/20",
-};
-
-type GroupedTeams = { label: string; teams: TournamentTeam[] };
-
-const teamsByGroup = computed<GroupedTeams[]>(() =>
-{
-  if (!tournament.value || !hasGroups.value) return [];
-  const map = new Map<string, TournamentTeam[]>();
-  for (const team of tournament.value.teams)
-  {
-    const label = team.groupLabel ?? "–";
-    if (!map.has(label)) map.set(label, []);
-    map.get(label)!.push(team);
-  }
-  return [...map.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([label, teams]) => ({ label, teams }));
-});
-
-const transferFromTournamentId = ref<string>("");
-const selectedClassId = ref<string>("");
-const selectedAddGroupLabel = ref<string>("");
-const sourceTournaments = ref<TournamentListRow[]>([]);
-const loadingSources = ref(false);
-
-watch(
+const { addIndividualAsTeam } = useTournamentRosterAddIndividual({
   tournament,
-  async (t) =>
-  {
-    if (!t) return;
-    loadingSources.value = true;
-    try
-    {
-      const own = await fetchTournaments("own");
-      sourceTournaments.value = own.filter((x) => x.id !== t.id);
-    }
-    finally
-    {
-      loadingSources.value = false;
-    }
-  },
-  { immediate: true }
-);
-
-async function transferFromSource(): Promise<void>
-{
-  if (!transferFromTournamentId.value) return;
-  if (!tournament.value) return;
-
-  const hasExistingMembers = tournament.value.teams.some(
-    (team) => team.members.length > 0
-  );
-
-  if (hasExistingMembers)
-  {
-    const ok = confirm(
-      "Im Ziel gibt es bereits Zuordnungen. Spieler, die im Ziel bereits zugeordnet sind, werden übersprungen. Fortfahren?"
-    );
-    if (!ok) return;
-  }
-
-  await transferKaderFromTournament(transferFromTournamentId.value);
-  transferFromTournamentId.value = "";
-}
-
-async function addIndividualAsTeam(): Promise<void>
-{
-  if (!addPlayerId.value) return;
-  const player = availablePlayers.value.find((p) => p.id === addPlayerId.value);
-  if (!player || !tournament.value) return;
-
-  newTeamName.value = player.name;
-  await createTeam();
-
-  const t = tournament.value;
-  if (!t) return;
-  const team = t.teams.find((tm) => tm.name === player.name);
-  if (team)
-  {
-    addMemberTeamId.value = team.id;
-    addPlayerId.value = player.id;
-    await addMember();
-  }
-  addPlayerId.value = "";
-}
-
-const addMemberGroupOptions = computed(() =>
-{
-  if (!tournament.value) return [];
-  const labels = new Set<string>();
-  for (const team of tournament.value.teams)
-  {
-    if (team.groupLabel) labels.add(team.groupLabel);
-  }
-  return [...labels].sort((a, b) => a.localeCompare(b));
+  newTeamName,
+  addMemberTeamId,
+  addPlayerId,
+  availablePlayers,
+  createTeam,
+  addMember,
 });
 
-const addMemberSelectableTeams = computed(() =>
-{
-  if (!tournament.value) return [];
-  if (!selectedAddGroupLabel.value) return tournament.value.teams;
-  return tournament.value.teams.filter(
-    (t) => t.groupLabel === selectedAddGroupLabel.value
-  );
+const {
+  selectedClassId,
+  selectedAddGroupLabel,
+  addMemberGroupOptions,
+  addMemberSelectableTeams,
+} = useTournamentRosterAddMemberForm({ tournament, addMemberTeamId });
+
+const {
+  transferFromTournamentId,
+  sourceTournaments,
+  loadingSources,
+  transferFromSource,
+} = useTournamentRosterTransfer({ tournament, transferKaderFromTournament });
+
+const {
+  isIndividuals,
+  hasGroups,
+  teamsByGroup,
+  groupBorderClass,
+  groupBgClass,
+} = useTournamentRosterGroupsDisplay({ tournament });
+
+const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts({
+  canEdit,
+  renameGroupLabel,
+  renameTeam,
 });
-
-watch(addMemberSelectableTeams, (teams) =>
-{
-  if (teams.some((t) => t.id === addMemberTeamId.value)) return;
-  addMemberTeamId.value = teams[0]?.id ?? "";
-});
-
-function groupBorderClass(label: string): string
-{
-  return GROUP_COLORS[label] ?? "border-l-slate-400 dark:border-l-slate-500";
-}
-
-function groupBgClass(label: string): string
-{
-  return GROUP_BG[label] ?? "bg-slate-50/50 dark:bg-slate-900/20";
-}
-
-async function promptRenameGroup(label: string): Promise<void>
-{
-  if (!canEdit.value) return;
-  const next = prompt("Neuer Gruppenname", label);
-  if (!next) return;
-  await renameGroupLabel(label, next);
-}
-
-async function promptRenameTeam(team: TournamentTeam): Promise<void>
-{
-  if (!canEdit.value) return;
-  const next = prompt("Neuer Mannschaftsname", team.name);
-  if (!next) return;
-  await renameTeam(team.id, next);
-}
 </script>
 
 <template>

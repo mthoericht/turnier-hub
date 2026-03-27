@@ -1,0 +1,9 @@
+---
+- name: Update and deploy turnier-hub
+  hosts: app
+  become: true
+  vars:
+    turnier_hub_task: deploy
+  roles:
+    - role: turnier_hub
+      tasks_from: deploy

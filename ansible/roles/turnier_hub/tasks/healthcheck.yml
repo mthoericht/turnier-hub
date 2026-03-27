@@ -1,0 +1,11 @@
+---
+- name: Wait for application health endpoint
+  ansible.builtin.uri:
+    url: "{{ turnier_hub_healthcheck_url }}"
+    method: GET
+    status_code: "{{ turnier_hub_healthcheck_status }}"
+  register: turnier_hub_healthcheck_result
+  retries: "{{ turnier_hub_healthcheck_retries }}"
+  delay: "{{ turnier_hub_healthcheck_delay }}"
+  until: turnier_hub_healthcheck_result.status == turnier_hub_healthcheck_status
+  when: turnier_hub_healthcheck_enabled

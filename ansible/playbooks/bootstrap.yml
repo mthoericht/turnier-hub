@@ -1,0 +1,9 @@
+---
+- name: Bootstrap turnier-hub production host
+  hosts: app
+  become: true
+  vars:
+    turnier_hub_task: bootstrap
+  roles:
+    - role: turnier_hub
+      tasks_from: bootstrap

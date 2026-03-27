@@ -1,0 +1,44 @@
+---
+- name: Validate process manager selection
+  ansible.builtin.assert:
+    that:
+      - turnier_hub_process_manager in ["systemd", "pm2", "custom"]
+    fail_msg: "turnier_hub_process_manager must be one of: systemd, pm2, custom"
+
+- name: Install/update systemd units (if applicable)
+  ansible.builtin.include_tasks: systemd.yml
+
+- name: Restart with systemd
+  ansible.builtin.systemd:
+    name: "{{ turnier_hub_systemd_service }}"
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  when: turnier_hub_process_manager == "systemd"
+
+- name: Restart with pm2
+  ansible.builtin.command: "pm2 restart {{ turnier_hub_pm2_process_name }}"
+  become_user: "{{ turnier_hub_app_user }}"
+  when: turnier_hub_process_manager == "pm2"
+  changed_when: true
+
+- name: Restart with custom command
+  ansible.builtin.command: "{{ turnier_hub_restart_command }}"
+  args:
+    chdir: "{{ turnier_hub_app_dir }}"
+  become_user: "{{ turnier_hub_app_user }}"
+  when: turnier_hub_process_manager == "custom"
+  changed_when: true
+
+- name: Restart Prisma Studio (systemd)
+  ansible.builtin.systemd:
+    name: "{{ turnier_hub_prisma_studio_systemd_service }}"
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  when:
+    - turnier_hub_process_manager == "systemd"
+    - turnier_hub_prisma_studio_enabled
+
+- name: Validate service health after restart
+  ansible.builtin.include_tasks: healthcheck.yml

@@ -1,0 +1,9 @@
+---
+- name: Restart turnier-hub production server
+  hosts: app
+  become: true
+  vars:
+    turnier_hub_task: restart
+  roles:
+    - role: turnier_hub
+      tasks_from: restart

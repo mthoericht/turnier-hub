@@ -1,0 +1,17 @@
+[Unit]
+Description=Turnier Hub Prisma Studio
+After=network.target
+
+[Service]
+Type=simple
+User={{ turnier_hub_app_user }}
+Group={{ turnier_hub_app_group }}
+WorkingDirectory={{ turnier_hub_app_dir }}
+EnvironmentFile={{ turnier_hub_app_dir }}/server/.env
+ExecStart=/usr/bin/npm run db:studio -w server -- --browser none --hostname {{ turnier_hub_prisma_studio_host }} --port {{ turnier_hub_prisma_studio_port }}
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

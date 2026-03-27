@@ -191,6 +191,8 @@ npm run db:clear:test -- --yes
 
 ## Production
 
+For Ansible-based production automation (bootstrap, restart, update + deploy), see [`ansible/README.md`](ansible/README.md).
+
 1. Set environment variables on the host (`DATABASE_URL`, `JWT_SECRET`, `INVITE_CODE`, `PORT`, etc.) — do not rely on committing `.env`.
 
 2. Install dependencies and prepare the build:
@@ -225,6 +227,7 @@ Notes:
 
 ```
 turnier-hub/
+├── ansible/                   # Production playbooks + role (see ansible/README.md)
 ├── tests/                     # Shared root test tree (server + client Vitest tests)
 │   ├── server/
 │   └── client/
@@ -232,10 +235,11 @@ turnier-hub/
 │   ├── eslint.config.js       # ESLint flat config
 │   ├── src/
 │   │   ├── api/               # authApi, classesApi, playersApi, tournamentsApi, http (fetch + token)
+│   │   ├── composables/       # Feature composables (dashboard, classes, players, tournaments)
 │   │   ├── theme/             # centralized design tokens and font import
-│   │   ├── tournament/        # Types, API, pure logic, composables, UI class tokens
+│   │   ├── tournament/        # Types, pure logic, layout composables (useTournamentLayoutState, …), UI class tokens
 │   │   └── views/
-│   │       └── tournament/    # TournamentLayout, Matches (layout + overview + setup view; UI: overview / operations), Roster
+│   │       └── tournament/    # TournamentLayout, Matches (layout + overview + setup), Roster (thin; roster logic in composables)
 ├── server/                    # Express API, Prisma schema & scripts
 │   ├── prisma/
 │   ├── scripts/

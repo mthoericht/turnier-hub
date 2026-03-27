@@ -1,0 +1,18 @@
+[Unit]
+Description=Turnier Hub Production Service
+After=network.target
+
+[Service]
+Type=simple
+User={{ turnier_hub_app_user }}
+Group={{ turnier_hub_app_group }}
+WorkingDirectory={{ turnier_hub_app_dir }}
+EnvironmentFile={{ turnier_hub_app_dir }}/server/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm run prod:start
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

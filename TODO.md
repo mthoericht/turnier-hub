@@ -54,6 +54,7 @@ All items in this checklist are implemented.
 - [x] Exact knockout phase shown in phase UI (R16/QF/SF/Final instead of generic KO)
 - [x] "Add player to team" moved above team list and extracted as component
 - [x] Add-member/add-participant merged into shared `TournamentAddMemberSection`
+- [x] Roster view script logic extracted to `client/src/composables/tournaments/useTournamentRoster*.ts`
 
 ## Phase automation
 - [x] Tournament automatically transitions to `COMPLETED` after final is finished
