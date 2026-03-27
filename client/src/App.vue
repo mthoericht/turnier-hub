@@ -2,6 +2,7 @@
 import { ref, watch, onMounted } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 import ToastHost from "./components/ToastHost.vue";
+import AppIcon from "./components/common/AppIcon.vue";
 import { useAuthStore } from "./stores/auth";
 import { useThemeStore } from "./stores/theme";
 
@@ -25,6 +26,19 @@ watch(
 
 const linkClass =
   "rounded-lg px-3 py-3 text-base text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white md:py-2 md:text-sm";
+
+type MainNavItem = {
+  to: string;
+  label: string;
+  icon: "trophy" | "classes" | "players" | "calendar";
+};
+
+const mainNavItems: MainNavItem[] = [
+  { to: "/", label: "Dashboard", icon: "trophy" },
+  { to: "/classes", label: "Klassen", icon: "classes" },
+  { to: "/players", label: "Spieler", icon: "players" },
+  { to: "/tournaments", label: "Turniere", icon: "calendar" },
+];
 
 function isNavActive(prefix: string): boolean 
 {
@@ -55,22 +69,7 @@ function navLinkClass(prefix: string): string
             to="/"
             class="flex min-w-0 items-center gap-2 truncate font-display text-base font-semibold tracking-tight text-slate-900 dark:text-white sm:text-lg"
           >
-            <svg
-              class="h-6 w-6 text-blue-600 dark:text-blue-400"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M8 21h8" />
-              <path d="M12 17v4" />
-              <path d="M7 4h10v4a5 5 0 0 1-10 0V4z" />
-              <path d="M7 6H4a2 2 0 0 0 2 2h1" />
-              <path d="M17 6h3a2 2 0 0 1-2 2h-1" />
-            </svg>
+            <AppIcon name="trophy" class="h-6 w-6 text-blue-600 dark:text-blue-400" />
             Turnier-Hub
           </RouterLink>
           <div class="flex shrink-0 items-center gap-1 sm:gap-2">
@@ -83,36 +82,8 @@ function navLinkClass(prefix: string): string
               "
               @click="theme.toggle()"
             >
-              <svg
-                v-if="theme.isDark"
-                class="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                />
-              </svg>
-              <svg
-                v-else
-                class="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                />
-              </svg>
+              <AppIcon v-if="theme.isDark" name="sun" class="h-5 w-5" />
+              <AppIcon v-else name="moon" class="h-5 w-5" />
             </button>
             <button
               type="button"
@@ -122,34 +93,8 @@ function navLinkClass(prefix: string): string
               aria-label="Menü"
               @click="navOpen = !navOpen"
             >
-              <svg
-                v-if="!navOpen"
-                class="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-              <svg
-                v-else
-                class="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              <AppIcon v-if="!navOpen" name="menu" class="h-5 w-5" />
+              <AppIcon v-else name="close" class="h-5 w-5" />
             </button>
             <div class="hidden items-center gap-2 md:flex">
               <template v-if="auth.user">
@@ -194,78 +139,14 @@ function navLinkClass(prefix: string): string
             class="flex w-full items-center justify-center gap-8"
             aria-label="Hauptnavigation"
           >
-            <RouterLink :to="'/'" :class="navLinkClass('/')">
-              <svg
-                class="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M8 21h8" />
-                <path d="M12 17v4" />
-                <path d="M7 4h10v4a5 5 0 0 1-10 0V4z" />
-              </svg>
-              Dashboard
-            </RouterLink>
-            <RouterLink :to="'/classes'" :class="navLinkClass('/classes')">
-              <svg
-                class="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M3 10h18" />
-                <path d="M5 10V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8" />
-                <path d="M7 10V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4" />
-              </svg>
-              Klassen
-            </RouterLink>
-            <RouterLink :to="'/players'" :class="navLinkClass('/players')">
-              <svg
-                class="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              Spieler
-            </RouterLink>
             <RouterLink
-              :to="'/tournaments'"
-              :class="navLinkClass('/tournaments')"
+              v-for="item in mainNavItems"
+              :key="item.to"
+              :to="item.to"
+              :class="navLinkClass(item.to)"
             >
-              <svg
-                class="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-              Turniere
+              <AppIcon :name="item.icon" class="h-5 w-5" />
+              {{ item.label }}
             </RouterLink>
           </nav>
         </div>
@@ -278,29 +159,14 @@ function navLinkClass(prefix: string): string
       >
         <nav class="flex flex-col gap-1 px-3" aria-label="Mobile Navigation">
           <template v-if="auth.user">
-            <RouterLink :to="'/'" :class="linkClass" @click="navOpen = false">
-              Dashboard
-            </RouterLink>
             <RouterLink
-              :to="'/classes'"
+              v-for="item in mainNavItems"
+              :key="item.to"
+              :to="item.to"
               :class="linkClass"
               @click="navOpen = false"
             >
-              Klassen
-            </RouterLink>
-            <RouterLink
-              :to="'/players'"
-              :class="linkClass"
-              @click="navOpen = false"
-            >
-              Spieler
-            </RouterLink>
-            <RouterLink
-              :to="'/tournaments'"
-              :class="linkClass"
-              @click="navOpen = false"
-            >
-              Turniere
+              {{ item.label }}
             </RouterLink>
             <p
               class="truncate px-3 py-2 text-sm text-slate-500 dark:text-slate-400"

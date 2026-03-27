@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { RouterLink } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import AuthFormField from "@/components/auth/AuthFormField.vue";
 
 const auth = useAuthStore();
 
@@ -13,7 +14,7 @@ const error = ref("");
 const loading = ref(false);
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 outline-none focus:border-transparent focus:ring-2 focus:ring-court-600 dark:border-slate-700 dark:bg-slate-900 dark:text-white sm:py-2";
+  "ui-input-court";
 
 async function submit(): Promise<void> 
 {
@@ -51,23 +52,19 @@ async function submit(): Promise<void>
       zu deinem Konto.
     </p>
     <form class="space-y-4" @submit.prevent="submit">
-      <div>
-        <label
-          class="block text-sm text-slate-600 dark:text-slate-400 mb-1"
-          >Einladungscode</label
-        >
+      <AuthFormField label="Einladungscode" :input-class="inputClass">
         <input
           v-model="inviteCode"
           type="text"
           required
           :class="inputClass"
         />
-      </div>
-      <div>
-        <label
-          class="block text-sm text-slate-600 dark:text-slate-400 mb-1"
-          >Benutzername</label
-        >
+      </AuthFormField>
+      <AuthFormField
+        label="Benutzername"
+        :input-class="inputClass"
+        help-text="3–32 Zeichen, nur Buchstaben, Ziffern, _ und -"
+      >
         <input
           v-model="username"
           type="text"
@@ -78,15 +75,8 @@ async function submit(): Promise<void>
           autocomplete="username"
           :class="inputClass"
         />
-        <p class="text-xs text-slate-500 mt-1">
-          3–32 Zeichen, nur Buchstaben, Ziffern, _ und -
-        </p>
-      </div>
-      <div>
-        <label
-          class="block text-sm text-slate-600 dark:text-slate-400 mb-1"
-          >E-Mail</label
-        >
+      </AuthFormField>
+      <AuthFormField label="E-Mail" :input-class="inputClass">
         <input
           v-model="email"
           type="email"
@@ -94,12 +84,8 @@ async function submit(): Promise<void>
           autocomplete="email"
           :class="inputClass"
         />
-      </div>
-      <div>
-        <label
-          class="block text-sm text-slate-600 dark:text-slate-400 mb-1"
-          >Passwort (min. 8)</label
-        >
+      </AuthFormField>
+      <AuthFormField label="Passwort (min. 8)" :input-class="inputClass">
         <input
           v-model="password"
           type="password"
@@ -108,14 +94,14 @@ async function submit(): Promise<void>
           autocomplete="new-password"
           :class="inputClass"
         />
-      </div>
+      </AuthFormField>
       <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400">
         {{ error }}
       </p>
       <button
         type="submit"
         :disabled="loading"
-        class="min-h-[48px] w-full rounded-lg bg-court-600 py-3 text-base font-medium text-white transition hover:bg-court-600/90 disabled:opacity-50 sm:min-h-0 sm:py-2.5"
+        class="ui-btn-primary-court w-full"
       >
         {{ loading ? "…" : "Konto anlegen" }}
       </button>

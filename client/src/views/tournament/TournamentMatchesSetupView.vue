@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
 import { tournamentLayoutKey } from "@/tournament/tournamentContext";
+import KnockoutStageActionList from "@/components/tournament/KnockoutStageActionList.vue";
 
 const ctx = inject(tournamentLayoutKey);
 if (!ctx)
@@ -283,72 +284,25 @@ async function generateGroupWithCurrentSettings(): Promise<void>
             Nur sinnvoll, wenn die vorherige Runde beendet ist — sonst fehlen Paarungen.
           </p>
 
-          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <button
-              v-if="canCreateR16"
-              type="button"
-              class="min-h-[44px] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-left text-sm text-amber-950 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50 sm:min-h-0 sm:py-1.5"
-              @click="advance('ROUND_OF_16')"
-            >
-              <span class="font-medium">Achtelfinale</span>
-              <span class="block text-xs opacity-90">16 Mannschaften</span>
-              <span
-                v-if="hasR16Matches && isR16Current"
-                class="block text-[11px] opacity-85"
-              >
-                Bereits erzeugt
-                <span v-if="r16HasScores"> (Punkte vergeben)</span>
-              </span>
-            </button>
-            <button
-              v-if="canCreateQuarter"
-              type="button"
-              class="min-h-[44px] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-left text-sm text-amber-950 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50 sm:min-h-0 sm:py-1.5"
-              @click="advance('QUARTER')"
-            >
-              <span class="font-medium">Viertelfinale</span>
-              <span class="block text-xs opacity-90">8 Mannschaften</span>
-              <span
-                v-if="hasQuarterMatches && isQuarterCurrent"
-                class="block text-[11px] opacity-85"
-              >
-                Bereits erzeugt
-                <span v-if="quarterHasScores"> (Punkte vergeben)</span>
-              </span>
-            </button>
-            <button
-              v-if="canCreateSemi"
-              type="button"
-              class="min-h-[44px] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-left text-sm text-amber-950 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50 sm:min-h-0 sm:py-1.5"
-              @click="advance('SEMI')"
-            >
-              <span class="font-medium">Halbfinale</span>
-              <span class="block text-xs opacity-90">4 Mannschaften</span>
-              <span
-                v-if="hasSemiMatches && isSemiCurrent"
-                class="block text-[11px] opacity-85"
-              >
-                Bereits erzeugt
-                <span v-if="semiHasScores"> (Punkte vergeben)</span>
-              </span>
-            </button>
-            <button
-              v-if="canCreateFinal"
-              type="button"
-              class="min-h-[44px] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-left text-sm text-amber-950 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50 sm:min-h-0 sm:py-1.5"
-              @click="advance('FINAL')"
-            >
-              <span class="font-medium">Finale</span>
-              <span class="block text-xs opacity-90">2 Mannschaften</span>
-              <span
-                v-if="hasFinalMatches && isFinalCurrent"
-                class="block text-[11px] opacity-85"
-              >
-                Bereits erzeugt
-                <span v-if="finalHasScores"> (Punkte vergeben)</span>
-              </span>
-            </button>
-          </div>
+          <KnockoutStageActionList
+            :can-create-r16="canCreateR16"
+            :can-create-quarter="canCreateQuarter"
+            :can-create-semi="canCreateSemi"
+            :can-create-final="canCreateFinal"
+            :has-r16-matches="hasR16Matches"
+            :is-r16-current="isR16Current"
+            :r16-has-scores="r16HasScores"
+            :has-quarter-matches="hasQuarterMatches"
+            :is-quarter-current="isQuarterCurrent"
+            :quarter-has-scores="quarterHasScores"
+            :has-semi-matches="hasSemiMatches"
+            :is-semi-current="isSemiCurrent"
+            :semi-has-scores="semiHasScores"
+            :has-final-matches="hasFinalMatches"
+            :is-final-current="isFinalCurrent"
+            :final-has-scores="finalHasScores"
+            @advance="advance"
+          />
 
           <p
             v-if="!canCreateR16 && !canCreateQuarter && !canCreateSemi && !canCreateFinal"

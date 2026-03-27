@@ -1,63 +1,63 @@
-# TODO — Turniersystem Refactoring
+# TODO — Tournament System Refactoring
 
-Alle Punkte sind implementiert.
+All items in this checklist are implemented.
 
-## Umbenennungen (Frontend-Anzeige deutsch, Code englisch)
-- [x] Vorrundenspiele → Gruppenspiele
-- [x] Kader → Mannschaften
+## Renaming (German UI labels, English code)
+- [x] Preliminary matches -> Group matches
+- [x] Squad -> Teams
 
-## Turnier-Anlage (defineMatch-Wizard)
-- [x] Start mit Gruppenspiele / Direkter Start mit K.O.
-- [x] Jeder gegen Jeden
-- [x] Mannschaften sind Einzelpersonen (z. B. Badminton)
+## Tournament creation (wizard)
+- [x] Start with group stage / direct knockout start
+- [x] Round-robin mode
+- [x] Teams can represent individuals (for example badminton)
 
-## Turniermodi
-- [x] Klassische Gruppenspiele (GROUP_KO) — Gruppen → Viertel-/Halb-/Finale
-- [x] Direkt mit K.O. (DIRECT_KO) — auch mit 10+ Mannschaften, Freilose
-- [x] Jeder gegen Jeden (ROUND_ROBIN) — alle in einer Gruppe, kein K.O.
-- [x] Mannschaften können Einzelpersonen sein (`teamsAreIndividuals`)
+## Tournament modes
+- [x] Classic group stage (`GROUP_KO`) -> quarter/semi/final
+- [x] Direct knockout (`DIRECT_KO`), including 10+ teams and byes
+- [x] Round-robin (`ROUND_ROBIN`) with no knockout
+- [x] Individual participants mode (`teamsAreIndividuals`)
 
-## Phasen und Struktur
-- [x] Turnier in Phasen unterteilt: Gruppen / Jeder-gegen-Jeden → K.O.-Phase
-- [x] K.O.-Phase: Mannschaften einzeln (Gruppe hat keine Bedeutung mehr)
-- [x] Achtelfinale (ROUND_OF_16) für große Turniere
+## Phases and structure
+- [x] Tournament phases: group/round-robin -> knockout
+- [x] Knockout phase uses standalone teams (group no longer matters)
+- [x] Round of 16 (`ROUND_OF_16`) for larger tournaments
 
-## Parallelität
-- [x] Jeder-gegen-Jeden / Gruppenspiele nach Parallelität sortiert (Spielrunden)
+## Parallel match rounds
+- [x] Group and round-robin matches sorted into parallel rounds
 
-## Spielbetrieb
-- [x] Alle Spiele auf einmal löschbar (Gefahrenzone, DELETE /api/tournaments/:id/matches)
-- [x] Gruppenanzahl in „1. Gruppenspiele“ direkt neben „Gruppenspiele erzeugen“
-- [x] „Weiterkommen pro Gruppe“ separat speicherbar („Einstellungen speichern“)
-- [x] Mannschaften ohne Spieler bei Gruppengenerierung ignorieren
-- [x] Beim Erzeugen von Gruppenspielen bestehende K.O.-Spiele mit entfernen
-- [x] Gefahrenzone-Buttontext: „Alle Spiele und Gruppen löschen“
-- [x] Top-Level Navigation: „Spielbetrieb“ neben „Spiele“, Unter-Navigation entfernt
+## Match operations
+- [x] Delete all matches at once (danger zone, `DELETE /api/tournaments/:id/matches`)
+- [x] Group count configured directly next to the generate button
+- [x] Advancers per group saved separately
+- [x] Teams without members excluded from group generation
+- [x] Existing knockout matches removed when regenerating group matches
+- [x] Danger-zone button text updated to "Delete all matches and groups"
+- [x] Top-level navigation includes "Spielbetrieb" next to "Spiele"
 
-## Seed-Daten
-- [x] Vier Demo-Turniere (GROUP_KO, DIRECT_KO, DIRECT_KO mit 15 Teams, ROUND_ROBIN)
-- [x] 12 Spieler, Demo-Schulklassen
+## Seed data
+- [x] Four demo tournaments (`GROUP_KO`, `DIRECT_KO`, `DIRECT_KO` with 15 teams, `ROUND_ROBIN`)
+- [x] 12 demo players and demo school classes
 
-## Tests & Infrastruktur
-- [x] Vitest für Server (Unit + Integration gegen Test-DB)
-- [x] Vitest für Client (Unit + client-API Integration)
-- [x] Tests zentral unter `tests/` (server/client) organisiert
-- [x] Tournament-Routes in eigenes Verzeichnis modularisiert (`server/src/routes/tournaments/` mit `index/core/teams/matches/standings-advance/shared`)
-- [x] Seed-Fixtures in wiederverwendbares Modul ausgelagert (`server/src/seed/demoSeed.ts`)
-- [x] Client-TSConfig aufgeräumt (`tsconfig.base.json`), `*.tsbuildinfo` aus Git entfernt/ignoriert
-- [x] Client-Integrationstests beschleunigt (minimales Test-Seeding pro Test statt vollständigem Demo-Seed)
-- [x] Unit-Tests für zentrale K.O.-Hilfslogik ergänzt (`randomizeTeamIds`, `interleavedPairings`)
+## Tests and infrastructure
+- [x] Vitest for server (unit + integration against test DB)
+- [x] Vitest for client (unit + client-API integration)
+- [x] Tests organized centrally under `tests/` (server/client)
+- [x] Tournament routes modularized in `server/src/routes/tournaments/`
+- [x] Seed fixtures extracted to reusable module (`server/src/seed/demoSeed.ts`)
+- [x] Client TS config cleaned up (`tsconfig.base.json`), `*.tsbuildinfo` removed/ignored
+- [x] Faster client integration tests via minimal per-test seeding
+- [x] Unit tests added for key knockout helpers (`randomizeTeamIds`, `interleavedPairings`)
 
-## UX-Verbesserungen
-- [x] Gruppennamen im Kader umbenennbar
-- [x] Mannschaftsnamen im Kader umbenennbar
-- [x] Exakte K.O.-Phase in „Phasen“ anzeigen (Achtel/Viertel/Halb/Finale statt nur „K.O.“)
-- [x] „Spieler zur Mannschaft hinzufügen“ über Teamliste platziert und als Komponente ausgelagert
-- [x] AddMember/AddParticipant in eine gemeinsame `TournamentAddMemberSection` zusammengeführt
+## UX improvements
+- [x] Group names can be renamed in roster
+- [x] Team names can be renamed in roster
+- [x] Exact knockout phase shown in phase UI (R16/QF/SF/Final instead of generic KO)
+- [x] "Add player to team" moved above team list and extracted as component
+- [x] Add-member/add-participant merged into shared `TournamentAddMemberSection`
 
-## Phase-Automation
-- [x] Nach beendetem Finale automatisch auf Turnierphase „Ende“ (`COMPLETED`) wechseln
+## Phase automation
+- [x] Tournament automatically transitions to `COMPLETED` after final is finished
 
-## K.O.-Losung & Freilose
-- [x] K.O.-Paarungen zufällig generieren (Direct-KO und Advance aus Qualifikanten)
-- [x] Freilos-Spiele bei Generierung direkt als „beendet“ (`FINISHED`) markieren
+## Knockout draw and byes
+- [x] Randomized knockout pairings (direct KO and advancement from qualifiers)
+- [x] Bye matches created directly as `FINISHED`

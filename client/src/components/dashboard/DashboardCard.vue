@@ -13,7 +13,7 @@ defineProps<{
 <template>
   <RouterLink :to="to" class="block">
     <div
-      class="rounded-2xl border border-slate-200 bg-white/70 p-6 hover:shadow-lg transition-shadow cursor-pointer dark:border-slate-800 dark:bg-slate-900/40 dark:hover:bg-slate-900/55"
+      class="ui-card ui-card-hover cursor-pointer p-6"
     >
       <div class="flex items-center justify-between pb-2">
         <div class="text-sm font-medium text-slate-700 dark:text-slate-200">

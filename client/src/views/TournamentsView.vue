@@ -4,6 +4,7 @@ import { RouterLink, useRouter } from "vue-router";
 import { formatCreator } from "@/types";
 import { formatTournamentMode } from "@/tournament/tournamentFormat";
 import { useTournamentsListState } from "@/composables/tournaments/useTournamentsListState";
+import ScopeToggle from "@/components/common/ScopeToggle.vue";
 
 const router = useRouter();
 
@@ -48,36 +49,7 @@ async function handleCreate(): Promise<void>
         Turniere
       </h1>
       <div class="flex items-center gap-3">
-        <div
-          class="inline-flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-700"
-          role="group"
-          aria-label="Ansicht"
-        >
-          <button
-            type="button"
-            :class="[
-              'rounded-md px-3 py-2 text-sm font-medium transition sm:py-1.5',
-              scope === 'all'
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
-            ]"
-            @click="scope = 'all'"
-          >
-            Alle
-          </button>
-          <button
-            type="button"
-            :class="[
-              'rounded-md px-3 py-2 text-sm font-medium transition sm:py-1.5',
-              scope === 'own'
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
-            ]"
-            @click="scope = 'own'"
-          >
-            Eigene
-          </button>
-        </div>
+        <ScopeToggle v-model="scope" />
       </div>
     </div>
     <p v-if="error" class="text-rose-600 dark:text-rose-400 text-sm mb-4">
@@ -285,7 +257,7 @@ async function handleCreate(): Promise<void>
           <button
             v-if="isMine(t)"
             type="button"
-            class="text-rose-600/90 hover:text-rose-600 dark:text-rose-400/80 dark:hover:text-rose-400"
+            class="ui-link-danger"
             @click="remove(t.id)"
           >
             Löschen

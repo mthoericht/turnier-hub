@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import AuthFormField from "@/components/auth/AuthFormField.vue";
 
 const auth = useAuthStore();
 const route = useRoute();
@@ -13,7 +14,7 @@ const error = ref("");
 const loading = ref(false);
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 outline-none focus:border-transparent focus:ring-2 focus:ring-court-600 dark:border-slate-700 dark:bg-slate-900 dark:text-white sm:py-2";
+  "ui-input-court";
 
 async function submit(): Promise<void> 
 {
@@ -44,11 +45,7 @@ async function submit(): Promise<void>
       Login
     </h1>
     <form class="space-y-4" @submit.prevent="submit">
-      <div>
-        <label
-          class="block text-sm text-slate-600 dark:text-slate-400 mb-1"
-          >E-Mail</label
-        >
+      <AuthFormField label="E-Mail" :input-class="inputClass">
         <input
           v-model="email"
           type="email"
@@ -56,12 +53,8 @@ async function submit(): Promise<void>
           autocomplete="email"
           :class="inputClass"
         />
-      </div>
-      <div>
-        <label
-          class="block text-sm text-slate-600 dark:text-slate-400 mb-1"
-          >Passwort</label
-        >
+      </AuthFormField>
+      <AuthFormField label="Passwort" :input-class="inputClass">
         <input
           v-model="password"
           type="password"
@@ -69,14 +62,14 @@ async function submit(): Promise<void>
           autocomplete="current-password"
           :class="inputClass"
         />
-      </div>
+      </AuthFormField>
       <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400">
         {{ error }}
       </p>
       <button
         type="submit"
         :disabled="loading"
-        class="min-h-[48px] w-full rounded-lg bg-court-600 py-3 text-base font-medium text-white transition hover:bg-court-600/90 disabled:opacity-50 sm:min-h-0 sm:py-2.5"
+        class="ui-btn-primary-court w-full"
       >
         {{ loading ? "…" : "Anmelden" }}
       </button>

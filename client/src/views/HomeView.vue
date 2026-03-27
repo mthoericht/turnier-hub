@@ -3,6 +3,8 @@ import { RouterLink } from "vue-router";
 import { useDashboardState } from "@/composables/dashboard/useDashboardState";
 import { formatPhaseLabel } from "@/tournament/tournamentFormat";
 import DashboardCard from "@/components/dashboard/DashboardCard.vue";
+import AppIcon from "@/components/common/AppIcon.vue";
+import EmptyStateCard from "@/components/common/EmptyStateCard.vue";
 
 const {
   auth,
@@ -34,7 +36,7 @@ const {
       <RouterLink to="/tournaments" class="shrink-0">
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-medium text-white transition hover:bg-blue-600/90"
+          class="ui-btn-primary-blue inline-flex items-center gap-2 px-5 py-3"
         >
           Neues Turnier
         </button>
@@ -52,22 +54,7 @@ const {
           pill-class="p-2 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300"
         >
           <template #icon>
-            <svg
-              class="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M3 10h18" />
-              <path
-                d="M5 10V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"
-              />
-              <path d="M7 10V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4" />
-            </svg>
+            <AppIcon name="classes" class="h-4 w-4" />
           </template>
         </DashboardCard>
 
@@ -79,23 +66,7 @@ const {
           pill-class="p-2 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200"
         >
           <template #icon>
-            <svg
-              class="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path
-                d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
-              />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
+            <AppIcon name="players" class="h-4 w-4" />
           </template>
         </DashboardCard>
 
@@ -107,28 +78,13 @@ const {
           pill-class="p-2 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-950/30 dark:text-purple-300"
         >
           <template #icon>
-            <svg
-              class="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M8 21h8" />
-              <path d="M12 17v4" />
-              <path
-                d="M7 4h10v4a5 5 0 0 1-10 0V4z"
-              />
-            </svg>
+            <AppIcon name="trophy" class="h-4 w-4" />
           </template>
         </DashboardCard>
       </div>
 
       <div
-        class="rounded-2xl border border-slate-200 bg-white/70 p-6 dark:border-slate-800 dark:bg-slate-900/40 space-y-4"
+        class="ui-card space-y-4 p-6"
       >
         <div>
           <h2 class="font-display text-lg font-semibold text-slate-900 dark:text-white">
@@ -143,33 +99,21 @@ const {
           </p>
         </div>
 
-        <div v-if="recentTournaments.length === 0" class="text-center py-8">
-          <svg
-            class="h-12 w-12 text-slate-400 mx-auto mb-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M8 21h8" />
-            <path d="M12 17v4" />
-            <path d="M7 4h10v4a5 5 0 0 1-10 0V4z" />
-          </svg>
-          <p class="text-slate-600 dark:text-slate-300 mb-4">
-            Noch keine Turniere erstellt
-          </p>
-          <RouterLink to="/tournaments">
-            <button
-              type="button"
-              class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:hover:bg-slate-800"
-            >
-              Erstes Turnier erstellen
-            </button>
-          </RouterLink>
-        </div>
+        <EmptyStateCard v-if="recentTournaments.length === 0" title="Noch keine Turniere erstellt">
+          <template #icon>
+            <AppIcon name="trophy" class="mx-auto mb-4 h-12 w-12 text-slate-400" />
+          </template>
+          <template #action>
+            <RouterLink to="/tournaments">
+              <button
+                type="button"
+                class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:hover:bg-slate-800"
+              >
+                Erstes Turnier erstellen
+              </button>
+            </RouterLink>
+          </template>
+        </EmptyStateCard>
 
         <div v-else class="space-y-3">
           <RouterLink
@@ -187,20 +131,7 @@ const {
                     tournamentPillClass(getTournamentStatus(t)),
                   ]"
                 >
-                  <svg
-                    class="h-5 w-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M8 21h8" />
-                    <path d="M12 17v4" />
-                    <path d="M7 4h10v4a5 5 0 0 1-10 0V4z" />
-                  </svg>
+                  <AppIcon name="trophy" class="h-5 w-5" />
                 </div>
                 <div class="min-w-0">
                   <p class="font-medium text-slate-900 dark:text-white truncate">

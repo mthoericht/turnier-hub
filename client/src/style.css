@@ -1,8 +1,118 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@500;600;700&display=swap");
+@import "./theme/fonts.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Central light/dark semantic color assignment. */
+:root {
+  --ui-primary: #2563eb;
+  --ui-primary-hover: #1d4ed8;
+  --ui-on-primary: #ffffff;
+
+  --ui-card-bg: rgba(255, 255, 255, 0.7);
+  --ui-card-border: #e2e8f0;
+  --ui-card-hover-bg: rgba(248, 250, 252, 1);
+
+  --ui-input-bg: #ffffff;
+  --ui-input-border: #cbd5e1;
+  --ui-input-text: #0f172a;
+  --ui-input-focus: #2563eb;
+
+  --ui-button-secondary-bg-hover: #f8fafc;
+  --ui-button-secondary-border: #e2e8f0;
+  --ui-button-secondary-text: #334155;
+
+  --ui-danger: #e11d48;
+  --ui-danger-hover: #be123c;
+}
+
+.dark {
+  --ui-primary: #60a5fa;
+  --ui-primary-hover: #3b82f6;
+  --ui-on-primary: #0f172a;
+
+  --ui-card-bg: rgba(15, 23, 42, 0.4);
+  --ui-card-border: #1e293b;
+  --ui-card-hover-bg: rgba(15, 23, 42, 0.55);
+
+  --ui-input-bg: #020617;
+  --ui-input-border: #334155;
+  --ui-input-text: #ffffff;
+  --ui-input-focus: #60a5fa;
+
+  --ui-button-secondary-bg-hover: #1e293b;
+  --ui-button-secondary-border: #334155;
+  --ui-button-secondary-text: #f1f5f9;
+
+  --ui-danger: #fb7185;
+  --ui-danger-hover: #f43f5e;
+}
+
+@layer components {
+  .ui-card {
+    @apply rounded-2xl border;
+    background-color: var(--ui-card-bg);
+    border-color: var(--ui-card-border);
+  }
+
+  .ui-empty-card {
+    @apply ui-card p-6 text-center;
+  }
+
+  .ui-card-hover {
+    @apply transition-shadow hover:shadow-lg;
+  }
+
+  .ui-card-hover:hover {
+    background-color: var(--ui-card-hover-bg);
+  }
+
+  .ui-input-blue {
+    @apply w-full rounded-lg border px-3 py-3 text-base outline-none focus:ring-2 sm:py-2;
+    background-color: var(--ui-input-bg);
+    border-color: var(--ui-input-border);
+    color: var(--ui-input-text);
+    --tw-ring-color: var(--ui-input-focus);
+  }
+
+  .ui-input-court {
+    @apply ui-input-blue focus:border-transparent;
+  }
+
+  .ui-btn-primary-blue {
+    @apply min-h-[48px] rounded-lg px-4 py-3 text-base font-medium transition disabled:opacity-50 sm:min-h-0 sm:py-2 sm:text-sm;
+    background-color: var(--ui-primary);
+    color: var(--ui-on-primary);
+  }
+
+  .ui-btn-primary-court {
+    @apply ui-btn-primary-blue sm:py-2.5;
+  }
+
+  .ui-btn-primary-blue:hover,
+  .ui-btn-primary-court:hover {
+    background-color: var(--ui-primary-hover);
+  }
+
+  .ui-btn-secondary {
+    @apply rounded-xl border px-4 py-2 text-sm font-medium transition;
+    border-color: var(--ui-button-secondary-border);
+    color: var(--ui-button-secondary-text);
+  }
+
+  .ui-btn-secondary:hover {
+    background-color: var(--ui-button-secondary-bg-hover);
+  }
+
+  .ui-link-danger {
+    color: var(--ui-danger);
+  }
+
+  .ui-link-danger:hover {
+    color: var(--ui-danger-hover);
+  }
+}
 
 body {
   @apply min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;

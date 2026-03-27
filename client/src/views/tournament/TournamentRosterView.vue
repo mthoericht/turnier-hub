@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch } from "vue";
 import TournamentAddMemberSection from "@/components/tournament/TournamentAddMemberSection.vue";
+import TournamentTeamMembersList from "@/components/tournament/TournamentTeamMembersList.vue";
 import { tournamentLayoutKey, type TournamentTeam } from "@/tournament/tournamentContext";
-import { formatCreator } from "@/types";
 import { fetchTournaments, type TournamentListRow } from "@/api/tournamentsApi";
 
 const ctx = inject(tournamentLayoutKey);
@@ -384,39 +384,13 @@ async function promptRenameTeam(team: TournamentTeam): Promise<void>
                     </button>
                   </div>
                 </div>
-                <template v-if="!isIndividuals && team.members.length">
-                  <ul class="mt-1 space-y-0.5 text-sm">
-                    <li
-                      v-for="mem in team.members"
-                      :key="mem.id"
-                      class="flex flex-wrap items-center justify-between gap-1"
-                    >
-                      <span class="text-slate-700 dark:text-slate-300">
-                        {{ mem.player.name
-                        }}<span
-                          v-if="mem.player.schoolClass"
-                          class="text-slate-500 dark:text-slate-500"
-                        >
-                          ({{ mem.player.schoolClass.name }})</span
-                        >
-                      </span>
-                      <button
-                        v-if="canEdit"
-                        type="button"
-                        class="text-xs text-rose-600 dark:text-rose-400"
-                        @click="removeMember(team.id, mem.playerId)"
-                      >
-                        Entfernen
-                      </button>
-                    </li>
-                  </ul>
-                </template>
-                <p
-                  v-else-if="!isIndividuals"
-                  class="mt-1 text-xs text-slate-500 dark:text-slate-500"
-                >
-                  Noch keine Spieler
-                </p>
+                <TournamentTeamMembersList
+                  v-if="!isIndividuals"
+                  class="mt-1"
+                  :team="team"
+                  :can-edit="canEdit"
+                  @remove-member="(teamId, playerId) => removeMember(teamId, playerId)"
+                />
               </li>
             </ul>
           </div>
@@ -456,43 +430,12 @@ async function promptRenameTeam(team: TournamentTeam): Promise<void>
             </div>
             <template v-if="!isIndividuals">
               <p class="mb-1 text-xs text-slate-500 dark:text-slate-500">Spieler</p>
-              <ul class="space-y-1 text-sm">
-                <li
-                  v-for="mem in team.members"
-                  :key="mem.id"
-                  class="flex flex-wrap items-center justify-between gap-2"
-                >
-                  <span class="text-slate-800 dark:text-slate-200">
-                    {{ mem.player.name
-                    }}<span
-                      v-if="mem.player.schoolClass"
-                      class="text-slate-500 dark:text-slate-500"
-                    >
-                      ({{ mem.player.schoolClass.name }})</span
-                    >
-                    <span
-                      class="ml-2 text-xs text-slate-500"
-                      :title="mem.player.createdBy.email"
-                    >
-                      · {{ formatCreator(mem.player.createdBy) }}
-                    </span>
-                  </span>
-                  <button
-                    v-if="canEdit"
-                    type="button"
-                    class="text-xs text-rose-600 dark:text-rose-400"
-                    @click="removeMember(team.id, mem.playerId)"
-                  >
-                    Entfernen
-                  </button>
-                </li>
-                <li
-                  v-if="team.members.length === 0"
-                  class="text-slate-500 dark:text-slate-500"
-                >
-                  Noch keine Spieler
-                </li>
-              </ul>
+              <TournamentTeamMembersList
+                :team="team"
+                :can-edit="canEdit"
+                :show-creator="true"
+                @remove-member="(teamId, playerId) => removeMember(teamId, playerId)"
+              />
             </template>
           </li>
         </ul>

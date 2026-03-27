@@ -171,7 +171,7 @@ function onClassChange(value: string): void
       </div>
       <button
         type="button"
-        class="min-h-[48px] rounded-lg bg-blue-600 px-4 py-3 text-base font-medium text-white hover:bg-blue-600/90 disabled:opacity-50 sm:min-h-0 sm:py-2 sm:text-sm"
+        class="ui-btn-primary-blue"
         :disabled="addDisabled"
         @click="emit('add')"
       >

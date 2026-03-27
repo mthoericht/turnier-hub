@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
 import { formatCreator } from "@/types";
+import AppIcon from "@/components/common/AppIcon.vue";
+import ScopeToggle from "@/components/common/ScopeToggle.vue";
+import EmptyStateCard from "@/components/common/EmptyStateCard.vue";
+import EntityDialog from "@/components/common/EntityDialog.vue";
 
 import { usePlayersManagementState } from "@/composables/players/usePlayersManagementState";
 
@@ -30,7 +34,7 @@ const {
 } = usePlayersManagementState();
 
 const inputClass =
-  "min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-white sm:min-h-0 sm:py-2 sm:text-sm";
+  "ui-input-blue min-h-[48px] dark:bg-slate-950 sm:min-h-0 sm:text-sm";
 
 const selectClass =
   "min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-white";
@@ -51,36 +55,7 @@ const selectClass =
       </div>
 
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-        <div
-          class="inline-flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-700"
-          role="group"
-          aria-label="Ansicht"
-        >
-          <button
-            type="button"
-            :class="[
-              'rounded-md px-3 py-2 text-sm font-medium transition sm:py-1.5',
-              scope === 'all'
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
-            ]"
-            @click="scope = 'all'"
-          >
-            Alle
-          </button>
-          <button
-            type="button"
-            :class="[
-              'rounded-md px-3 py-2 text-sm font-medium transition sm:py-1.5',
-              scope === 'own'
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
-            ]"
-            @click="scope = 'own'"
-          >
-            Eigene
-          </button>
-        </div>
+        <ScopeToggle v-model="scope" />
 
         <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
           <span class="shrink-0">Klasse</span>
@@ -105,7 +80,7 @@ const selectClass =
 
         <button
           type="button"
-          class="min-h-[48px] rounded-lg bg-blue-600 px-4 py-3 text-base font-medium text-white hover:bg-blue-600/90 disabled:opacity-50 sm:min-h-0 sm:py-2 sm:text-sm"
+          class="ui-btn-primary-blue"
           :disabled="!canAddPlayer"
           @click="openCreate"
         >
@@ -132,68 +107,48 @@ const selectClass =
     <p v-if="loading || classesLoading" class="text-slate-500">Lade …</p>
 
     <div v-else>
-      <div v-if="myClasses.length === 0" class="rounded-2xl border border-slate-200 bg-white/70 p-6 text-center dark:border-slate-800 dark:bg-slate-900/40">
-        <svg
-          class="h-12 w-12 text-slate-400 mx-auto mb-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path
-            d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
-          />
-          <circle cx="9" cy="7" r="4" />
-        </svg>
-        <p class="text-slate-600 dark:text-slate-300 mb-4">
-          Erstelle zuerst eine Klasse, bevor du Spieler hinzufügst
-        </p>
-        <RouterLink to="/classes">
-          <button
-            type="button"
-            class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:hover:bg-slate-800"
-          >
-            Zu den Klassen
-          </button>
-        </RouterLink>
-      </div>
+      <EmptyStateCard v-if="myClasses.length === 0" title="Erstelle zuerst eine Klasse, bevor du Spieler hinzufügst">
+        <template #icon>
+        <AppIcon name="players" class="mx-auto mb-4 h-12 w-12 text-slate-400" />
+        </template>
+        <template #action>
+          <RouterLink to="/classes">
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:hover:bg-slate-800"
+            >
+              Zu den Klassen
+            </button>
+          </RouterLink>
+        </template>
+      </EmptyStateCard>
 
         <div v-else>
-          <div v-if="players.length === 0" class="rounded-2xl border border-slate-200 bg-white/70 p-6 text-center dark:border-slate-800 dark:bg-slate-900/40">
-          <svg
-            class="h-12 w-12 text-slate-400 mx-auto mb-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
+          <EmptyStateCard
+            v-if="players.length === 0"
+            title="Noch keine Spieler erstellt"
+            action-label="Ersten Spieler erstellen"
+            :action-disabled="!canAddPlayer"
+            @action="openCreate"
           >
-            <path
-              d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
-            />
-            <circle cx="9" cy="7" r="4" />
-          </svg>
-          <p class="text-slate-600 dark:text-slate-300 mb-4">
-            Noch keine Spieler erstellt
-          </p>
-          <button
-            type="button"
-            class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-medium text-white transition hover:bg-blue-600/90"
-            :disabled="!canAddPlayer"
-            @click="openCreate"
-          >
-            Ersten Spieler erstellen
-          </button>
-        </div>
+            <template #icon>
+            <AppIcon name="players" class="mx-auto mb-4 h-12 w-12 text-slate-400" />
+            </template>
+            <template #action>
+              <button
+                type="button"
+                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-medium text-white transition hover:bg-blue-600/90 disabled:opacity-50"
+                :disabled="!canAddPlayer"
+                @click="openCreate"
+              >
+                Ersten Spieler erstellen
+              </button>
+            </template>
+          </EmptyStateCard>
 
           <div
             v-else-if="filteredPlayers.length === 0"
-            class="rounded-2xl border border-slate-200 bg-white/70 p-6 text-center dark:border-slate-800 dark:bg-slate-900/40"
+            class="ui-empty-card"
           >
             <p class="text-slate-600 dark:text-slate-300">
               Keine Spieler für diese Klassenauswahl.
@@ -202,7 +157,7 @@ const selectClass =
 
           <div
             v-else
-            class="rounded-2xl border border-slate-200 bg-white/70 dark:border-slate-800 dark:bg-slate-900/40 overflow-hidden"
+            class="ui-card overflow-hidden"
           >
           <table class="w-full text-left text-sm">
             <thead class="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
@@ -267,84 +222,50 @@ const selectClass =
       </div>
     </div>
 
-    <div
-      v-if="dialogOpen"
-      class="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-3"
-      role="dialog"
-      aria-modal="true"
-      @click.self="closeDialog"
+    <EntityDialog
+      :open="dialogOpen"
+      :title="editingId ? 'Spieler bearbeiten' : 'Neuer Spieler'"
+      :description="editingId ? 'Bearbeite die Spielerinformationen' : 'Füge einen neuen Spieler hinzu'"
+      :submit-label="editingId ? 'Speichern' : 'Hinzufügen'"
+      :submit-disabled="!dialogName.trim() || myClasses.length === 0"
+      @close="closeDialog"
+      @submit="submitDialog"
     >
-      <div
-        class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-800 dark:bg-slate-950"
-      >
-        <div class="mb-4">
-          <h2 class="font-display text-xl font-semibold text-slate-900 dark:text-white">
-            {{ editingId ? "Spieler bearbeiten" : "Neuer Spieler" }}
-          </h2>
-          <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            {{
-              editingId
-                ? "Bearbeite die Spielerinformationen"
-                : "Füge einen neuen Spieler hinzu"
-            }}
-          </p>
-        </div>
-
-        <form @submit.prevent="submitDialog" class="space-y-4">
-          <div class="space-y-2">
-            <label
-              class="block text-sm font-medium text-slate-700 dark:text-slate-200"
-              for="player-name"
-            >
-              Name
-            </label>
-            <input
-              id="player-name"
-              v-model="dialogName"
-              placeholder="Spielername eingeben"
-              :class="inputClass"
-              required
-            />
-          </div>
-
-          <div class="space-y-2">
-            <label
-              class="block text-sm font-medium text-slate-700 dark:text-slate-200"
-              for="player-class"
-            >
-              Klasse
-            </label>
-            <select
-              id="player-class"
-              v-model="dialogClassId"
-              :class="selectClass"
-            >
-              <option value="">Keine Klasse</option>
-              <option v-for="c in myClasses" :key="c.id" :value="c.id">
-                {{ c.name }}
-              </option>
-            </select>
-          </div>
-
-          <div class="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
-              @click="closeDialog"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-600/90 disabled:opacity-50"
-              :disabled="!dialogName.trim() || myClasses.length === 0"
-            >
-              {{ editingId ? "Speichern" : "Hinzufügen" }}
-            </button>
-          </div>
-        </form>
+      <div class="space-y-2">
+        <label
+          class="block text-sm font-medium text-slate-700 dark:text-slate-200"
+          for="player-name"
+        >
+          Name
+        </label>
+        <input
+          id="player-name"
+          v-model="dialogName"
+          placeholder="Spielername eingeben"
+          :class="inputClass"
+          required
+        />
       </div>
-    </div>
+
+      <div class="space-y-2">
+        <label
+          class="block text-sm font-medium text-slate-700 dark:text-slate-200"
+          for="player-class"
+        >
+          Klasse
+        </label>
+        <select
+          id="player-class"
+          v-model="dialogClassId"
+          :class="selectClass"
+        >
+          <option value="">Keine Klasse</option>
+          <option v-for="c in myClasses" :key="c.id" :value="c.id">
+            {{ c.name }}
+          </option>
+        </select>
+      </div>
+    </EntityDialog>
   </div>
 </template>
 

@@ -75,6 +75,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 - **Pinia** (`auth`, `theme`, **`toast`**), **Vue Router**, Tailwind with **`darkMode: 'class'`** on `<html>`.
 - Theme persistence: `localStorage` key `turnier_hub_theme`.
+- Styling/Theming: keep style decisions centralized. Use `client/src/style.css` for semantic UI color variables (light/dark) and shared utility classes (`.ui-card`, `.ui-btn-*`, `.ui-input-*`, etc.). Keep font and Tailwind token sources in `client/src/theme/designTokens.js` and `client/src/theme/fonts.css`.
 - **Toasts:** `client/src/stores/toast.ts` (`showError` / `showSuccess` / `showInfo`); **`ToastHost.vue`** is mounted in `App.vue` (fixed overlay, no `Teleport` + `TransitionGroup` together — known Vue pitfall).
 - **Tournaments:** parent layout `TournamentLayout.vue` loads data once, `provide`s `tournamentLayoutKey` from `client/src/tournament/tournamentContext.ts`; child routes **Mannschaften** (`TournamentRosterView.vue`) and **Spiele** (`TournamentMatchesLayout.vue` with overview/setup views), top tabs **Mannschaften**, **Spiele**, and (for owners) **Spielbetrieb**. Default redirect is **roster**. In `GROUP_KO`, `groupCount` is configured in Spielbetrieb next to "Gruppenspiele erzeugen"; `advancesPerGroup` is saved via "Einstellungen speichern". **Logic** lives under `client/src/tournament/` (API, pure derive/format helpers, UI class tokens, `useTournamentLayoutState`, `useTournamentPhaseStepper`); views stay thin. Paths `roster`, `matches`, `matches/setup`.
 - **Tournament modes** (`TournamentMode` enum): `GROUP_KO` (classic group stage → knockout), `DIRECT_KO` (direct knockout, supports arbitrary team counts with byes), `ROUND_ROBIN` (everyone vs everyone, no knockout). Mode is set at tournament creation. `teamsAreIndividuals` flag makes players into teams directly (e.g. Badminton). `groupCount` distributes teams into N groups for GROUP_KO mode.
@@ -83,14 +84,14 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - **KO bracket** generation: `server/src/services/knockoutBracket.ts` centralizes randomization + pairings and handles byes (null `awayTeamId`). Bye matches are created as `FINISHED` and auto-resolved when advancing.
 - **Tournament routes are modularized** under `server/src/routes/tournaments/` (`index.ts`, `core.ts`, `teams.ts`, `matches.ts`, `standings-advance.ts`, `shared.ts`).
 - **Score draft:** `buildScoreDraftFromMatches` / `mergeScoreDraftFromMatches` in `tournamentDerive.ts` — merge on `load()` avoids overwriting in-progress edits when the match timer poll refetches; draft defaults missing DB scores to **`"0"`**; **`parseScoreDraftForPatch`** requires **both** goals when saving (no partial PATCH). Tournament action errors use **toasts** from `useTournamentLayoutState` (initial load failure still uses layout `error`). **Regenerate group / advance** confirm dialogs when existing results would be lost (`groupRegenerateRisksDataLoss`, `advanceTargetRisksDataLoss` in `tournamentDerive.ts`). "Freilos" replaces `—` for null awayTeam in KO matches.
-- **Delete all matches:** `DELETE /api/tournaments/:id/matches` removes every match and resets the phase to `GROUP`. In the Spielbetrieb view a **"Gefahrenzone"** section (visible when matches exist) offers a red **"Alle Spiele und Gruppen löschen"** button with a `confirm()` dialog. Client: `deleteAllMatches` in `tournamentsApi.ts` / `useTournamentLayoutState`.
+- **Delete all matches:** `DELETE /api/tournaments/:id/matches` removes every match and resets the phase to `GROUP`. In the Spielbetrieb view, a **"Danger zone"** section (visible when matches exist) offers a red **"Delete all matches and groups"** button with a `confirm()` dialog. Client: `deleteAllMatches` in `tournamentsApi.ts` / `useTournamentLayoutState`.
 - **Group generation guard:** `POST /api/tournaments/:id/generate-group-matches` only includes teams with at least one member; empty teams are excluded and their `groupLabel` stays/gets `null`.
 - **Group regeneration behavior:** `POST /api/tournaments/:id/generate-group-matches` removes existing KO matches before creating new group matches.
 - **Renaming:** Team names can be changed via `PATCH /api/tournaments/:id/teams/:teamId`; group labels via `PATCH /api/tournaments/:id/groups/rename`.
 - **Auto-complete on final:** If final match(es) are finished, tournament phase is set to `COMPLETED`.
 - **K.O. randomness:** Direct-KO generation and qualifier-based KO creation both use randomized pairings.
 - **Server KO advancement:** `requireKnockoutWinnerTeamId` in `server/src/services/standings.ts` (used by `advancePhase.ts`) — winners come from **persisted** `homeScore`/`awayScore` only; timer **end** alone does not set them.
-- **Classes:** route `/classes`, view `ClassesView.vue`, API `client/src/api/classesApi.ts` (scope all/own like players).
+- **Classes:** route `/classes`, view `ClassesViewPreset.vue`, API `client/src/api/classesApi.ts` (scope all/own like players).
 - Prefer **responsive** patterns already used: mobile nav in `App.vue`, `sm:` / `md:` breakpoints elsewhere.
 
 ## Conventions for changes
@@ -119,6 +120,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Tournament types + inject key | `client/src/tournament/tournamentContext.ts` |
 | Client API helper | `client/src/api/http.ts` |
 | Client ESLint | `client/eslint.config.js` |
+| Client theming | `client/src/style.css`, `client/src/theme/designTokens.js`, `client/src/theme/fonts.css` |
 | Toasts (Pinia + host) | `client/src/stores/toast.ts`, `client/src/components/ToastHost.vue` |
 
 ## Product context (short)

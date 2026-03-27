@@ -2,6 +2,7 @@
 import { computed, inject, ref } from "vue";
 import TournamentMatchCard from "@/components/tournament/TournamentMatchCard.vue";
 import TournamentPhaseStepper from "@/components/tournament/TournamentPhaseStepper.vue";
+import TournamentPhaseTabs from "@/components/tournament/TournamentPhaseTabs.vue";
 import TournamentStandingsTable from "@/components/tournament/TournamentStandingsTable.vue";
 import {
   tournamentLayoutKey,
@@ -88,10 +89,6 @@ function isKnockoutPhase(phase: MatchPhase): boolean
 
 const mode = computed(() => tournament.value?.mode ?? "GROUP_KO");
 
-const groupTabLabel = computed(() =>
-  mode.value === "ROUND_ROBIN" ? "Jeder gegen Jeden" : "Gruppenspiele"
-);
-
 const showStandingsTable = computed(() =>
   hasGroupMatches.value
   && (activeMatchesTab.value === "overview" || activeMatchesTab.value === "group")
@@ -130,85 +127,16 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
     />
 
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div class="inline-flex flex-wrap rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-900/40">
-        <button
-          v-if="hasGroupMatches"
-          type="button"
-          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-          :class="[
-            activeMatchesTab === 'group'
-              ? 'bg-blue-600 text-white dark:bg-blue-500'
-              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
-          ]"
-          @click="activeMatchesTab = 'group'"
-        >
-          {{ groupTabLabel }}
-        </button>
-        <button
-          v-if="hasR16Matches"
-          type="button"
-          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-          :class="[
-            activeMatchesTab === 'r16'
-              ? 'bg-blue-600 text-white dark:bg-blue-500'
-              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
-          ]"
-          @click="activeMatchesTab = 'r16'"
-        >
-          {{ formatPhaseLabel("ROUND_OF_16") }}
-        </button>
-        <button
-          v-if="hasQuarterMatches"
-          type="button"
-          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-          :class="[
-            activeMatchesTab === 'quarter'
-              ? 'bg-blue-600 text-white dark:bg-blue-500'
-              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
-          ]"
-          @click="activeMatchesTab = 'quarter'"
-        >
-          Viertelfinale
-        </button>
-        <button
-          v-if="hasSemiMatches"
-          type="button"
-          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-          :class="[
-            activeMatchesTab === 'semi'
-              ? 'bg-blue-600 text-white dark:bg-blue-500'
-              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
-          ]"
-          @click="activeMatchesTab = 'semi'"
-        >
-          Halbfinale
-        </button>
-        <button
-          v-if="hasFinalMatches"
-          type="button"
-          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-          :class="[
-            activeMatchesTab === 'final'
-              ? 'bg-blue-600 text-white dark:bg-blue-500'
-              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
-          ]"
-          @click="activeMatchesTab = 'final'"
-        >
-          Finale
-        </button>
-        <button
-          type="button"
-          class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-          :class="[
-            activeMatchesTab === 'overview'
-              ? 'bg-blue-600 text-white dark:bg-blue-500'
-              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
-          ]"
-          @click="activeMatchesTab = 'overview'"
-        >
-          Alle
-        </button>
-      </div>
+      <TournamentPhaseTabs
+        v-model="activeMatchesTab"
+        :mode="mode"
+        :has-group-matches="hasGroupMatches"
+        :has-r16-matches="hasR16Matches"
+        :has-quarter-matches="hasQuarterMatches"
+        :has-semi-matches="hasSemiMatches"
+        :has-final-matches="hasFinalMatches"
+        :format-phase-label="formatPhaseLabel"
+      />
     </div>
 
     <TournamentStandingsTable
