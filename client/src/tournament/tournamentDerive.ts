@@ -9,11 +9,6 @@ import type { Player } from "@/types";
 
 export type ScoreDraftMap = Record<string, { home: string; away: string }>;
 
-export function matchNeedsTimerPoll(m: MatchRow): boolean 
-{
-  return m.status === "LIVE" || m.status === "PAUSED";
-}
-
 /** Eingetragene Tore, laufende/abgeschlossene/abgebrochene Spiele — Neu-Anlegen der Phase verwirft diese Daten. */
 export function matchHasRecordedProgress(m: MatchRow): boolean 
 {
@@ -75,22 +70,14 @@ export function buildScoreDraftFromMatches(matches: MatchRow[]): ScoreDraftMap
   return out;
 }
 
-function scoreDraftFieldMatchesServer(
-  draft: string,
-  server: number | null | undefined
-): boolean 
-{
-  if (server == null) return draft === "" || draft === "0";
-  return String(server) === draft;
-}
-
 /**
- * Wie buildScoreDraftFromMatches, aber Zeilen behalten, die vom Server abweichen
- * (laufende Eingabe). Sonst überschreibt z. B. der Timer-Poll jede Sekunde den Entwurf.
+ * Wie buildScoreDraftFromMatches, aber mit optionalem Dirty-Tracking:
+ * Nur Matches mit lokaler, noch ungespeicherter Eingabe behalten den bisherigen Entwurf.
  */
 export function mergeScoreDraftFromMatches(
   matches: MatchRow[],
-  previous: ScoreDraftMap
+  previous: ScoreDraftMap,
+  dirtyByMatchId?: Record<string, boolean>
 ): ScoreDraftMap 
 {
   const built = buildScoreDraftFromMatches(matches);
@@ -104,10 +91,8 @@ export function mergeScoreDraftFromMatches(
       out[m.id] = b;
       continue;
     }
-    const sameAsServer =
-      scoreDraftFieldMatchesServer(p.home, m.homeScore)
-      && scoreDraftFieldMatchesServer(p.away, m.awayScore);
-    out[m.id] = sameAsServer ? b : p;
+    const isDirty = dirtyByMatchId?.[m.id] === true;
+    out[m.id] = isDirty ? p : b;
   }
   return out;
 }

@@ -8,6 +8,7 @@ import {
   requireTournamentOwner,
   serializeTournamentDetail,
 } from "./shared.js";
+import { notifyTournamentChanged } from "../../realtime/notify.js";
 
 const createTeamSchema = z.object({
   name: z.string().min(1).max(60),
@@ -60,6 +61,7 @@ export function registerTournamentTeamRoutes(router: Router): void
           sortOrder,
         },
       });
+      notifyTournamentChanged(req.params.id);
       res.status(201).json({
         id: team.id,
         name: team.name,
@@ -101,6 +103,7 @@ export function registerTournamentTeamRoutes(router: Router): void
             : {}),
         },
       });
+      notifyTournamentChanged(req.params.id);
       res.json({
         id: team.id,
         name: team.name,
@@ -187,6 +190,7 @@ export function registerTournamentTeamRoutes(router: Router): void
       });
       return;
     }
+    notifyTournamentChanged(req.params.id);
     res.status(200).json({
       deletedTeamId: req.params.teamId,
       removedGroupMatches: removableGroupMatchIds.length,
@@ -208,6 +212,7 @@ export function registerTournamentTeamRoutes(router: Router): void
     if (oldLabel === newLabel)
     {
       const full = await loadTournamentById(req.params.id);
+      notifyTournamentChanged(req.params.id);
       res.json(serializeTournamentDetail(full!));
       return;
     }
@@ -233,6 +238,7 @@ export function registerTournamentTeamRoutes(router: Router): void
       }),
     ]);
     const full = await loadTournamentById(req.params.id);
+    notifyTournamentChanged(req.params.id);
     res.json(serializeTournamentDetail(full!));
   });
 
@@ -275,6 +281,7 @@ export function registerTournamentTeamRoutes(router: Router): void
           player: { include: playerApiInclude },
         },
       });
+      notifyTournamentChanged(req.params.id);
       res.status(201).json({
         id: row.id,
         tournamentId: row.tournamentId,
@@ -302,6 +309,7 @@ export function registerTournamentTeamRoutes(router: Router): void
         playerId: req.params.playerId,
       },
     });
+    notifyTournamentChanged(req.params.id);
     res.status(204).send();
   });
 
@@ -399,6 +407,8 @@ export function registerTournamentTeamRoutes(router: Router): void
       }
     }
 
+    notifyTournamentChanged(req.params.id);
+    notifyTournamentChanged(req.params.sourceTournamentId);
     res.json({ createdTeams, addedMembers });
   });
 }

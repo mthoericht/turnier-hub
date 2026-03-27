@@ -9,7 +9,7 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - **Classes:** CRUD for **school classes** (names unique per user); players optionally belong to one class. Routes `/classes` (API `/api/classes`).
 - **Players:** CRUD for players; optional class is chosen from your managed classes. Scoped list views (all vs. own) like tournaments.
 - **Tournaments:** Create tournaments with one of three **modes**: **Group → K.O.** (classic group stage feeding knockout rounds), **Direct K.O.** (knockout only, supports arbitrary team counts with byes), or **Round-Robin** (everyone vs everyone, no knockout). Optionally mark **teams as individuals** (e.g. badminton — players become teams directly). In the **Operations** tab (`Spielbetrieb`), Group → K.O. lets you set **group count** directly next to "Generate group matches" and save **advancers per group** separately via "Save settings". Add **teams**, assign players to **team rosters** (optionally transfer rosters from another tournament in the **Teams** tab), generate **group / round-robin matches** (organized in parallel rounds), view **standings** (per group when applicable), then advance through **round of 16 → quarter → semi → final** with pairings computed on the server; scoped to the signed-in user. K.O. pairings are randomized when generated. Group generation ignores teams without members and regenerating group matches removes existing knockout matches. Group and team names are editable in the roster UI. All matches can be **deleted at once** via "Delete all matches and groups" in the operations view. The tournament UI uses top tabs **Teams** (`Mannschaften`), **Matches** (`Spiele`), and (for owners) **Operations** (`Spielbetrieb`).
-- **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. When the final is finished, the tournament phase is automatically set to **Ende** (`COMPLETED`). Matches with a **Freilos** are created directly as **beendet** (`FINISHED`). While a match timer is running, periodic reloads **merge** the score draft with the server so unsaved typing is not wiped. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
+- **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. When the final is finished, the tournament phase is automatically set to **Ende** (`COMPLETED`). Matches with a **Freilos** are created directly as **beendet** (`FINISHED`). **Live updates** use a **WebSocket** (`/api/ws`): the server pushes changes after writes; the client refetches affected tournament detail and **merges** the score draft so unsaved typing is not wiped. **Stopwatch display:** while a match is **LIVE**, elapsed time is derived **locally** from server timestamps (`matchStartedAt`, `totalPausedMs`, …) on a one-second **UI** tick — no per-second HTTP or WebSocket traffic; timer **state** still updates only from the API/WebSocket when you use the controls or another client changes the match. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
 - **Feedback:** **Toasts** (global, bottom of the screen) surface validation hints and API errors for tournament actions (for example advance rules or save issues).
 - **UI:** Vue front end with **light and dark** themes (persisted), **responsive** layout including a mobile navigation menu.
 - **Theming (centralized):** fonts and semantic UI colors are configured centrally. Font tokens live in `client/src/theme/designTokens.js` + `client/src/theme/fonts.css`; light/dark semantic color variables (`--ui-primary`, `--ui-card-*`, `--ui-input-*`, `--ui-danger*`) and reusable UI classes (`.ui-card`, `.ui-btn-primary-*`, `.ui-input-*`, etc.) are defined in `client/src/style.css`.
@@ -71,7 +71,7 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 | Layer    | Technology |
 | -------- | ---------- |
 | Client   | Vite, Vue 3, TypeScript, Pinia, Vue Router, Tailwind CSS |
-| Server   | Express, TypeScript |
+| Server   | Express, TypeScript, **`ws`** (WebSocket on `/api/ws`, same HTTP server as the API) |
 | Database | SQLite via Prisma ORM |
 | Auth     | JWT, bcryptjs |
 | Lint     | ESLint 9 (flat config), `typescript-eslint`, `eslint-plugin-vue` (client) |
@@ -137,6 +137,7 @@ npm run db:clear:test -- --yes
 
    - Front end: [http://localhost:5173](http://localhost:5173)
    - API: [http://localhost:3001](http://localhost:3001)
+   - The Vite dev server proxies **`/api`** to port 3001 for both **HTTP and WebSocket** (realtime uses `ws://` / `wss://` on the same host as the SPA in dev).
 
 ## NPM Scripts (repository root)
 
@@ -165,6 +166,10 @@ npm run db:clear:test -- --yes
 | `npm run test:integration` | Pushes test schema and runs client-API integration tests (Vitest, against test DB/API). |
 | `npm run clean` | Removes `node_modules` and `dist` folders in the monorepo. |
 | `npm run clean:install` | Runs `clean` then `npm install`. |
+
+Realtime test coverage (current baseline):
+- **Server WS hub:** `tests/server/unit/realtimeHub.test.ts` (auth, subscribe routing, user-scoped push events).
+- **Client WS adapter:** `tests/client/unit/realtimeClient.test.ts` (connect URL, subscribe flush/send, message dispatch hook, disconnect behavior).
 
 ## Database Profiles (dev / test / production)
 
@@ -218,6 +223,7 @@ For Ansible-based production automation (bootstrap, restart, update + deploy), s
 
 Notes:
 - `db:seed` / `db:clear` are for development/test workflows. On production, use `db:deploy` only (and seed manually only if you explicitly want demo data).
+- **Reverse proxy (e.g. Nginx):** if TLS or a proxy sits in front of Node, enable **WebSocket pass-through** for paths that hit the API (at least **`/api/ws`**), e.g. `proxy_http_version 1.1`, `Upgrade`, and `Connection "upgrade"`, so realtime push keeps working.
 
    Or use `npm run prod` to run steps 2–4's build/start in one go after `npm ci` (run `db:deploy` separately when the database is ready).
 
@@ -235,16 +241,20 @@ turnier-hub/
 │   ├── eslint.config.js       # ESLint flat config
 │   ├── src/
 │   │   ├── api/               # authApi, classesApi, playersApi, tournamentsApi, http (fetch + token)
-│   │   ├── composables/       # Feature composables (dashboard, classes, players, tournaments)
+│   │   ├── composables/       # Thin views over Pinia (dashboard, classes, players, tournaments)
+│   │   ├── realtime/          # WebSocket client (connect, tournament subscribe, dispatch to stores)
+│   │   ├── stores/            # Pinia: auth, theme, toast + domain (tournamentLayout, players/classes/tournaments list, dashboard)
 │   │   ├── theme/             # centralized design tokens and font import
-│   │   ├── tournament/        # Types, pure logic, layout composables (useTournamentLayoutState, …), UI class tokens
+│   │   ├── tournament/        # Types, pure logic, layout bridge (useTournamentLayoutState → store), UI class tokens
 │   │   └── views/
 │   │       └── tournament/    # TournamentLayout, Matches (layout + overview + setup), Roster (thin; roster logic in composables)
 ├── server/                    # Express API, Prisma schema & scripts
 │   ├── prisma/
 │   ├── scripts/
 │   └── src/
-│       └── routes/
+│       ├── app.ts, index.ts   # Express app; HTTP server + WebSocket upgrade
+│       ├── realtime/          # WebSocket hub (/api/ws), notify helpers (push after mutations)
+│       └── routes/            # auth, classes, players, tournaments/…
 │           └── tournaments/   # Modular tournament routes (index/core/teams/matches/standings-advance/shared)
 ├── data/                      # SQLite files (created locally; .gitignored)
 └── package.json               # npm workspaces + shared scripts

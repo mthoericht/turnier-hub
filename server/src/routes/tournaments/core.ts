@@ -8,6 +8,10 @@ import {
   requireTournamentOwner,
   serializeTournamentDetail,
 } from "./shared.js";
+import {
+  notifyTournamentChanged,
+  notifyUserTournamentsChanged,
+} from "../../realtime/notify.js";
 
 const createTournamentSchema = z.object({
   name: z.string().min(1),
@@ -78,6 +82,7 @@ export function registerTournamentCoreRoutes(router: Router): void
       },
     });
     const { user, ...row } = t;
+    notifyUserTournamentsChanged(req.userId!);
     res.status(201).json({
       ...row,
       createdBy: toCreatedBy(user),
@@ -110,6 +115,8 @@ export function registerTournamentCoreRoutes(router: Router): void
       data: parsed.data,
     });
     const full = await loadTournamentById(req.params.id);
+    notifyTournamentChanged(req.params.id);
+    notifyUserTournamentsChanged(req.userId!);
     res.json(serializeTournamentDetail(full!));
   });
 
@@ -117,7 +124,10 @@ export function registerTournamentCoreRoutes(router: Router): void
   {
     const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
     if (!owned) return;
-    await prisma.tournament.delete({ where: { id: req.params.id } });
+    const tid = req.params.id;
+    await prisma.tournament.delete({ where: { id: tid } });
+    notifyTournamentChanged(tid);
+    notifyUserTournamentsChanged(req.userId!);
     res.status(204).send();
   });
 }

@@ -24,7 +24,12 @@ export type MatchRow = {
   homeScore: number | null;
   awayScore: number | null;
   status: MatchStatus;
+  /** Snapshot from the server at fetch time; prefer `computeMatchElapsedMs` + timer fields for LIVE UI. */
   elapsedMs: number;
+  matchStartedAt: string | null;
+  totalPausedMs: number;
+  pausedAt: string | null;
+  elapsedSnapshotMs: number | null;
 };
 
 export type TournamentTeamMember = {
@@ -83,17 +88,22 @@ export type TournamentLayoutContext = {
   advancesInput: Ref<number>;
   standings: Ref<Record<string, unknown> | null>;
   scoreDraft: Ref<Record<string, { home: string; away: string }>>;
-  canEdit: ComputedRef<boolean>;
-  assignedPlayerIds: ComputedRef<Set<string>>;
-  availablePlayers: ComputedRef<Player[]>;
-  standingsGroups: ComputedRef<Record<string, StandingTeamRow[]>>;
-  matchesByPhase: ComputedRef<{ phase: MatchPhase; matches: MatchRow[] }[]>;
+  canEdit: Ref<boolean>;
+  assignedPlayerIds: Ref<Set<string>>;
+  availablePlayers: Ref<Player[]>;
+  standingsGroups: Ref<Record<string, StandingTeamRow[]>>;
+  matchesByPhase: Ref<{ phase: MatchPhase; matches: MatchRow[] }[]>;
   formatPhaseLabel: (phase: MatchPhase | string) => string;
   formatMatchStatusLabel: (status: MatchStatus) => string;
   formatMs: (ms: number) => string;
   load: () => Promise<void>;
   loadStandings: () => Promise<void>;
   loadPlayers: () => Promise<void>;
+  updateScoreDraft: (
+    matchId: string,
+    side: "home" | "away",
+    value: string
+  ) => void;
   createTeam: () => Promise<void>;
   removeTeam: (teamId: string) => Promise<void>;
   renameTeam: (teamId: string, newName: string) => Promise<void>;

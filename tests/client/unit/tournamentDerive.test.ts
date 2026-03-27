@@ -29,6 +29,10 @@ function makeMatch(overrides: Partial<MatchRow>): MatchRow
     awayScore: null,
     status: "SCHEDULED",
     elapsedMs: 0,
+    matchStartedAt: null,
+    totalPausedMs: 0,
+    pausedAt: null,
+    elapsedSnapshotMs: null,
     ...overrides,
   };
 }
@@ -67,8 +71,17 @@ describe("tournamentDerive", () =>
       m1: { home: "9", away: "9" },
       m2: { home: "0", away: "0" },
     });
-    expect(merged.m1).toEqual({ home: "9", away: "9" });
+    expect(merged.m1).toEqual({ home: "2", away: "1" });
     expect(merged.m2).toEqual({ home: "0", away: "0" });
+
+    const mergedWithDirty = mergeScoreDraftFromMatches(
+      matches,
+      {
+        m1: { home: "9", away: "9" },
+      },
+      { m1: true }
+    );
+    expect(mergedWithDirty.m1).toEqual({ home: "9", away: "9" });
   });
 
   it("parses score draft for patch rules", () =>

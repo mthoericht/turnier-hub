@@ -27,6 +27,7 @@ const {
   formatMatchStatusLabel,
   formatMs,
   scoreDraft,
+  updateScoreDraft,
   patchScores,
   timerAction,
   fieldSmClass,
@@ -172,7 +173,7 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
           :format-ms="formatMs"
           :format-match-status-label="formatMatchStatusLabel"
           @timer="(action) => timerAction(m.id, action)"
-          @update-draft="(side, value) => { if (scoreDraft[m.id]) scoreDraft[m.id][side] = value; }"
+          @update-draft="(side, value) => updateScoreDraft(m.id, side, value)"
           @save-score="patchScores(m.id)"
         />
       </section>
@@ -214,7 +215,7 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
           :format-ms="formatMs"
           :format-match-status-label="formatMatchStatusLabel"
           @timer="(action) => timerAction(m.id, action)"
-          @update-draft="(side, value) => { if (scoreDraft[m.id]) scoreDraft[m.id][side] = value; }"
+          @update-draft="(side, value) => updateScoreDraft(m.id, side, value)"
           @save-score="patchScores(m.id)"
         />
       </template>

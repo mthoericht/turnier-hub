@@ -7,6 +7,7 @@ import {
   playerApiInclude,
   playerToApi,
 } from "../lib/createdBy.js";
+import { notifyUserCatalog } from "../realtime/notify.js";
 
 const router = Router();
 router.use(authMiddleware);
@@ -58,6 +59,7 @@ router.post("/", async (req, res) => {
     },
     include: playerApiInclude,
   });
+  notifyUserCatalog(req.userId!, ["players", "classes"]);
   res.status(201).json(playerToApi(row));
 });
 
@@ -98,6 +100,7 @@ router.patch("/:id", async (req, res) => {
     },
     include: playerApiInclude,
   });
+  notifyUserCatalog(req.userId!, ["players", "classes"]);
   res.json(playerToApi(row));
 });
 
@@ -110,6 +113,7 @@ router.delete("/:id", async (req, res) => {
     return;
   }
   await prisma.player.delete({ where: { id: req.params.id } });
+  notifyUserCatalog(req.userId!, ["players", "classes"]);
   res.status(204).send();
 });
 

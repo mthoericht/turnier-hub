@@ -10,6 +10,7 @@ export {
 } from "./useTournamentRosterGroupsDisplay";
 export { useTournamentRosterRenamePrompts } from "./useTournamentRosterRenamePrompts";
 export { useTournamentRosterTransfer } from "./useTournamentRosterTransfer";
+export { useMatchTimerDisplay } from "./useMatchTimerDisplay";
 
 export { useTournamentPhaseStepper } from "@/tournament/useTournamentPhaseStepper";
 

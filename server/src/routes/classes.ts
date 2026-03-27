@@ -8,6 +8,7 @@ import {
   parseListScope,
   schoolClassToApi,
 } from "../lib/createdBy.js";
+import { notifyUserCatalog } from "../realtime/notify.js";
 
 const router = Router();
 router.use(authMiddleware);
@@ -44,6 +45,7 @@ router.post("/", async (req, res) => {
       data: { name, userId: req.userId! },
       include: { user: { select: createdBySelect } },
     });
+    notifyUserCatalog(req.userId!, ["classes", "players"]);
     res.status(201).json(schoolClassToApi(row));
   }
   catch (e) 
@@ -81,6 +83,7 @@ router.patch("/:id", async (req, res) => {
       data: { name },
       include: { user: { select: createdBySelect } },
     });
+    notifyUserCatalog(req.userId!, ["classes", "players"]);
     res.json(schoolClassToApi(row));
   }
   catch (e) 
@@ -106,6 +109,7 @@ router.delete("/:id", async (req, res) => {
     return;
   }
   await prisma.schoolClass.delete({ where: { id: req.params.id } });
+  notifyUserCatalog(req.userId!, ["classes", "players"]);
   res.status(204).send();
 });
 

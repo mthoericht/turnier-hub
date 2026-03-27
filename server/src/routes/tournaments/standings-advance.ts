@@ -9,6 +9,7 @@ import {
   requireTournamentOwner,
   serializeTournamentDetail,
 } from "./shared.js";
+import { notifyTournamentChanged } from "../../realtime/notify.js";
 
 const advanceSchema = z.object({
   target: z.enum(["ROUND_OF_16", "QUARTER", "SEMI", "FINAL", "COMPLETED"]),
@@ -83,6 +84,7 @@ export function registerTournamentStandingsAdvanceRoutes(router: Router): void
         data: { phase: TournamentPhase.COMPLETED },
       });
       const full = await loadTournamentById(t.id);
+      notifyTournamentChanged(t.id);
       res.json(serializeTournamentDetail(full!));
       return;
     }
@@ -103,6 +105,7 @@ export function registerTournamentStandingsAdvanceRoutes(router: Router): void
         parsed.data.target as "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL"
       );
       const full = await loadTournamentById(t.id);
+      notifyTournamentChanged(t.id);
       res.json({
         ...serializeTournamentDetail(full!),
         notices: result.notices,

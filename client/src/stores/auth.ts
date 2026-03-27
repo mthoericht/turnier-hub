@@ -6,6 +6,10 @@ import {
   postAuthSignup,
 } from "@/api/authApi";
 import { getToken, setToken } from "@/api/http";
+import {
+  connectRealtime,
+  disconnectRealtime,
+} from "@/realtime/realtimeClient";
 import type { AuthUser } from "@/types";
 import router from "@/router";
 
@@ -26,11 +30,13 @@ export const useAuthStore = defineStore("auth", () =>
     try 
     {
       user.value = await fetchAuthMe();
+      connectRealtime();
     }
     catch 
     {
       setToken(null);
       user.value = null;
+      disconnectRealtime();
     }
     finally 
     {
@@ -43,6 +49,7 @@ export const useAuthStore = defineStore("auth", () =>
     const res = await postAuthLogin(email, password);
     setToken(res.token);
     user.value = res.user;
+    connectRealtime();
     await router.push("/");
   }
 
@@ -56,11 +63,13 @@ export const useAuthStore = defineStore("auth", () =>
     const res = await postAuthSignup(payload);
     setToken(res.token);
     user.value = res.user;
+    connectRealtime();
     await router.push("/");
   }
 
   function logout(): void 
   {
+    disconnectRealtime();
     setToken(null);
     user.value = null;
     void router.push("/login");

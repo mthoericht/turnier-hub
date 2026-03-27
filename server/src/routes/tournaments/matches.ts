@@ -14,6 +14,7 @@ import {
   serializeTournamentDetail,
   type MatchWithTeams,
 } from "./shared.js";
+import { notifyTournamentChanged } from "../../realtime/notify.js";
 
 const scoresSchema = z.object({
   homeScore: z.number().int().min(0).optional(),
@@ -101,6 +102,7 @@ export function registerTournamentMatchRoutes(router: Router): void
     });
 
     const full = await loadTournamentById(t.id);
+    notifyTournamentChanged(t.id);
     res.json(serializeTournamentDetail(full!));
   });
 
@@ -157,6 +159,7 @@ export function registerTournamentMatchRoutes(router: Router): void
     });
 
     const full = await loadTournamentById(t.id);
+    notifyTournamentChanged(t.id);
     res.json(serializeTournamentDetail(full!));
   });
 
@@ -180,6 +183,7 @@ export function registerTournamentMatchRoutes(router: Router): void
       data: { phase: TournamentPhase.GROUP },
     });
     const full = await loadTournamentById(t.id);
+    notifyTournamentChanged(t.id);
     res.json(serializeTournamentDetail(full!));
   });
 
@@ -217,6 +221,7 @@ export function registerTournamentMatchRoutes(router: Router): void
     {
       await completeTournamentIfFinalFinished(req.params.id);
     }
+    notifyTournamentChanged(req.params.id);
     res.json(serializeMatch(updated as MatchWithTeams));
   });
 
@@ -260,6 +265,7 @@ export function registerTournamentMatchRoutes(router: Router): void
         },
         include: matchUpdateInclude,
       });
+      notifyTournamentChanged(req.params.id);
       res.json(serializeMatch(updated as MatchWithTeams));
       return;
     }
@@ -276,6 +282,7 @@ export function registerTournamentMatchRoutes(router: Router): void
         data: { status: MatchStatus.PAUSED, pausedAt: now },
         include: matchUpdateInclude,
       });
+      notifyTournamentChanged(req.params.id);
       res.json(serializeMatch(updated as MatchWithTeams));
       return;
     }
@@ -297,6 +304,7 @@ export function registerTournamentMatchRoutes(router: Router): void
         },
         include: matchUpdateInclude,
       });
+      notifyTournamentChanged(req.params.id);
       res.json(serializeMatch(updated as MatchWithTeams));
       return;
     }
@@ -326,6 +334,7 @@ export function registerTournamentMatchRoutes(router: Router): void
       {
         await completeTournamentIfFinalFinished(req.params.id);
       }
+      notifyTournamentChanged(req.params.id);
       res.json(serializeMatch(updated as MatchWithTeams));
       return;
     }
@@ -345,6 +354,7 @@ export function registerTournamentMatchRoutes(router: Router): void
         },
         include: matchUpdateInclude,
       });
+      notifyTournamentChanged(req.params.id);
       res.json(serializeMatch(updated as MatchWithTeams));
       return;
     }
