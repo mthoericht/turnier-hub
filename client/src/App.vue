@@ -60,6 +60,12 @@ function navLinkClass(prefix: string): string
 
 <template>
   <div class="flex min-h-screen min-h-[100dvh] flex-col">
+    <a
+      href="#main-content"
+      class="fixed left-4 top-4 z-[100] -translate-y-[200%] rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+    >
+      Zum Inhalt springen
+    </a>
     <header
       class="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80"
     >
@@ -144,6 +150,7 @@ function navLinkClass(prefix: string): string
               :key="item.to"
               :to="item.to"
               :class="navLinkClass(item.to)"
+              :aria-current="isNavActive(item.to) ? 'page' : undefined"
             >
               <AppIcon :name="item.icon" class="h-5 w-5" />
               {{ item.label }}
@@ -164,6 +171,7 @@ function navLinkClass(prefix: string): string
               :key="item.to"
               :to="item.to"
               :class="linkClass"
+              :aria-current="isNavActive(item.to) ? 'page' : undefined"
               @click="navOpen = false"
             >
               {{ item.label }}
@@ -202,7 +210,9 @@ function navLinkClass(prefix: string): string
       </div>
     </header>
     <main
-      class="mx-auto w-full max-w-5xl flex-1 px-3 py-6 sm:px-4 sm:py-8 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]"
+      id="main-content"
+      tabindex="-1"
+      class="mx-auto w-full max-w-5xl flex-1 px-3 py-6 outline-none sm:px-4 sm:py-8 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]"
     >
       <RouterView />
     </main>

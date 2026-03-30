@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, useId } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 import { formatCreator } from "@/types";
 import { formatTournamentMode } from "@/tournament/tournamentFormat";
@@ -23,6 +23,10 @@ const {
 } = useTournamentsListState();
 
 const showCreateForm = ref(false);
+
+const formFieldId = useId();
+const nameFieldId = `${formFieldId}-name`;
+const sportFieldId = `${formFieldId}-sport`;
 
 const inputClass =
   "min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-white sm:min-h-0 sm:py-2 sm:text-sm";
@@ -52,7 +56,11 @@ async function handleCreate(): Promise<void>
         <ScopeToggle v-model="scope" />
       </div>
     </div>
-    <p v-if="error" class="text-rose-600 dark:text-rose-400 text-sm mb-4">
+    <p
+      v-if="error"
+      class="mb-4 text-sm text-rose-600 dark:text-rose-400"
+      role="alert"
+    >
       {{ error }}
     </p>
 
@@ -86,20 +94,32 @@ async function handleCreate(): Promise<void>
         <form class="space-y-5" @submit.prevent="handleCreate">
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
-              <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label
+                class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+                :for="nameFieldId"
+              >
                 Turniername
               </label>
               <input
+                :id="nameFieldId"
                 v-model="name"
                 placeholder="z.B. Schulcup 2026"
+                autocomplete="off"
                 :class="['w-full', inputClass]"
               />
             </div>
             <div>
-              <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label
+                class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+                :for="sportFieldId"
+              >
                 Sportart
               </label>
-              <select v-model="sport" :class="['w-full', inputClass]">
+              <select
+                :id="sportFieldId"
+                v-model="sport"
+                :class="['w-full', inputClass]"
+              >
                 <option value="Volleyball">Volleyball</option>
                 <option value="Fußball">Fußball</option>
                 <option value="2-Felderball">2-Felderball</option>
@@ -112,10 +132,10 @@ async function handleCreate(): Promise<void>
             </div>
           </div>
 
-          <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <fieldset class="m-0 min-w-0 border-0 p-0">
+            <legend class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Turniermodus
-            </label>
+            </legend>
             <div class="grid gap-3 sm:grid-cols-3">
               <label
                 :class="[
@@ -183,7 +203,7 @@ async function handleCreate(): Promise<void>
                 </div>
               </label>
             </div>
-          </div>
+          </fieldset>
 
           <label
             class="flex items-center gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700"

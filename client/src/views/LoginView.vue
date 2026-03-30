@@ -46,24 +46,38 @@ async function submit(): Promise<void>
     </h1>
     <form class="space-y-4" @submit.prevent="submit">
       <AuthFormField label="E-Mail" :input-class="inputClass">
-        <input
-          v-model="email"
-          type="email"
-          required
-          autocomplete="email"
-          :class="inputClass"
-        />
+        <template #default="{ fieldId, describedBy }">
+          <input
+            :id="fieldId"
+            v-model="email"
+            type="email"
+            required
+            autocomplete="email"
+            :class="inputClass"
+            :aria-describedby="describedBy"
+            :aria-invalid="error ? 'true' : undefined"
+          />
+        </template>
       </AuthFormField>
       <AuthFormField label="Passwort" :input-class="inputClass">
-        <input
-          v-model="password"
-          type="password"
-          required
-          autocomplete="current-password"
-          :class="inputClass"
-        />
+        <template #default="{ fieldId, describedBy }">
+          <input
+            :id="fieldId"
+            v-model="password"
+            type="password"
+            required
+            autocomplete="current-password"
+            :class="inputClass"
+            :aria-describedby="describedBy"
+            :aria-invalid="error ? 'true' : undefined"
+          />
+        </template>
       </AuthFormField>
-      <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400">
+      <p
+        v-if="error"
+        class="text-sm text-rose-600 dark:text-rose-400"
+        role="alert"
+      >
         {{ error }}
       </p>
       <button

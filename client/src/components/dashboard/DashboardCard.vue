@@ -16,9 +16,9 @@ defineProps<{
       class="ui-card ui-card-hover cursor-pointer p-6"
     >
       <div class="flex items-center justify-between pb-2">
-        <div class="text-sm font-medium text-slate-700 dark:text-slate-200">
+        <h2 class="text-sm font-medium text-slate-700 dark:text-slate-200">
           {{ title }}
-        </div>
+        </h2>
         <div :class="pillClass">
           <slot name="icon" />
         </div>

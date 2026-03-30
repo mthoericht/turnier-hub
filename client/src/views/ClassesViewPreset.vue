@@ -58,7 +58,11 @@ const inputClass =
       </div>
     </div>
 
-    <p v-if="error" class="text-rose-600 dark:text-rose-400 text-sm mb-4">
+    <p
+      v-if="error"
+      class="mb-4 text-sm text-rose-600 dark:text-rose-400"
+      role="alert"
+    >
       {{ error }}
     </p>
 
@@ -98,6 +102,7 @@ const inputClass =
                 type="button"
                 class="rounded-lg p-2 text-slate-700 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
                 title="Bearbeiten"
+                aria-label="Klasse bearbeiten"
                 @click="openEdit(c)"
               >
                 <AppIcon name="edit" class="h-4 w-4" />
@@ -106,6 +111,7 @@ const inputClass =
                 type="button"
                 class="rounded-lg p-2 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
                 title="Löschen"
+                aria-label="Klasse löschen"
                 @click="remove(c.id)"
               >
                 <AppIcon name="trash" class="h-4 w-4" />

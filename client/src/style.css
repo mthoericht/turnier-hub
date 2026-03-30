@@ -114,6 +114,19 @@
   }
 }
 
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--ui-input-focus);
+    outline-offset: 2px;
+  }
+
+  .ui-btn-primary-blue:focus-visible,
+  .ui-btn-primary-court:focus-visible,
+  .ui-btn-secondary:focus-visible {
+    outline-color: var(--ui-input-focus);
+  }
+}
+
 body {
   @apply min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
 }

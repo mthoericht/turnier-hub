@@ -89,7 +89,11 @@ const selectClass =
       </div>
     </div>
 
-    <p v-if="error" class="text-rose-600 dark:text-rose-400 text-sm mb-4">
+    <p
+      v-if="error"
+      class="mb-4 text-sm text-rose-600 dark:text-rose-400"
+      role="alert"
+    >
       {{ error }}
     </p>
 
@@ -112,13 +116,11 @@ const selectClass =
         <AppIcon name="players" class="mx-auto mb-4 h-12 w-12 text-slate-400" />
         </template>
         <template #action>
-          <RouterLink to="/classes">
-            <button
-              type="button"
-              class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:hover:bg-slate-800"
-            >
-              Zu den Klassen
-            </button>
+          <RouterLink
+            to="/classes"
+            class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:hover:bg-slate-800"
+          >
+            Zu den Klassen
           </RouterLink>
         </template>
       </EmptyStateCard>
@@ -160,15 +162,18 @@ const selectClass =
             class="ui-card overflow-hidden"
           >
           <table class="w-full text-left text-sm">
+            <caption class="sr-only">
+              Spielerliste
+            </caption>
             <thead class="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th class="px-5 py-3 font-medium text-slate-700 dark:text-slate-200">
+                <th scope="col" class="px-5 py-3 font-medium text-slate-700 dark:text-slate-200">
                   Name
                 </th>
-                <th class="px-5 py-3 font-medium text-slate-700 dark:text-slate-200">
+                <th scope="col" class="px-5 py-3 font-medium text-slate-700 dark:text-slate-200">
                   Klasse
                 </th>
-                <th class="px-5 py-3 font-medium text-slate-700 dark:text-slate-200 text-right">
+                <th scope="col" class="px-5 py-3 text-right font-medium text-slate-700 dark:text-slate-200">
                   Aktionen
                 </th>
               </tr>

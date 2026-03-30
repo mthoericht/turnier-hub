@@ -29,15 +29,25 @@ const { tournament, loading, error, formatPhaseLabel } = ctx;
   </div>
   <div v-else class="space-y-6 sm:space-y-8">
     <div class="min-w-0">
-      <p class="mb-1 text-sm text-slate-500 dark:text-slate-500">
-        <RouterLink
-          to="/tournaments"
-            class="text-blue-800 hover:underline dark:text-blue-100 dark:hover:text-blue-100"
-          >Turniere</RouterLink
-        >
-        /
-        <span class="break-words">{{ tournament.name }}</span>
-      </p>
+      <nav
+        class="mb-1 text-sm text-slate-500 dark:text-slate-500"
+        aria-label="Brotkrumen"
+      >
+        <ol class="flex flex-wrap items-center gap-1">
+          <li>
+            <RouterLink
+              to="/tournaments"
+              class="text-blue-800 hover:underline dark:text-blue-100 dark:hover:text-blue-100"
+            >
+              Turniere
+            </RouterLink>
+          </li>
+          <li aria-hidden="true">/</li>
+          <li class="break-words font-medium text-slate-600 dark:text-slate-400">
+            {{ tournament.name }}
+          </li>
+        </ol>
+      </nav>
       <h1
         class="break-words font-display text-xl font-semibold text-slate-900 dark:text-white sm:text-2xl"
       >
@@ -90,6 +100,7 @@ const { tournament, loading, error, formatPhaseLabel } = ctx;
             ? tournamentTabActiveClass
             : tournamentTabInactiveClass,
         ]"
+        :aria-current="route.name === 'tournament-roster' ? 'page' : undefined"
       >
         Mannschaften
       </RouterLink>
@@ -101,6 +112,7 @@ const { tournament, loading, error, formatPhaseLabel } = ctx;
             ? tournamentTabActiveClass
             : tournamentTabInactiveClass,
         ]"
+        :aria-current="route.name === 'tournament-matches-overview' ? 'page' : undefined"
       >
         Spiele
       </RouterLink>
@@ -113,6 +125,7 @@ const { tournament, loading, error, formatPhaseLabel } = ctx;
             ? tournamentTabActiveClass
             : tournamentTabInactiveClass,
         ]"
+        :aria-current="route.name === 'tournament-matches-setup' ? 'page' : undefined"
       >
         Spielbetrieb
       </RouterLink>

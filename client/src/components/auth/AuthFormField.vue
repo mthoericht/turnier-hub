@@ -1,18 +1,35 @@
 <script setup lang="ts">
-defineProps<{
+import { computed, useId } from "vue";
+
+const props = defineProps<{
   label: string;
   inputClass: string;
   helpText?: string;
 }>();
+
+const fieldId = useId();
+const helpId = useId();
+
+const describedBy = computed(() => (props.helpText ? helpId : undefined));
 </script>
 
 <template>
   <div>
-    <label class="mb-1 block text-sm text-slate-600 dark:text-slate-400">
+    <label
+      class="mb-1 block text-sm text-slate-600 dark:text-slate-400"
+      :for="fieldId"
+    >
       {{ label }}
     </label>
-    <slot />
-    <p v-if="helpText" class="mt-1 text-xs text-slate-500">
+    <slot
+      :field-id="fieldId"
+      :described-by="describedBy"
+    />
+    <p
+      v-if="helpText"
+      :id="helpId"
+      class="mt-1 text-xs text-slate-500"
+    >
       {{ helpText }}
     </p>
   </div>

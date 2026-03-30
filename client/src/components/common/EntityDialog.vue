@@ -1,5 +1,8 @@
 <script setup lang="ts">
-defineProps<{
+import { ref, toRef, useId } from "vue";
+import { useDialogFocusTrap } from "@/composables/useDialogFocusTrap";
+
+const props = defineProps<{
   open: boolean;
   title: string;
   description?: string;
@@ -11,24 +14,41 @@ const emit = defineEmits<{
   (e: "close"): void;
   (e: "submit"): void;
 }>();
+
+const titleId = useId();
+const descriptionId = useId();
+
+const dialogRootRef = ref<HTMLElement | null>(null);
+
+useDialogFocusTrap(toRef(props, "open"), dialogRootRef, () => emit("close"));
 </script>
 
 <template>
   <div
     v-if="open"
+    ref="dialogRootRef"
     class="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-3"
     role="dialog"
     aria-modal="true"
+    :aria-labelledby="titleId"
+    :aria-describedby="description ? descriptionId : undefined"
     @click.self="emit('close')"
   >
     <div
       class="ui-card w-full max-w-md bg-white p-6 shadow-lg dark:bg-slate-950"
     >
       <div class="mb-4">
-        <h2 class="font-display text-xl font-semibold text-slate-900 dark:text-white">
+        <h2
+          :id="titleId"
+          class="font-display text-xl font-semibold text-slate-900 dark:text-white"
+        >
           {{ title }}
         </h2>
-        <p v-if="description" class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        <p
+          v-if="description"
+          :id="descriptionId"
+          class="mt-1 text-sm text-slate-600 dark:text-slate-400"
+        >
           {{ description }}
         </p>
       </div>

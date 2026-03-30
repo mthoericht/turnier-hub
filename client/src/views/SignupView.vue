@@ -53,49 +53,74 @@ async function submit(): Promise<void>
     </p>
     <form class="space-y-4" @submit.prevent="submit">
       <AuthFormField label="Einladungscode" :input-class="inputClass">
-        <input
-          v-model="inviteCode"
-          type="text"
-          required
-          :class="inputClass"
-        />
+        <template #default="{ fieldId, describedBy }">
+          <input
+            :id="fieldId"
+            v-model="inviteCode"
+            type="text"
+            required
+            autocomplete="off"
+            :class="inputClass"
+            :aria-describedby="describedBy"
+            :aria-invalid="error ? 'true' : undefined"
+          />
+        </template>
       </AuthFormField>
       <AuthFormField
         label="Benutzername"
         :input-class="inputClass"
         help-text="3–32 Zeichen, nur Buchstaben, Ziffern, _ und -"
       >
-        <input
-          v-model="username"
-          type="text"
-          required
-          minlength="3"
-          maxlength="32"
-          pattern="[a-zA-Z0-9_-]+"
-          autocomplete="username"
-          :class="inputClass"
-        />
+        <template #default="{ fieldId, describedBy }">
+          <input
+            :id="fieldId"
+            v-model="username"
+            type="text"
+            required
+            minlength="3"
+            maxlength="32"
+            pattern="[a-zA-Z0-9_-]+"
+            autocomplete="username"
+            :class="inputClass"
+            :aria-describedby="describedBy"
+            :aria-invalid="error ? 'true' : undefined"
+          />
+        </template>
       </AuthFormField>
       <AuthFormField label="E-Mail" :input-class="inputClass">
-        <input
-          v-model="email"
-          type="email"
-          required
-          autocomplete="email"
-          :class="inputClass"
-        />
+        <template #default="{ fieldId, describedBy }">
+          <input
+            :id="fieldId"
+            v-model="email"
+            type="email"
+            required
+            autocomplete="email"
+            :class="inputClass"
+            :aria-describedby="describedBy"
+            :aria-invalid="error ? 'true' : undefined"
+          />
+        </template>
       </AuthFormField>
       <AuthFormField label="Passwort (min. 8)" :input-class="inputClass">
-        <input
-          v-model="password"
-          type="password"
-          required
-          minlength="8"
-          autocomplete="new-password"
-          :class="inputClass"
-        />
+        <template #default="{ fieldId, describedBy }">
+          <input
+            :id="fieldId"
+            v-model="password"
+            type="password"
+            required
+            minlength="8"
+            autocomplete="new-password"
+            :class="inputClass"
+            :aria-describedby="describedBy"
+            :aria-invalid="error ? 'true' : undefined"
+          />
+        </template>
       </AuthFormField>
-      <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400">
+      <p
+        v-if="error"
+        class="text-sm text-rose-600 dark:text-rose-400"
+        role="alert"
+      >
         {{ error }}
       </p>
       <button

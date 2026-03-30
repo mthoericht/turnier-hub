@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { onMounted, onUnmounted, ref, useId } from "vue";
 import type { StandingTeamRow } from "@/tournament/tournamentContext";
 
 defineProps<{
@@ -9,6 +9,7 @@ defineProps<{
 
 const showHelp = ref(false);
 const helpRef = ref<HTMLElement | null>(null);
+const helpPanelId = useId();
 
 function handleDocumentClick(event: MouseEvent): void
 {
@@ -46,12 +47,17 @@ onUnmounted(() =>
           type="button"
           class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           aria-label="Hilfe zur Tabelle anzeigen"
+          :aria-expanded="showHelp"
+          :aria-controls="helpPanelId"
           @click="showHelp = !showHelp"
         >
           ?
         </button>
         <div
           v-if="showHelp"
+          :id="helpPanelId"
+          role="region"
+          aria-label="Legende zur Tabelle"
           class="absolute left-0 top-8 z-50 w-[min(24rem,calc(100vw-2rem))] max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg sm:w-96 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         >
           <p class="mb-2 font-semibold">Legende</p>
@@ -75,18 +81,21 @@ onUnmounted(() =>
       <table
         class="w-full min-w-[18rem] text-left text-sm text-slate-900 dark:text-slate-100"
       >
+        <caption class="sr-only">
+          {{ poolName }} — Tabelle
+        </caption>
         <thead>
           <tr
             class="border-b border-slate-200 text-slate-600 dark:border-slate-800 dark:text-slate-500"
           >
-            <th class="py-2 pr-4">#</th>
-            <th class="py-2 pr-4">Mannschaft</th>
-            <th class="py-2 pr-2">Sp</th>
-            <th class="py-2 pr-2">S</th>
-            <th class="py-2 pr-2">U</th>
-            <th class="py-2 pr-2">N</th>
-            <th class="py-2 pr-2">Tore</th>
-            <th class="py-2">Pkt</th>
+            <th scope="col" class="py-2 pr-4">#</th>
+            <th scope="col" class="py-2 pr-4">Mannschaft</th>
+            <th scope="col" class="py-2 pr-2">Sp</th>
+            <th scope="col" class="py-2 pr-2">S</th>
+            <th scope="col" class="py-2 pr-2">U</th>
+            <th scope="col" class="py-2 pr-2">N</th>
+            <th scope="col" class="py-2 pr-2">Tore</th>
+            <th scope="col" class="py-2">Pkt</th>
           </tr>
         </thead>
         <tbody>

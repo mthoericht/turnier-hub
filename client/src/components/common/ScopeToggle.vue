@@ -31,6 +31,7 @@ const inactiveClass =
         'rounded-md px-3 py-2 text-sm font-medium transition sm:py-1.5',
         modelValue === 'all' ? props.activeClass : inactiveClass,
       ]"
+      :aria-pressed="modelValue === 'all'"
       @click="emit('update:modelValue', 'all')"
     >
       Alle
@@ -41,6 +42,7 @@ const inactiveClass =
         'rounded-md px-3 py-2 text-sm font-medium transition sm:py-1.5',
         modelValue === 'own' ? props.activeClass : inactiveClass,
       ]"
+      :aria-pressed="modelValue === 'own'"
       @click="emit('update:modelValue', 'own')"
     >
       Eigene

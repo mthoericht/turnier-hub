@@ -107,6 +107,15 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - If you add new env vars, update `server/.env.example` and [README.md](README.md) when relevant.
 - After substantive client edits, run **`npm run lint -w client`** (and `vue-tsc --build --noEmit` in `client/` if types are touched).
 
+## Accessibility (client)
+
+- **Skip link:** `App.vue` — first focusable control skips to `#main-content` (`<main id="main-content" tabindex="-1">`).
+- **Landmarks / navigation:** `<header>`, `<main>`, `<nav>` with `aria-label` where needed; tournament breadcrumb uses `<nav aria-label="Brotkrumen">` with an ordered list; main nav and tournament tabs use `aria-current="page"` on the active route.
+- **Forms:** `AuthFormField` wires `label`/`for`, optional `aria-describedby` for help text, and `aria-invalid` when appropriate; destructive or global errors often use `role="alert"`.
+- **Modal dialogs:** `EntityDialog.vue` sets `role="dialog"`, `aria-modal="true"`, `aria-labelledby` (title), optional `aria-describedby` (description), and uses **`useDialogFocusTrap`** (`client/src/composables/useDialogFocusTrap.ts`) — ref on the dialog root, Tab cycles inside the overlay, Escape closes, focus returns to the opener. New modal UIs that are not `EntityDialog` should call the same composable (or equivalent behavior) for keyboard users.
+- **Tables:** Prefer `scope="col"` on headers and a `caption` (visually hidden with `sr-only` if redundant on screen).
+- **Focus visibility:** global `:focus-visible` outline rules live in `client/src/style.css`.
+
 ## Useful paths
 
 | Area | Path |
@@ -127,6 +136,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Tournament composables (layout + phase UI) | `client/src/tournament/useTournamentLayoutState.ts` (route + WS subscribe → **`tournamentLayout`** store), `useTournamentPhaseStepper.ts` (re-exported from `client/src/composables/tournaments/`) |
 | Tournament composables (roster + lists) | `client/src/composables/tournaments/` — `useTournamentRosterTransfer`, `useTournamentRosterAddMemberForm`, `useTournamentRosterGroupsDisplay`, `useTournamentRosterRenamePrompts`, `useTournamentRosterAddIndividual`, `useTournamentsListState`, `useMatchTimerDisplay` |
 | Feature composables (non-tournament) | `client/src/composables/dashboard/`, `classes/`, `players/` |
+| Modal dialog + focus trap | `client/src/components/common/EntityDialog.vue`, `client/src/composables/useDialogFocusTrap.ts` |
 | Ansible production deploy | `ansible/README.md`, `ansible/playbooks/`, `ansible/roles/turnier_hub/` |
 | Tournament views | `client/src/views/tournament/` |
 | Tournament types + inject key | `client/src/tournament/tournamentContext.ts` |

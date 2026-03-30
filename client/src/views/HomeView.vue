@@ -33,13 +33,11 @@ const {
           Übersicht über Klassen, Spieler und deine Turniere
         </p>
       </div>
-      <RouterLink to="/tournaments" class="shrink-0">
-        <button
-          type="button"
-          class="ui-btn-primary-blue inline-flex items-center gap-2 px-5 py-3"
-        >
-          Neues Turnier
-        </button>
+      <RouterLink
+        to="/tournaments"
+        class="ui-btn-primary-blue inline-flex shrink-0 items-center gap-2 px-5 py-3 text-center no-underline"
+      >
+        Neues Turnier
       </RouterLink>
     </div>
 
@@ -104,25 +102,26 @@ const {
             <AppIcon name="trophy" class="mx-auto mb-4 h-12 w-12 text-slate-400" />
           </template>
           <template #action>
-            <RouterLink to="/tournaments">
-              <button
-                type="button"
-                class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:hover:bg-slate-800"
-              >
-                Erstes Turnier erstellen
-              </button>
+            <RouterLink
+              to="/tournaments"
+              class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:hover:bg-slate-800"
+            >
+              Erstes Turnier erstellen
             </RouterLink>
           </template>
         </EmptyStateCard>
 
-        <div v-else class="space-y-3">
-          <RouterLink
+        <ul v-else class="m-0 list-none space-y-3 p-0">
+          <li
             v-for="t in recentTournaments"
             :key="t.id"
-            :to="{ name: 'tournament-roster', params: { id: t.id } }"
           >
+            <RouterLink
+              :to="{ name: 'tournament-roster', params: { id: t.id } }"
+              class="block rounded-xl transition-colors"
+            >
             <div
-              class="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors dark:border-slate-800 dark:hover:bg-slate-800/30"
+              class="flex items-center justify-between rounded-xl border border-slate-200 p-4 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/30"
             >
               <div class="flex items-center gap-4 min-w-0">
                 <div
@@ -157,11 +156,16 @@ const {
                 }}
               </span>
             </div>
-          </RouterLink>
-        </div>
+            </RouterLink>
+          </li>
+        </ul>
       </div>
 
-      <p v-if="error" class="text-rose-600 dark:text-rose-400 text-sm">
+      <p
+        v-if="error"
+        class="text-sm text-rose-600 dark:text-rose-400"
+        role="alert"
+      >
         {{ error }}
       </p>
     </div>
