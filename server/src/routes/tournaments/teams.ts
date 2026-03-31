@@ -260,8 +260,8 @@ export function registerTournamentTeamRoutes(router: Router): void
       res.status(404).json({ error: "Mannschaft nicht gefunden" });
       return;
     }
-    const player = await prisma.player.findUnique({
-      where: { id: parsed.data.playerId },
+    const player = await prisma.player.findFirst({
+      where: { id: parsed.data.playerId, userId: req.userId! },
       include: playerApiInclude,
     });
     if (!player)

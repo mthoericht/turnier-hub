@@ -7,6 +7,9 @@ export type KoBracketMatch = {
   awayTeamId: string | null;
 };
 
+/**
+ * Shuffles team ids using Fisher-Yates.
+ */
 function shuffledTeamIds(teamIds: string[]): string[]
 {
   const arr = [...teamIds];
@@ -19,7 +22,7 @@ function shuffledTeamIds(teamIds: string[]): string[]
 }
 
 /**
- * Returns a shuffled copy using Fisher-Yates.
+ * Returns a shuffled copy of the given team ids.
  */
 export function randomizeTeamIds(teamIds: string[]): string[]
 {
@@ -40,6 +43,40 @@ export function interleavedPairings(ordered: string[]): [string, string][]
   return pairs;
 }
 
+export type KoPairing = { home: string; away: string | null };
+
+/**
+ * Produces knockout pairings with bye support for non-power-of-2 counts.
+ *
+ * Pads to the next power of two; excess slots become bye matches
+ * (away = null) that auto-advance.
+ */
+export function generatePairingsWithByes(teamIds: string[]): KoPairing[]
+{
+  const n = teamIds.length;
+  if (n < 2) throw new Error("Mindestens 2 Mannschaften für K.O. benötigt");
+  const bracketSize = nextPowerOf2(n);
+  const halfBracket = bracketSize / 2;
+
+  const slots: (string | null)[] = new Array(bracketSize).fill(null);
+  for (let i = 0; i < n; i++)
+  {
+    slots[i] = teamIds[i]!;
+  }
+
+  const pairs: KoPairing[] = [];
+  for (let i = 0; i < halfBracket; i++)
+  {
+    const home = slots[i];
+    const away = slots[bracketSize - 1 - i];
+    if (home)
+    {
+      pairs.push({ home, away });
+    }
+  }
+  return pairs;
+}
+
 /**
  * Returns the next power of two greater than or equal to `n`.
  */
@@ -51,7 +88,7 @@ function nextPowerOf2(n: number): number
 }
 
 /**
- * Resolves the knockout match phase for a bracket size.
+ * Resolves the knockout match phase for the given bracket size.
  */
 export function koPhaseForBracketSize(size: number): MatchPhase
 {
@@ -82,14 +119,13 @@ export function tournamentPhaseForMatchPhase(mp: MatchPhase): TournamentPhase
  *
  * Top seeds may receive byes (represented as `awayTeamId = null`).
  */
-export function generateKoBracketFirstRound(
-  seededTeamIds: string[]
-): { phase: MatchPhase; tournamentPhase: TournamentPhase; matches: KoBracketMatch[] }
+export function generateKoBracketFirstRound(seededTeamIds: string[]): { phase: MatchPhase; tournamentPhase: TournamentPhase; matches: KoBracketMatch[] }
 {
   const randomizedTeamIds = shuffledTeamIds(seededTeamIds);
   const n = randomizedTeamIds.length;
   if (n < 2) throw new Error("Mindestens 2 Mannschaften für K.O. benötigt");
 
+  // Round up to the next power of two.
   const bracketSize = nextPowerOf2(n);
   const halfBracket = bracketSize / 2;
   const byes = bracketSize - n;

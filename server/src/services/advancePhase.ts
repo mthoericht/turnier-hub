@@ -11,10 +11,11 @@ import {
   requireKnockoutWinnerTeamId,
 } from "./standings.js";
 import {
-  collectKoRoundWinners,
-  interleavedPairings,
+  generatePairingsWithByes,
+  koPhaseForBracketSize,
   randomizeTeamIds,
   tournamentPhaseForMatchPhase,
+  type KoPairing,
 } from "./knockoutBracket.js";
 
 type Tx = Omit<
@@ -199,16 +200,18 @@ export function pickQualifiersWithRandomPointsTie(
 
 /**
  * Persists knockout matches for a specific phase and ordered pairings.
+ *
+ * Bye matches (away = null) are created as FINISHED so they auto-advance.
  */
 async function createKoRoundMatches(
   tx: Tx,
   tournamentId: string,
   phase: MatchPhase,
-  pairs: [string, string][]
+  pairs: KoPairing[]
 ): Promise<void>
 {
   let order = 0;
-  for (const [home, away] of pairs)
+  for (const { home, away } of pairs)
   {
     await tx.match.create({
       data: {
@@ -217,7 +220,7 @@ async function createKoRoundMatches(
         roundOrder: order++,
         homeTeamId: home,
         awayTeamId: away,
-        status: MatchStatus.SCHEDULED,
+        status: away === null ? MatchStatus.FINISHED : MatchStatus.SCHEDULED,
       },
     });
   }
@@ -298,7 +301,7 @@ async function rebuildKnockoutFromPairs(
   },
   targetMatchPhase: MatchPhase,
   targetTournamentPhase: TournamentPhase,
-  pairs: [string, string][]
+  pairs: KoPairing[]
 ): Promise<void>
 {
   await prisma.$transaction(async (tx: Tx) =>
@@ -360,7 +363,8 @@ export async function advanceTournamentPhase(
   if (prevKoMatches && prevKoMatches.length > 0)
   {
     const winners = collectWinnersFromPreviousPhase(prevKoMatches, prevKoPhase!);
-    const pairs = interleavedPairings(winners);
+    const randomWinners = randomizeTeamIds(winners);
+    const pairs = generatePairingsWithByes(randomWinners);
     await rebuildKnockoutFromPairs(
       prisma,
       tournament,
@@ -391,7 +395,7 @@ export async function advanceTournamentPhase(
   }
 
   const randomQualifiers = randomizeTeamIds(effectiveQualifiers);
-  const pairs = interleavedPairings(randomQualifiers);
+  const pairs = generatePairingsWithByes(randomQualifiers);
 
   await rebuildKnockoutFromPairs(
     prisma,

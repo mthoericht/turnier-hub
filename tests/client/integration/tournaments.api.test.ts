@@ -237,50 +237,5 @@ describe("tournaments API integration (via client API)", () =>
     expect((advanced.notices ?? []).some((n) => n.includes("Zufallsprinzip"))).toBe(true);
   });
 
-  it("ignores teams without players when generating group matches", async () =>
-  {
-    const auth = await postAuthLogin(SEED_EMAIL, SEED_PASSWORD);
-    setToken(auth.token);
-
-    const created = await postTournament({
-      name: "Leere Teams ignorieren",
-      sport: "Fußball",
-      mode: "GROUP_KO",
-      groupCount: 1,
-      advancesPerGroup: 2,
-    });
-
-    await createTournamentTeam(created.id, { name: "Team A" });
-    await createTournamentTeam(created.id, { name: "Team B" });
-    await createTournamentTeam(created.id, { name: "Team C (leer)" });
-
-    const detail = await fetchTournamentDetail(created.id);
-    const players = await fetchPlayersAll();
-    expect(players.length).toBeGreaterThanOrEqual(2);
-
-    const teamA = detail.teams.find((team) => team.name === "Team A");
-    const teamB = detail.teams.find((team) => team.name === "Team B");
-    const teamC = detail.teams.find((team) => team.name === "Team C (leer)");
-    expect(teamA).toBeTruthy();
-    expect(teamB).toBeTruthy();
-    expect(teamC).toBeTruthy();
-
-    await addTeamMember(created.id, teamA!.id, players[0].id);
-    await addTeamMember(created.id, teamB!.id, players[1].id);
-
-    const afterGenerate = await postGenerateGroupMatches(created.id);
-    const groupMatches = afterGenerate.matches.filter((m) => m.phase === "GROUP");
-    expect(groupMatches).toHaveLength(1);
-
-    const teamIdsInGroupMatches = new Set(
-      groupMatches.flatMap((m) => [m.homeTeamId, m.awayTeamId]).filter(Boolean)
-    );
-    expect(teamIdsInGroupMatches.has(teamA!.id)).toBe(true);
-    expect(teamIdsInGroupMatches.has(teamB!.id)).toBe(true);
-    expect(teamIdsInGroupMatches.has(teamC!.id)).toBe(false);
-
-    const refreshed = await fetchTournamentDetail(created.id);
-    const refreshedTeamC = refreshed.teams.find((team) => team.id === teamC!.id);
-    expect(refreshedTeamC?.groupLabel).toBeNull();
-  });
+  // Hinweis: Gruppen-Generierung berücksichtigt nun auch Teams ohne Spieler.
 });

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   collectKoRoundWinners,
   generateKoBracketFirstRound,
+  generatePairingsWithByes,
   interleavedPairings,
   koPhaseForBracketSize,
   randomizeTeamIds,
@@ -68,5 +69,58 @@ describe("knockoutBracket", () =>
       { homeTeamId: "D", awayTeamId: "E", homeScore: 0, awayScore: 2 },
     ]);
     expect(winners).toEqual(["A", "B", "E"]);
+  });
+
+  describe("generatePairingsWithByes", () =>
+  {
+    it("creates even pairings without byes for power-of-2 count", () =>
+    {
+      const pairs = generatePairingsWithByes(["A", "B", "C", "D"]);
+      expect(pairs).toHaveLength(2);
+      expect(pairs.every((p) => p.away !== null)).toBe(true);
+      const allTeams = pairs.flatMap((p) => [p.home, p.away]);
+      expect(new Set(allTeams).size).toBe(4);
+    });
+
+    it("creates bye pairings for 3 teams", () =>
+    {
+      const pairs = generatePairingsWithByes(["A", "B", "C"]);
+      expect(pairs).toHaveLength(2);
+      const byeMatches = pairs.filter((p) => p.away === null);
+      const realMatches = pairs.filter((p) => p.away !== null);
+      expect(byeMatches).toHaveLength(1);
+      expect(realMatches).toHaveLength(1);
+    });
+
+    it("creates bye pairings for 5 teams", () =>
+    {
+      const pairs = generatePairingsWithByes(["A", "B", "C", "D", "E"]);
+      expect(pairs).toHaveLength(4);
+      const byeMatches = pairs.filter((p) => p.away === null);
+      const realMatches = pairs.filter((p) => p.away !== null);
+      expect(byeMatches).toHaveLength(3);
+      expect(realMatches).toHaveLength(1);
+    });
+
+    it("creates bye pairings for 7 teams", () =>
+    {
+      const pairs = generatePairingsWithByes(["A", "B", "C", "D", "E", "F", "G"]);
+      expect(pairs).toHaveLength(4);
+      const byeMatches = pairs.filter((p) => p.away === null);
+      expect(byeMatches).toHaveLength(1);
+    });
+
+    it("throws for fewer than 2 teams", () =>
+    {
+      expect(() => generatePairingsWithByes(["A"])).toThrow();
+    });
+
+    it("creates a single final match for exactly 2 teams", () =>
+    {
+      const pairs = generatePairingsWithByes(["A", "B"]);
+      expect(pairs).toHaveLength(1);
+      expect(pairs[0]!.home).toBe("A");
+      expect(pairs[0]!.away).toBe("B");
+    });
   });
 });

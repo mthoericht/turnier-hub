@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type ErrorRequestHandler } from "express";
 import cors from "cors";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,6 +41,13 @@ export function createApp()
   {
     res.status(404).json({ error: "Nicht gefunden" });
   });
+
+  const errorHandler: ErrorRequestHandler = (err, _req, res, _next) =>
+  {
+    console.error(err);
+    res.status(500).json({ error: "Interner Serverfehler" });
+  };
+  app.use(errorHandler);
 
   return app;
 }

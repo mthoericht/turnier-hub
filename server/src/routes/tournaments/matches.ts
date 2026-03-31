@@ -37,8 +37,7 @@ export function registerTournamentMatchRoutes(router: Router): void
       res.status(404).json({ error: "Turnier nicht gefunden" });
       return;
     }
-    const teamsWithMembers = t.teams.filter((team) => team.members.length > 0);
-    const sortedTeams = [...teamsWithMembers].sort((a, b) =>
+    const sortedTeams = [...t.teams].sort((a, b) =>
       a.sortOrder !== b.sortOrder
         ? a.sortOrder - b.sortOrder
         : a.name.localeCompare(b.name)
@@ -48,57 +47,60 @@ export function registerTournamentMatchRoutes(router: Router): void
     {
       res.status(400).json({
         error:
-          "Für Gruppenspiele werden mindestens zwei Mannschaften mit Spielern benötigt.",
+          "Für Gruppenspiele werden mindestens zwei Mannschaften benötigt.",
       });
       return;
     }
-
-    await prisma.match.deleteMany({
-      where: { tournamentId: t.id },
-    });
-
-    await prisma.tournamentTeam.updateMany({
-      where: { tournamentId: t.id },
-      data: { groupLabel: null },
-    });
 
     const gc = t.groupCount;
     const groups = gc > 1
       ? distributeIntoGroups(teamIds, gc)
       : [{ label: "A", teamIds }];
 
-    for (const group of groups)
+    await prisma.$transaction(async (tx) =>
     {
-      await prisma.tournamentTeam.updateMany({
-        where: { id: { in: group.teamIds }, tournamentId: t.id },
-        data: { groupLabel: gc > 1 ? group.label : null },
+      await tx.match.deleteMany({
+        where: { tournamentId: t.id },
       });
-    }
 
-    let globalSlot = 0;
-    for (const group of groups)
-    {
-      const schedule = generateRoundRobinSchedule(group.teamIds);
-      for (const m of schedule)
+      await tx.tournamentTeam.updateMany({
+        where: { tournamentId: t.id },
+        data: { groupLabel: null },
+      });
+
+      for (const group of groups)
       {
-        await prisma.match.create({
-          data: {
-            tournamentId: t.id,
-            phase: MatchPhase.GROUP,
-            groupLabel: gc > 1 ? group.label : null,
-            roundOrder: m.round,
-            slotIndex: globalSlot++,
-            homeTeamId: m.home,
-            awayTeamId: m.away,
-            status: MatchStatus.SCHEDULED,
-          },
+        await tx.tournamentTeam.updateMany({
+          where: { id: { in: group.teamIds }, tournamentId: t.id },
+          data: { groupLabel: gc > 1 ? group.label : null },
         });
       }
-    }
 
-    await prisma.tournament.update({
-      where: { id: t.id },
-      data: { phase: TournamentPhase.GROUP },
+      let globalSlot = 0;
+      for (const group of groups)
+      {
+        const schedule = generateRoundRobinSchedule(group.teamIds);
+        for (const m of schedule)
+        {
+          await tx.match.create({
+            data: {
+              tournamentId: t.id,
+              phase: MatchPhase.GROUP,
+              groupLabel: gc > 1 ? group.label : null,
+              roundOrder: m.round,
+              slotIndex: globalSlot++,
+              homeTeamId: m.home,
+              awayTeamId: m.away,
+              status: MatchStatus.SCHEDULED,
+            },
+          });
+        }
+      }
+
+      await tx.tournament.update({
+        where: { id: t.id },
+        data: { phase: TournamentPhase.GROUP },
+      });
     });
 
     const full = await loadTournamentById(t.id);
@@ -132,30 +134,33 @@ export function registerTournamentMatchRoutes(router: Router): void
       return;
     }
 
-    await prisma.match.deleteMany({ where: { tournamentId: t.id } });
-
     const { tournamentPhase, matches } = generateKoBracketFirstRound(
       sortedTeams.map((tm) => tm.id)
     );
 
-    for (const m of matches)
+    await prisma.$transaction(async (tx) =>
     {
-      await prisma.match.create({
-        data: {
-          tournamentId: t.id,
-          phase: m.phase,
-          roundOrder: m.roundOrder,
-          slotIndex: m.roundOrder,
-          homeTeamId: m.homeTeamId,
-          awayTeamId: m.awayTeamId,
-          status: m.awayTeamId === null ? MatchStatus.FINISHED : MatchStatus.SCHEDULED,
-        },
-      });
-    }
+      await tx.match.deleteMany({ where: { tournamentId: t.id } });
 
-    await prisma.tournament.update({
-      where: { id: t.id },
-      data: { phase: tournamentPhase },
+      for (const m of matches)
+      {
+        await tx.match.create({
+          data: {
+            tournamentId: t.id,
+            phase: m.phase,
+            roundOrder: m.roundOrder,
+            slotIndex: m.roundOrder,
+            homeTeamId: m.homeTeamId,
+            awayTeamId: m.awayTeamId,
+            status: m.awayTeamId === null ? MatchStatus.FINISHED : MatchStatus.SCHEDULED,
+          },
+        });
+      }
+
+      await tx.tournament.update({
+        where: { id: t.id },
+        data: { phase: tournamentPhase },
+      });
     });
 
     const full = await loadTournamentById(t.id);

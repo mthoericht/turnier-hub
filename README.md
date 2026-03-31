@@ -17,8 +17,13 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 ### Knockout bracket, phase flow, randomness
 
 - **Bracket (Turnierbaum):** In this project, "bracket" means the K.O. tournament tree (who plays whom and which winner advances to the next round).
-- **Phase flows:** Group+KO and Direct-KO display concrete KO phases (`ROUND_OF_16` -> `QUARTER` -> `SEMI` -> `FINAL` -> `COMPLETED`) depending on team count and current state; Round-Robin uses `GROUP` (match operation phase) -> `COMPLETED`.
+- **Phase flows:** Group+KO and Direct-KO display concrete KO phases (`ROUND_OF_16` → `QUARTER` → `SEMI` → `FINAL` → `COMPLETED`) depending on team count and current state; Round-Robin uses `GROUP` (match operation phase) → `COMPLETED`.
 - **Randomness:** KO pairings are intentionally randomized during KO generation (direct KO) and during advancement from qualifiers; byes (`Freilos`) are handled automatically and created as finished matches.
+- **Bye handling:** Non-power-of-2 team counts are padded to the next power of 2. Empty slots become bye matches (`awayTeamId = null`) created as `FINISHED` so they auto-advance the home team. This applies to both Direct-KO generation and qualifier-based advancement.
+- **Tie-breaking in qualifiers:** When multiple teams share the same point total at the cutoff boundary, a deterministic pseudo-random selection (seeded by tournament ID + group label) picks the advancing teams and emits a user-visible notice.
+- **Winner determination:** KO winners are determined exclusively from persisted `homeScore`/`awayScore`. Draws are not allowed in knockout — the user must enter a decisive result (e.g. after extra time or penalties).
+
+For a detailed German-language explanation of the tournament logic, see **[TURNIERLOGIK.md](TURNIERLOGIK.md)**.
 
 ## How To Use (Typical Workflow)
 
