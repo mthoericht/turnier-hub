@@ -1,5 +1,5 @@
 import type { Router } from "express";
-import { MatchPhase } from "@prisma/client";
+import type { MatchPhase } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db.js";
 import { playerApiInclude, playerToApi } from "../../lib/createdBy.js";
@@ -142,7 +142,7 @@ export function registerTournamentTeamRoutes(router: Router): void
       }),
     ]);
     const removableGroupMatchIds = teamMatches
-      .filter((m) => m.phase === MatchPhase.GROUP)
+      .filter((m) => m.phase === "GROUP")
       .map((m) => m.id);
     const blockingMatchCount = teamMatches.length - removableGroupMatchIds.length;
 
@@ -233,7 +233,7 @@ export function registerTournamentTeamRoutes(router: Router): void
         data: { groupLabel: newLabel },
       }),
       prisma.match.updateMany({
-        where: { tournamentId: req.params.id, phase: MatchPhase.GROUP, groupLabel: oldLabel },
+          where: { tournamentId: req.params.id, phase: "GROUP", groupLabel: oldLabel },
         data: { groupLabel: newLabel },
       }),
     ]);

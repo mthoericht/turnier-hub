@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { MatchPhase, MatchStatus, TournamentPhase, type Match } from "@prisma/client";
+import type { MatchPhase, MatchStatus, TournamentPhase, Match } from "@prisma/client";
 import { prisma } from "../../db.js";
 import {
   createdBySelect,
@@ -109,22 +109,22 @@ export function serializeTournamentDetail(
 export async function completeTournamentIfFinalFinished(tournamentId: string): Promise<void>
 {
   const finalCount = await prisma.match.count({
-    where: { tournamentId, phase: MatchPhase.FINAL },
+    where: { tournamentId, phase: "FINAL" },
   });
   if (finalCount === 0) return;
 
   const unfinishedFinals = await prisma.match.count({
     where: {
       tournamentId,
-      phase: MatchPhase.FINAL,
-      status: { not: MatchStatus.FINISHED },
+      phase: "FINAL",
+      status: { not: "FINISHED" },
     },
   });
   if (unfinishedFinals > 0) return;
 
   await prisma.tournament.update({
     where: { id: tournamentId },
-    data: { phase: TournamentPhase.COMPLETED },
+    data: { phase: "COMPLETED" },
   });
 }
 

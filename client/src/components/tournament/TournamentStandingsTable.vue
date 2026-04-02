@@ -38,14 +38,14 @@ onUnmounted(() =>
   >
     <div class="flex items-center gap-2">
       <h2
-        class="font-display font-semibold text-lg text-slate-900 dark:text-white"
+        class="font-display font-semibold text-lg text-slate-900"
       >
         Tabelle
       </h2>
       <div ref="helpRef" class="relative">
         <button
           type="button"
-          class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100"
           aria-label="Hilfe zur Tabelle anzeigen"
           :aria-expanded="showHelp"
           :aria-controls="helpPanelId"
@@ -58,7 +58,7 @@ onUnmounted(() =>
           :id="helpPanelId"
           role="region"
           aria-label="Legende zur Tabelle"
-          class="absolute left-0 top-8 z-50 w-[min(24rem,calc(100vw-2rem))] max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg sm:w-96 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          class="absolute left-0 top-8 z-50 w-[min(24rem,calc(100vw-2rem))] max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg sm:w-96"
         >
           <p class="mb-2 font-semibold">Legende</p>
           <p>Sp = Spiele, S = Siege, U = Unentschieden, N = Niederlagen</p>
@@ -74,19 +74,19 @@ onUnmounted(() =>
     >
       <h3
         v-if="Object.keys(standingsGroups).length > 1"
-        class="mb-2 text-sm font-medium text-blue-800 dark:text-blue-100"
+        class="mb-2 text-sm font-medium text-blue-800"
       >
         {{ poolName }}
       </h3>
       <table
-        class="w-full min-w-[18rem] text-left text-sm text-slate-900 dark:text-slate-100"
+        class="w-full min-w-[18rem] text-left text-sm text-slate-900"
       >
         <caption class="sr-only">
           {{ poolName }} — Tabelle
         </caption>
         <thead>
           <tr
-            class="border-b border-slate-200 text-slate-600 dark:border-slate-800 dark:text-slate-500"
+            class="border-b border-slate-200 text-slate-600"
           >
             <th scope="col" class="py-2 pr-4">#</th>
             <th scope="col" class="py-2 pr-4">Mannschaft</th>
@@ -102,12 +102,12 @@ onUnmounted(() =>
           <tr
             v-for="(row, idx) in rows"
             :key="row.team.id"
-            class="border-b border-slate-200/90 dark:border-slate-800/80"
+            class="border-b border-slate-200/90"
           >
-            <td class="py-2 pr-4 text-slate-500 dark:text-slate-500">
+            <td class="py-2 pr-4 text-slate-500">
               {{ idx + 1 }}
             </td>
-            <td class="py-2 pr-4 font-medium text-slate-900 dark:text-white">
+            <td class="py-2 pr-4 font-medium text-slate-900">
               {{ row.team.name }}
             </td>
             <td class="py-2 pr-2">{{ row.played }}</td>
@@ -116,7 +116,7 @@ onUnmounted(() =>
             <td class="py-2 pr-2">{{ row.losses }}</td>
             <td class="py-2 pr-2">{{ row.goalsFor }}:{{ row.goalsAgainst }}</td>
             <td
-              class="py-2 font-medium text-blue-800 dark:text-blue-100"
+              class="py-2 font-medium text-blue-800"
             >
               {{ row.points }}
             </td>

@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Central light/dark semantic color assignment. */
+/* Central semantic color assignment. */
 :root {
   --ui-primary: #2563eb;
   --ui-primary-hover: #1d4ed8;
@@ -25,28 +25,6 @@
 
   --ui-danger: #e11d48;
   --ui-danger-hover: #be123c;
-}
-
-.dark {
-  --ui-primary: #60a5fa;
-  --ui-primary-hover: #3b82f6;
-  --ui-on-primary: #0f172a;
-
-  --ui-card-bg: rgba(15, 23, 42, 0.4);
-  --ui-card-border: #1e293b;
-  --ui-card-hover-bg: rgba(15, 23, 42, 0.55);
-
-  --ui-input-bg: #020617;
-  --ui-input-border: #334155;
-  --ui-input-text: #ffffff;
-  --ui-input-focus: #60a5fa;
-
-  --ui-button-secondary-bg-hover: #1e293b;
-  --ui-button-secondary-border: #334155;
-  --ui-button-secondary-text: #f1f5f9;
-
-  --ui-danger: #fb7185;
-  --ui-danger-hover: #f43f5e;
 }
 
 @layer components {
@@ -128,5 +106,5 @@
 }
 
 body {
-  @apply min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+  @apply min-h-screen bg-slate-50 text-slate-900;
 }

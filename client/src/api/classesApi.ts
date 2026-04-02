@@ -1,4 +1,4 @@
-import { api } from "@/api/http";
+import { api } from "./http";
 import type { SchoolClass } from "@/types";
 
 export type ClassesScope = "all" | "own";

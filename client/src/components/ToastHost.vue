@@ -9,13 +9,13 @@ function variantClass(variant: ToastVariant): string
 {
   if (variant === "error") 
   {
-    return "border-rose-200 bg-rose-50 text-rose-950 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-50";
+    return "border-rose-200 bg-rose-50 text-rose-950";
   }
   if (variant === "success") 
   {
-    return "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/35 dark:text-emerald-50";
+    return "border-emerald-200 bg-emerald-50 text-emerald-950";
   }
-  return "border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+  return "border-slate-200 bg-white text-slate-900";
 }
 </script>
 
@@ -44,7 +44,7 @@ function variantClass(variant: ToastVariant): string
         </p>
         <button
           type="button"
-          class="shrink-0 rounded-lg p-1 text-current opacity-70 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+          class="shrink-0 rounded-lg p-1 text-current opacity-70 transition hover:bg-black/5 hover:opacity-100"
           aria-label="Meldung schließen"
           @click="toast.dismiss(t.id)"
         >

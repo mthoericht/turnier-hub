@@ -18,7 +18,7 @@ defineProps<{
 <template>
   <section :class="[cardClass, '!py-4 sm:!py-5']">
     <h2
-      class="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+      class="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-slate-500"
     >
       Phasen
     </h2>
@@ -29,43 +29,43 @@ defineProps<{
         <div
           class="flex min-w-[4.5rem] flex-1 flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-center sm:min-w-0 sm:flex-[1_1_0] sm:px-3 sm:py-2"
           :class="{
-            'border-emerald-500/70 bg-emerald-50/90 dark:border-emerald-600/50 dark:bg-emerald-950/30':
+            'border-emerald-500/70 bg-emerald-50/90':
               stepState(index) === 'done',
-            'border-blue-600 bg-blue-50 shadow-sm dark:border-blue-400 dark:bg-blue-950/40':
+            'border-blue-600 bg-blue-50 shadow-sm':
               stepState(index) === 'current',
-            'border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-900/30':
+            'border-slate-200 bg-slate-50/50':
               stepState(index) === 'upcoming',
           }"
         >
           <span
             class="text-xs font-semibold sm:text-sm"
             :class="{
-              'text-emerald-800 dark:text-emerald-200':
+              'text-emerald-800':
                 stepState(index) === 'done',
-              'text-blue-900 dark:text-blue-100':
+              'text-blue-900':
                 stepState(index) === 'current',
-              'text-slate-500 dark:text-slate-400':
+              'text-slate-500':
                 stepState(index) === 'upcoming',
             }"
           >
             {{ step.shortLabel }}
           </span>
           <span
-            class="hidden text-[10px] leading-tight text-slate-500 sm:block dark:text-slate-500"
+            class="hidden text-[10px] leading-tight text-slate-500 sm:block"
           >
             {{ step.hint }}
           </span>
         </div>
         <span
           v-if="index < phaseFlow.length - 1"
-          class="hidden shrink-0 self-center px-0.5 text-slate-300 dark:text-slate-600 sm:inline"
+          class="hidden shrink-0 self-center px-0.5 text-slate-300 sm:inline"
           aria-hidden="true"
           >→</span
         >
       </template>
     </div>
-    <p class="mt-3 text-xs text-slate-500 dark:text-slate-500">
-      Aktuell: <strong class="font-medium text-slate-700 dark:text-slate-300">{{
+    <p class="mt-3 text-xs text-slate-500">
+      Aktuell: <strong class="font-medium text-slate-700">{{
         formatPhaseLabel(tournamentPhase)
       }}</strong>
       <template v-if="mode !== 'ROUND_ROBIN'">
@@ -79,7 +79,7 @@ defineProps<{
             name: 'tournament-matches-setup',
             params: { id: tournamentId },
           }"
-          class="text-blue-800 underline hover:no-underline dark:text-blue-100"
+          class="text-blue-800 underline hover:no-underline"
           >Spielbetrieb</RouterLink
         >.</template
       >

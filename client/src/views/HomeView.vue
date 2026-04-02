@@ -25,11 +25,11 @@ const {
     <div class="flex justify-between items-center gap-4">
       <div class="min-w-0">
         <h1
-          class="font-display text-3xl font-bold text-slate-900 dark:text-white sm:text-4xl"
+          class="font-display text-3xl font-bold text-slate-900 sm:text-4xl"
         >
           Dashboard
         </h1>
-        <p class="text-slate-600 dark:text-slate-400 mt-1">
+        <p class="text-slate-600 mt-1">
           Übersicht über Klassen, Spieler und deine Turniere
         </p>
       </div>
@@ -49,7 +49,7 @@ const {
           title="Klassen"
           :value="classesCount"
           description="Registrierte Klassen"
-          pill-class="p-2 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300"
+          pill-class="p-2 rounded-full bg-blue-100 text-blue-600"
         >
           <template #icon>
             <AppIcon name="classes" class="h-4 w-4" />
@@ -61,7 +61,7 @@ const {
           title="Spieler"
           :value="playersCount"
           description="Registrierte Spieler"
-          pill-class="p-2 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200"
+          pill-class="p-2 rounded-full bg-emerald-100 text-emerald-700"
         >
           <template #icon>
             <AppIcon name="players" class="h-4 w-4" />
@@ -73,7 +73,7 @@ const {
           title="Turniere"
           :value="tournamentsCount"
           :description="`${activeTournamentsCount} aktiv`"
-          pill-class="p-2 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-950/30 dark:text-purple-300"
+          pill-class="p-2 rounded-full bg-purple-100 text-purple-600"
         >
           <template #icon>
             <AppIcon name="trophy" class="h-4 w-4" />
@@ -85,10 +85,10 @@ const {
         class="ui-card space-y-4 p-6"
       >
         <div>
-          <h2 class="font-display text-lg font-semibold text-slate-900 dark:text-white">
+          <h2 class="font-display text-lg font-semibold text-slate-900">
             Aktuelle Turniere
           </h2>
-          <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">
+          <p class="text-sm text-slate-600 mt-1">
             {{
               activeTournamentsCount > 0
                 ? `Laufende und bevorstehende Turniere`
@@ -104,7 +104,7 @@ const {
           <template #action>
             <RouterLink
               to="/tournaments"
-              class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100 dark:hover:bg-slate-800"
+                class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50"
             >
               Erstes Turnier erstellen
             </RouterLink>
@@ -121,7 +121,7 @@ const {
               class="block rounded-xl transition-colors"
             >
             <div
-              class="flex items-center justify-between rounded-xl border border-slate-200 p-4 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/30"
+              class="flex items-center justify-between rounded-xl border border-slate-200 p-4 transition-colors hover:bg-slate-50"
             >
               <div class="flex items-center gap-4 min-w-0">
                 <div
@@ -133,10 +133,10 @@ const {
                   <AppIcon name="trophy" class="h-5 w-5" />
                 </div>
                 <div class="min-w-0">
-                  <p class="font-medium text-slate-900 dark:text-white truncate">
+                  <p class="font-medium text-slate-900 truncate">
                     {{ t.name }}
                   </p>
-                  <p class="text-sm text-slate-600 dark:text-slate-400 truncate">
+                  <p class="text-sm text-slate-600 truncate">
                     {{ t.sport }} · {{ formatPhaseLabel(t.phase) }}
                   </p>
                 </div>
@@ -163,7 +163,7 @@ const {
 
       <p
         v-if="error"
-        class="text-sm text-rose-600 dark:text-rose-400"
+        class="text-sm text-rose-600"
         role="alert"
       >
         {{ error }}
@@ -173,15 +173,15 @@ const {
 
   <div
     v-else
-    class="max-w-md rounded-2xl border border-slate-200 bg-white/60 p-5 sm:p-6 dark:border-slate-800 dark:bg-slate-900/40"
+    class="max-w-md rounded-2xl border border-slate-200 bg-white/60 p-5 sm:p-6"
   >
-    <p class="text-slate-700 mb-4 dark:text-slate-300">
+    <p class="text-slate-700 mb-4">
       Melde dich an oder registriere dich mit dem Einladungscode.
     </p>
     <div class="flex flex-col gap-2 sm:flex-row sm:gap-3">
       <RouterLink
         to="/login"
-        class="rounded-lg border border-slate-300 px-4 py-3 text-center text-slate-800 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800 sm:py-2"
+        class="rounded-lg border border-slate-300 px-4 py-3 text-center text-slate-800 transition hover:bg-slate-100 sm:py-2"
       >
         Login
       </RouterLink>

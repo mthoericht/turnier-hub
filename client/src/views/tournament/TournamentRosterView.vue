@@ -78,33 +78,33 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
   <div v-if="tournament" class="space-y-8 sm:space-y-10">
     <section :class="[cardClass, 'space-y-4']">
       <h2
-        class="font-display font-semibold text-lg text-slate-900 dark:text-white"
+        class="font-display font-semibold text-lg text-slate-900"
       >
         Mannschaften
       </h2>
 
-      <p v-if="isIndividuals" class="text-sm text-slate-600 dark:text-slate-500">
+      <p v-if="isIndividuals" class="text-sm text-slate-600">
         Einzelpersonen-Turnier: Jeder Spieler wird als eigene Mannschaft behandelt.
         Wähle Spieler aus, um sie als Teilnehmer hinzuzufügen.
       </p>
-      <p v-else class="text-sm text-slate-600 dark:text-slate-500">
+      <p v-else class="text-sm text-slate-600">
         Jede Mannschaft spielt einmal gegen jede andere (ein Spiel pro Paarung).
       </p>
 
       <div
         v-if="canEdit && !isIndividuals"
-        class="rounded-xl border border-blue-200/80 bg-blue-50/40 p-4 dark:border-blue-800/60 dark:bg-blue-950/20"
+        class="rounded-xl border border-blue-200/80 bg-blue-50/40 p-4"
       >
-        <h3 class="mb-2 font-display text-sm font-semibold text-slate-900 dark:text-white">
+        <h3 class="mb-2 font-display text-sm font-semibold text-slate-900">
           Mannschaften aus Turnier übertragen
         </h3>
-        <p class="mb-3 text-xs text-slate-600 dark:text-slate-400">
+        <p class="mb-3 text-xs text-slate-600">
           Übernimmt Mannschaften und Zuordnungen aus einem anderen deiner Turniere.
           Teams werden nach Namen angelegt; bereits zugeordnete Spieler werden übersprungen.
         </p>
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
           <div class="min-w-0 flex-1 sm:max-w-xs">
-            <label class="mb-1 block text-xs text-slate-600 dark:text-slate-500">
+            <label class="mb-1 block text-xs text-slate-600">
               Von Turnier
             </label>
             <select
@@ -161,7 +161,7 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
           />
           <button
             type="button"
-            class="min-h-[48px] rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-800 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800 sm:min-h-0 sm:py-2 sm:text-sm"
+            class="min-h-[48px] rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-800 hover:bg-slate-100 sm:min-h-0 sm:py-2 sm:text-sm"
             @click="createTeam"
           >
             Mannschaft anlegen
@@ -188,7 +188,7 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
           @update:selected-player-id="addPlayerId = $event"
           @add="addMember"
         />
-        <p v-else class="text-sm text-slate-500 dark:text-slate-500">
+        <p v-else class="text-sm text-slate-500">
           Mannschaften siehst du unten; bearbeiten nur als Ersteller.
         </p>
       </template>
@@ -199,11 +199,11 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
           <div
             v-for="group in teamsByGroup"
             :key="group.label"
-            class="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+            class="rounded-xl border border-slate-200 overflow-hidden"
             :class="groupBgClass(group.label)"
           >
             <div
-              class="flex items-center gap-2 border-b border-slate-200 px-4 py-2.5 dark:border-slate-800"
+              class="flex items-center gap-2 border-b border-slate-200 px-4 py-2.5"
             >
               <span
                 class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-sm font-bold text-white"
@@ -220,23 +220,23 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
               >
                 {{ group.label }}
               </span>
-              <span class="font-display text-sm font-semibold text-slate-900 dark:text-white">
+              <span class="font-display text-sm font-semibold text-slate-900">
                 Gruppe {{ group.label }}
               </span>
               <button
                 v-if="canEdit"
                 type="button"
-                class="text-xs text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+                class="text-xs text-blue-700 hover:text-blue-800"
                 @click="promptRenameGroup(group.label)"
               >
                 Umbenennen
               </button>
-              <span class="ml-auto text-xs text-slate-500 dark:text-slate-400">
+              <span class="ml-auto text-xs text-slate-500">
                 {{ group.teams.length }} {{ group.teams.length === 1 ? 'Mannschaft' : 'Mannschaften' }}
               </span>
             </div>
 
-            <ul class="divide-y divide-slate-200/80 dark:divide-slate-800/80">
+            <ul class="divide-y divide-slate-200/80">
               <li
                 v-for="team in group.teams"
                 :key="team.id"
@@ -244,20 +244,20 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
                 :class="groupBorderClass(group.label)"
               >
                 <div class="flex flex-wrap items-center justify-between gap-2">
-                  <span class="font-semibold text-slate-900 dark:text-white">{{
+                  <span class="font-semibold text-slate-900">{{
                     team.name
                   }}</span>
                   <div v-if="canEdit" class="flex items-center gap-3">
                     <button
                       type="button"
-                      class="text-xs text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+                      class="text-xs text-blue-700 hover:text-blue-800"
                       @click="promptRenameTeam(team)"
                     >
                       Umbenennen
                     </button>
                     <button
                       type="button"
-                      class="text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400"
+                      class="text-xs text-rose-600 hover:text-rose-700"
                       @click="removeTeam(team.id)"
                     >
                       Löschen
@@ -283,25 +283,25 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
           <li
             v-for="team in tournament.teams"
             :key="team.id"
-            class="rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/50"
+            class="rounded-xl border border-slate-200 bg-slate-50/80 p-3"
           >
             <div
               class="mb-2 flex flex-wrap items-center justify-between gap-2"
             >
-              <span class="font-semibold text-slate-900 dark:text-white">{{
+              <span class="font-semibold text-slate-900">{{
                 team.name
               }}</span>
               <div v-if="canEdit" class="flex items-center gap-3">
                 <button
                   type="button"
-                  class="text-sm text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+                  class="text-sm text-blue-700 hover:text-blue-800"
                   @click="promptRenameTeam(team)"
                 >
                   Umbenennen
                 </button>
                 <button
                   type="button"
-                  class="text-sm text-rose-600 hover:text-rose-700 dark:text-rose-400"
+                  class="text-sm text-rose-600 hover:text-rose-700"
                   @click="removeTeam(team.id)"
                 >
                   {{ isIndividuals ? "Entfernen" : "Mannschaft löschen" }}
@@ -309,7 +309,7 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
               </div>
             </div>
             <template v-if="!isIndividuals">
-              <p class="mb-1 text-xs text-slate-500 dark:text-slate-500">Spieler</p>
+              <p class="mb-1 text-xs text-slate-500">Spieler</p>
               <TournamentTeamMembersList
                 :team="team"
                 :can-edit="canEdit"
@@ -323,7 +323,7 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
 
       <p
         v-else
-        class="text-sm text-slate-500 dark:text-slate-500"
+        class="text-sm text-slate-500"
       >
         {{ isIndividuals ? "Noch keine Teilnehmer hinzugefügt." : "Noch keine Mannschaft angelegt." }}
       </p>

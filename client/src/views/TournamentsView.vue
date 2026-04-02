@@ -29,7 +29,7 @@ const nameFieldId = `${formFieldId}-name`;
 const sportFieldId = `${formFieldId}-sport`;
 
 const inputClass =
-  "min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-white sm:min-h-0 sm:py-2 sm:text-sm";
+  "min-h-[48px] rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 outline-none focus:ring-2 focus:ring-blue-600 sm:min-h-0 sm:py-2 sm:text-sm";
 
 async function handleCreate(): Promise<void>
 {
@@ -48,7 +48,7 @@ async function handleCreate(): Promise<void>
       class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
     >
       <h1
-        class="font-display text-xl font-semibold text-slate-900 dark:text-white sm:text-2xl"
+        class="font-display text-xl font-semibold text-slate-900 sm:text-2xl"
       >
         Turniere
       </h1>
@@ -58,7 +58,7 @@ async function handleCreate(): Promise<void>
     </div>
     <p
       v-if="error"
-      class="mb-4 text-sm text-rose-600 dark:text-rose-400"
+      class="mb-4 text-sm text-rose-600"
       role="alert"
     >
       {{ error }}
@@ -76,15 +76,15 @@ async function handleCreate(): Promise<void>
 
       <div
         v-else
-        class="rounded-xl border border-slate-200 bg-white/70 p-5 dark:border-slate-800 dark:bg-slate-900/50 space-y-5"
+        class="rounded-xl border border-slate-200 bg-white/70 p-5 space-y-5"
       >
         <div class="flex items-center justify-between">
-          <h2 class="font-display text-lg font-semibold text-slate-900 dark:text-white">
+          <h2 class="font-display text-lg font-semibold text-slate-900">
             Neues Turnier erstellen
           </h2>
           <button
             type="button"
-            class="text-sm text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+            class="text-sm text-slate-500 hover:text-slate-800"
             @click="showCreateForm = false"
           >
             Abbrechen
@@ -95,7 +95,7 @@ async function handleCreate(): Promise<void>
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
               <label
-                class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+                class="mb-1 block text-sm font-medium text-slate-700"
                 :for="nameFieldId"
               >
                 Turniername
@@ -110,7 +110,7 @@ async function handleCreate(): Promise<void>
             </div>
             <div>
               <label
-                class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+                class="mb-1 block text-sm font-medium text-slate-700"
                 :for="sportFieldId"
               >
                 Sportart
@@ -133,7 +133,7 @@ async function handleCreate(): Promise<void>
           </div>
 
           <fieldset class="m-0 min-w-0 border-0 p-0">
-            <legend class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            <legend class="mb-2 block text-sm font-medium text-slate-700">
               Turniermodus
             </legend>
             <div class="grid gap-3 sm:grid-cols-3">
@@ -141,8 +141,8 @@ async function handleCreate(): Promise<void>
                 :class="[
                   'flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition',
                   mode === 'GROUP_KO'
-                    ? 'border-blue-600 bg-blue-50/60 dark:border-blue-400 dark:bg-blue-950/30'
-                    : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600',
+                    ? 'border-blue-600 bg-blue-50/60'
+                    : 'border-slate-200 hover:border-slate-300',
                 ]"
               >
                 <input
@@ -152,8 +152,8 @@ async function handleCreate(): Promise<void>
                   class="mt-1"
                 />
                 <div>
-                  <span class="font-medium text-slate-900 dark:text-white">Gruppenspiele + K.O.</span>
-                  <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <span class="font-medium text-slate-900">Gruppenspiele + K.O.</span>
+                  <p class="mt-1 text-xs text-slate-500">
                     Gruppenphase, dann K.O.-Runden (VF/HF/Finale)
                   </p>
                 </div>
@@ -163,8 +163,8 @@ async function handleCreate(): Promise<void>
                 :class="[
                   'flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition',
                   mode === 'DIRECT_KO'
-                    ? 'border-blue-600 bg-blue-50/60 dark:border-blue-400 dark:bg-blue-950/30'
-                    : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600',
+                    ? 'border-blue-600 bg-blue-50/60'
+                    : 'border-slate-200 hover:border-slate-300',
                 ]"
               >
                 <input
@@ -174,8 +174,8 @@ async function handleCreate(): Promise<void>
                   class="mt-1"
                 />
                 <div>
-                  <span class="font-medium text-slate-900 dark:text-white">Direkt K.O.</span>
-                  <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <span class="font-medium text-slate-900">Direkt K.O.</span>
+                  <p class="mt-1 text-xs text-slate-500">
                     Sofort K.O.-Runden, auch mit 10+ Mannschaften
                   </p>
                 </div>
@@ -185,8 +185,8 @@ async function handleCreate(): Promise<void>
                 :class="[
                   'flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition',
                   mode === 'ROUND_ROBIN'
-                    ? 'border-blue-600 bg-blue-50/60 dark:border-blue-400 dark:bg-blue-950/30'
-                    : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600',
+                    ? 'border-blue-600 bg-blue-50/60'
+                    : 'border-slate-200 hover:border-slate-300',
                 ]"
               >
                 <input
@@ -196,8 +196,8 @@ async function handleCreate(): Promise<void>
                   class="mt-1"
                 />
                 <div>
-                  <span class="font-medium text-slate-900 dark:text-white">Jeder gegen Jeden</span>
-                  <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <span class="font-medium text-slate-900">Jeder gegen Jeden</span>
+                  <p class="mt-1 text-xs text-slate-500">
                     Alle Mannschaften spielen gegeneinander, ohne K.O.-Phase
                   </p>
                 </div>
@@ -206,7 +206,7 @@ async function handleCreate(): Promise<void>
           </fieldset>
 
           <label
-            class="flex items-center gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700"
+            class="flex items-center gap-3 rounded-xl border border-slate-200 p-4"
           >
             <input
               v-model="teamsAreIndividuals"
@@ -214,10 +214,10 @@ async function handleCreate(): Promise<void>
               class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
             />
             <div>
-              <span class="font-medium text-slate-900 dark:text-white">
+              <span class="font-medium text-slate-900">
                 Mannschaften sind Einzelpersonen
               </span>
-              <p class="text-xs text-slate-500 dark:text-slate-400">
+              <p class="text-xs text-slate-500">
                 z.B. für Badminton oder Tischtennis — Spieler werden direkt als Mannschaft behandelt
               </p>
             </div>
@@ -226,7 +226,7 @@ async function handleCreate(): Promise<void>
           <div class="flex justify-end gap-3">
             <button
               type="button"
-              class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
               @click="showCreateForm = false"
             >
               Abbrechen
@@ -247,21 +247,21 @@ async function handleCreate(): Promise<void>
       <li
         v-for="t in list"
         :key="t.id"
-        class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/60 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/40 sm:flex-row sm:items-center sm:justify-between"
+        class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <div>
           <RouterLink
             :to="{ name: 'tournament-roster', params: { id: t.id } }"
-            class="font-medium text-blue-800 hover:underline dark:text-blue-100"
+            class="font-medium text-blue-800 hover:underline"
           >
             {{ t.name }}
           </RouterLink>
-          <p class="text-sm text-slate-500 dark:text-slate-500">
+          <p class="text-sm text-slate-500">
             {{ t.sport }} · {{ formatTournamentMode(t.mode) }} · {{ t._count.teams }} Mannschaften,
             {{ t._count.matches }} Spiele
           </p>
           <p
-            class="mt-1 text-xs text-slate-500 dark:text-slate-500"
+            class="mt-1 text-xs text-slate-500"
             :title="t.createdBy.email"
           >
             Von {{ formatCreator(t.createdBy) }}
@@ -270,7 +270,7 @@ async function handleCreate(): Promise<void>
         <div class="flex gap-3 text-sm shrink-0">
           <RouterLink
             :to="{ name: 'tournament-roster', params: { id: t.id } }"
-            class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            class="text-slate-600 hover:text-slate-900"
           >
             Öffnen
           </RouterLink>

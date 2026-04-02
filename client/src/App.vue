@@ -4,10 +4,8 @@ import { RouterLink, RouterView, useRoute } from "vue-router";
 import ToastHost from "./components/ToastHost.vue";
 import AppIcon from "./components/common/AppIcon.vue";
 import { useAuthStore } from "./stores/auth";
-import { useThemeStore } from "./stores/theme";
 
 const auth = useAuthStore();
-const theme = useThemeStore();
 const route = useRoute();
 const navOpen = ref(false);
 
@@ -25,7 +23,7 @@ watch(
 );
 
 const linkClass =
-  "rounded-lg px-3 py-3 text-base text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white md:py-2 md:text-sm";
+  "rounded-lg px-3 py-3 text-base text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 md:py-2 md:text-sm";
 
 type MainNavItem = {
   to: string;
@@ -52,8 +50,8 @@ function navLinkClass(prefix: string): string
   return [
     "flex items-center gap-2 py-4 border-b-2 transition-colors",
     active
-      ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
-      : "border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white",
+      ? "border-blue-600 text-blue-600"
+      : "border-transparent text-slate-600 hover:text-slate-900",
   ].join(" ");
 }
 </script>
@@ -67,33 +65,21 @@ function navLinkClass(prefix: string): string
       Zum Inhalt springen
     </a>
     <header
-      class="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80"
+      class="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur"
     >
       <div class="mx-auto max-w-5xl px-3 sm:px-4">
         <div class="flex items-center justify-between gap-2 py-3">
           <RouterLink
             to="/"
-            class="flex min-w-0 items-center gap-2 truncate font-display text-base font-semibold tracking-tight text-slate-900 dark:text-white sm:text-lg"
+            class="flex min-w-0 items-center gap-2 truncate font-display text-base font-semibold tracking-tight text-slate-900 sm:text-lg"
           >
-            <AppIcon name="trophy" class="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            <AppIcon name="trophy" class="h-6 w-6 text-blue-600" />
             Turnier-Hub
           </RouterLink>
           <div class="flex shrink-0 items-center gap-1 sm:gap-2">
             <button
               type="button"
-              class="rounded-lg border border-slate-300 p-2.5 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 md:p-2"
-              :title="theme.isDark ? 'Hellmodus' : 'Dunkelmodus'"
-              :aria-label="
-                theme.isDark ? 'Hellmodus aktivieren' : 'Dunkelmodus aktivieren'
-              "
-              @click="theme.toggle()"
-            >
-              <AppIcon v-if="theme.isDark" name="sun" class="h-5 w-5" />
-              <AppIcon v-else name="moon" class="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              class="rounded-lg border border-slate-300 p-2.5 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 md:hidden"
+              class="rounded-lg border border-slate-300 p-2.5 text-slate-600 hover:bg-slate-100 md:hidden"
               :aria-expanded="navOpen"
               aria-controls="mobile-nav"
               aria-label="Menü"
@@ -105,7 +91,7 @@ function navLinkClass(prefix: string): string
             <div class="hidden items-center gap-2 md:flex">
               <template v-if="auth.user">
                 <span
-                  class="max-w-[10rem] truncate text-slate-600 dark:text-slate-500"
+                  class="max-w-[10rem] truncate text-slate-600"
                   :title="auth.user.email"
                 >
                   {{
@@ -116,7 +102,7 @@ function navLinkClass(prefix: string): string
                 </span>
                 <button
                   type="button"
-                  class="rounded-lg border border-rose-200 bg-white/60 px-3 py-2 text-rose-600 transition hover:border-rose-300 hover:bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:border-rose-700/60 dark:hover:bg-rose-950/40"
+                  class="rounded-lg border border-rose-200 bg-white/60 px-3 py-2 text-rose-600 transition hover:border-rose-300 hover:bg-rose-50"
                   @click="auth.logout()"
                 >
                   Abmelden
@@ -138,7 +124,7 @@ function navLinkClass(prefix: string): string
 
       <div
         v-if="auth.user"
-        class="hidden border-b border-slate-200 bg-white/70 backdrop-blur md:block dark:border-slate-800 dark:bg-slate-900/60"
+        class="hidden border-b border-slate-200 bg-white/70 backdrop-blur md:block"
       >
         <div class="mx-auto max-w-5xl px-3 sm:px-4">
           <nav
@@ -162,7 +148,7 @@ function navLinkClass(prefix: string): string
       <div
         v-show="navOpen"
         id="mobile-nav"
-        class="border-t border-slate-200 pb-3 pt-2 dark:border-slate-800 dark:bg-slate-900/60 md:hidden"
+        class="border-t border-slate-200 pb-3 pt-2 md:hidden"
       >
         <nav class="flex flex-col gap-1 px-3" aria-label="Mobile Navigation">
           <template v-if="auth.user">
@@ -177,7 +163,7 @@ function navLinkClass(prefix: string): string
               {{ item.label }}
             </RouterLink>
             <p
-              class="truncate px-3 py-2 text-sm text-slate-500 dark:text-slate-400"
+              class="truncate px-3 py-2 text-sm text-slate-500"
               :title="auth.user.email"
             >
               {{
@@ -188,7 +174,7 @@ function navLinkClass(prefix: string): string
             </p>
             <button
               type="button"
-              class="rounded-lg px-3 py-3 text-left text-base text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/20"
+              class="rounded-lg px-3 py-3 text-left text-base text-rose-600 hover:bg-rose-50"
               @click="auth.logout()"
             >
               Abmelden

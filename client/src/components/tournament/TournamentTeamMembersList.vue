@@ -25,11 +25,11 @@ const emit = defineEmits<{
       :key="mem.id"
       class="flex flex-wrap items-center justify-between gap-2"
     >
-      <span class="text-slate-800 dark:text-slate-200">
+      <span class="text-slate-800">
         {{ mem.player.name
         }}<span
           v-if="mem.player.schoolClass"
-          class="text-slate-500 dark:text-slate-500"
+          class="text-slate-500"
         >
           ({{ mem.player.schoolClass.name }})</span
         >
@@ -44,7 +44,7 @@ const emit = defineEmits<{
       <button
         v-if="canEdit"
         type="button"
-        class="text-xs text-rose-600 dark:text-rose-400"
+        class="text-xs text-rose-600"
         @click="emit('remove-member', team.id, mem.playerId)"
       >
         Entfernen
@@ -52,7 +52,7 @@ const emit = defineEmits<{
     </li>
     <li
       v-if="team.members.length === 0"
-      class="text-slate-500 dark:text-slate-500"
+      class="text-slate-500"
     >
       Noch keine Spieler
     </li>

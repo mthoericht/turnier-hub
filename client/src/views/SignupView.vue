@@ -43,7 +43,7 @@ async function submit(): Promise<void>
 <template>
   <div class="max-w-md mx-auto">
     <h1
-      class="mb-2 font-display text-xl font-semibold text-slate-900 dark:text-white sm:text-2xl"
+      class="mb-2 font-display text-xl font-semibold text-slate-900 sm:text-2xl"
     >
       Registrieren
     </h1>
@@ -118,7 +118,7 @@ async function submit(): Promise<void>
       </AuthFormField>
       <p
         v-if="error"
-        class="text-sm text-rose-600 dark:text-rose-400"
+        class="text-sm text-rose-600"
         role="alert"
       >
         {{ error }}
@@ -135,7 +135,7 @@ async function submit(): Promise<void>
       Schon registriert?
       <RouterLink
         to="/login"
-        class="text-court-800 hover:underline dark:text-court-100"
+        class="text-court-800 hover:underline"
       >
         Login
       </RouterLink>

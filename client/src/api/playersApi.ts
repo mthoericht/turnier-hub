@@ -1,4 +1,4 @@
-import { api } from "@/api/http";
+import { api } from "./http";
 import type { Player } from "@/types";
 
 export type PlayersScope = "all" | "own";

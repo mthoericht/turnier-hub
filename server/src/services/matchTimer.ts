@@ -1,5 +1,4 @@
 import type { Match } from "@prisma/client";
-import { MatchStatus } from "@prisma/client";
 
 export const MAX_MATCH_DURATION_MS = 5 * 60 * 60 * 1000;
 
@@ -18,7 +17,7 @@ export function computeElapsedMs(m: Match, now: Date): number
 {
   if (
     m.elapsedSnapshotMs != null
-    && (m.status === MatchStatus.FINISHED || m.status === MatchStatus.CANCELLED)
+    && (m.status === "FINISHED" || m.status === "CANCELLED")
   )
   {
     return clampMatchDuration(m.elapsedSnapshotMs);
@@ -26,16 +25,16 @@ export function computeElapsedMs(m: Match, now: Date): number
   if (!m.matchStartedAt) return 0;
   const start = m.matchStartedAt.getTime();
   const pause = m.totalPausedMs ?? 0;
-  if (m.status === MatchStatus.SCHEDULED) return 0;
-  if (m.status === MatchStatus.PAUSED && m.pausedAt)
+  if (m.status === "SCHEDULED") return 0;
+  if (m.status === "PAUSED" && m.pausedAt)
   {
     return clampMatchDuration(m.pausedAt.getTime() - start - pause);
   }
-  if (m.status === MatchStatus.LIVE)
+  if (m.status === "LIVE")
   {
     return clampMatchDuration(now.getTime() - start - pause);
   }
-  if (m.status === MatchStatus.FINISHED || m.status === MatchStatus.CANCELLED)
+  if (m.status === "FINISHED" || m.status === "CANCELLED")
   {
     return clampMatchDuration(m.elapsedSnapshotMs ?? 0);
   }

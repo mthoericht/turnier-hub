@@ -16,7 +16,7 @@ defineProps<{
       class="ui-card ui-card-hover cursor-pointer p-6"
     >
       <div class="flex items-center justify-between pb-2">
-        <h2 class="text-sm font-medium text-slate-700 dark:text-slate-200">
+        <h2 class="text-sm font-medium text-slate-700">
           {{ title }}
         </h2>
         <div :class="pillClass">
@@ -24,10 +24,10 @@ defineProps<{
         </div>
       </div>
 
-      <div class="text-2xl font-bold text-slate-900 dark:text-white">
+      <div class="text-2xl font-bold text-slate-900">
         {{ value }}
       </div>
-      <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
+      <p class="text-xs text-slate-600 mt-1">
         {{ description }}
       </p>
     </div>

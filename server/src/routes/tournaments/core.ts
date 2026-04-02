@@ -1,5 +1,5 @@
-import type { Router } from "express";
-import { TournamentMode, TournamentPhase } from "@prisma/client";
+import type { NextFunction, Router } from "express";
+import type { TournamentMode, TournamentPhase } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db.js";
 import { createdBySelect, parseListScope, toCreatedBy } from "../../lib/createdBy.js";
@@ -51,7 +51,7 @@ export function registerTournamentCoreRoutes(router: Router): void
     );
   });
 
-  router.post("/", async (req, res) =>
+  router.post("/", async (req, res, next: NextFunction) =>
   {
     const parsed = createTournamentSchema.safeParse(req.body);
     if (!parsed.success)
@@ -59,34 +59,39 @@ export function registerTournamentCoreRoutes(router: Router): void
       res.status(400).json({ error: "Ungültige Eingaben" });
       return;
     }
-    const mode = parsed.data.mode
-      ? (TournamentMode[parsed.data.mode as keyof typeof TournamentMode])
-      : TournamentMode.GROUP_KO;
-    const defaultPhase = mode === TournamentMode.DIRECT_KO
-      ? TournamentPhase.QUARTER
-      : TournamentPhase.GROUP;
-    const t = await prisma.tournament.create({
-      data: {
-        name: parsed.data.name,
-        sport: parsed.data.sport,
-        mode,
-        phase: defaultPhase,
-        groupCount: parsed.data.groupCount ?? 1,
-        userId: req.userId!,
-        advancesPerGroup: parsed.data.advancesPerGroup ?? 2,
-        teamsAreIndividuals: parsed.data.teamsAreIndividuals ?? false,
-      },
-      include: {
-        user: { select: createdBySelect },
-        _count: { select: { teams: true, matches: true } },
-      },
-    });
-    const { user, ...row } = t;
-    notifyUserTournamentsChanged(req.userId!);
-    res.status(201).json({
-      ...row,
-      createdBy: toCreatedBy(user),
-    });
+    const mode: TournamentMode = parsed.data.mode ?? "GROUP_KO";
+    const defaultPhase: TournamentPhase = mode === "DIRECT_KO"
+      ? "QUARTER"
+      : "GROUP";
+    try
+    {
+      const t = await prisma.tournament.create({
+        data: {
+          name: parsed.data.name,
+          sport: parsed.data.sport,
+          mode,
+          phase: defaultPhase,
+          groupCount: parsed.data.groupCount ?? 1,
+          userId: req.userId!,
+          advancesPerGroup: parsed.data.advancesPerGroup ?? 2,
+          teamsAreIndividuals: parsed.data.teamsAreIndividuals ?? false,
+        },
+        include: {
+          user: { select: createdBySelect },
+          _count: { select: { teams: true, matches: true } },
+        },
+      });
+      const { user, ...row } = t;
+      notifyUserTournamentsChanged(req.userId!);
+      res.status(201).json({
+        ...row,
+        createdBy: toCreatedBy(user),
+      });
+    }
+    catch (err)
+    {
+      next(err);
+    }
   });
 
   router.get("/:id", async (req, res) =>

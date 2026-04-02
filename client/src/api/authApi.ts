@@ -1,4 +1,4 @@
-import { api } from "@/api/http";
+import { api } from "./http";
 import type { AuthUser } from "@/types";
 
 export type AuthLoginResponse = { token: string; user: AuthUser };

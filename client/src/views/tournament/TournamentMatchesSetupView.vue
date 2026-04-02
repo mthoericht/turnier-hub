@@ -173,24 +173,24 @@ async function generateGroupWithCurrentSettings(): Promise<void>
   <div v-if="tournament" class="space-y-8 sm:space-y-10">
     <p
       v-if="!canEdit"
-      class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/25 dark:text-amber-100"
+      class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
     >
       Nur der Ersteller kann Spiele anlegen und K.-o.-Runden starten.
     </p>
     <section v-if="canEdit" :class="[cardClass, 'space-y-6']">
       <h2
-        class="font-display font-semibold text-lg text-slate-900 dark:text-white"
+        class="font-display font-semibold text-lg text-slate-900"
       >
         Spielbetrieb
       </h2>
 
       <div v-if="showGroupSection" class="space-y-2">
         <h3
-          class="text-sm font-medium text-slate-800 dark:text-slate-200"
+          class="text-sm font-medium text-slate-800"
         >
           {{ mode === 'ROUND_ROBIN' ? '1. Jeder gegen Jeden' : '1. Gruppenspiele' }}
         </h3>
-        <p class="text-xs text-slate-500 dark:text-slate-500">
+        <p class="text-xs text-slate-500">
           Erst Mannschaften unter „Mannschaften" anlegen, dann die Spiele erzeugen.
           <template v-if="mode === 'GROUP_KO' && tournament.groupCount > 1">
             Mannschaften werden zufällig auf {{ tournament.groupCount }} Gruppen verteilt.
@@ -199,7 +199,7 @@ async function generateGroupWithCurrentSettings(): Promise<void>
         </p>
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div v-if="mode === 'GROUP_KO'" class="min-w-0 sm:w-44">
-            <label class="mb-1 block text-xs text-slate-600 dark:text-slate-500">
+            <label class="mb-1 block text-xs text-slate-600">
               Anzahl Gruppen
             </label>
             <input
@@ -212,7 +212,7 @@ async function generateGroupWithCurrentSettings(): Promise<void>
           </div>
           <button
             type="button"
-            class="w-full rounded-lg bg-slate-200 px-4 py-3 text-left text-sm text-slate-900 hover:bg-slate-300 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 sm:w-auto sm:py-2"
+            class="w-full rounded-lg bg-slate-200 px-4 py-3 text-left text-sm text-slate-900 hover:bg-slate-300 sm:w-auto sm:py-2"
             @click="generateGroupWithCurrentSettings"
           >
             {{ groupActionLabel }}
@@ -220,12 +220,12 @@ async function generateGroupWithCurrentSettings(): Promise<void>
         </div>
       </div>
 
-      <div v-if="mode === 'GROUP_KO'" class="space-y-3 border-t border-slate-200 pt-6 dark:border-slate-800">
-        <h3 class="text-sm font-medium text-slate-800 dark:text-slate-200">
+      <div v-if="mode === 'GROUP_KO'" class="space-y-3 border-t border-slate-200 pt-6">
+        <h3 class="text-sm font-medium text-slate-800">
           Gruppen-Einstellungen
         </h3>
         <div class="sm:max-w-xs">
-          <label class="mb-1 block text-xs text-slate-600 dark:text-slate-500">
+          <label class="mb-1 block text-xs text-slate-600">
             Weiterkommen pro Gruppe
           </label>
           <input
@@ -238,7 +238,7 @@ async function generateGroupWithCurrentSettings(): Promise<void>
         </div>
         <button
           type="button"
-          class="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-800 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-200 dark:hover:bg-blue-950/50"
+          class="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-800 hover:bg-blue-100"
           @click="saveAdvances"
         >
           Einstellungen speichern
@@ -247,17 +247,17 @@ async function generateGroupWithCurrentSettings(): Promise<void>
 
       <div v-if="mode === 'DIRECT_KO'" class="space-y-2">
         <h3
-          class="text-sm font-medium text-slate-800 dark:text-slate-200"
+          class="text-sm font-medium text-slate-800"
         >
           1. K.O.-Runde erzeugen
         </h3>
-        <p class="text-xs text-slate-500 dark:text-slate-500">
+        <p class="text-xs text-slate-500">
           Erst Mannschaften unter „Mannschaften" anlegen, dann die K.O.-Runde erzeugen.
           Bei ungerader Teamzahl erhalten die bestgesetzten Teams ein Freilos.
         </p>
         <button
           type="button"
-          class="w-full rounded-lg bg-slate-200 px-4 py-3 text-left text-sm text-slate-900 hover:bg-slate-300 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 sm:w-auto sm:py-2"
+          class="w-full rounded-lg bg-slate-200 px-4 py-3 text-left text-sm text-slate-900 hover:bg-slate-300 sm:w-auto sm:py-2"
           @click="generateKnockout"
         >
           K.O.-Runde erzeugen
@@ -266,21 +266,21 @@ async function generateGroupWithCurrentSettings(): Promise<void>
 
       <div
         v-if="showKoSection && (hasGroupMatches || hasAnyKoMatches)"
-        class="space-y-3 border-t border-slate-200 pt-6 dark:border-slate-800"
+        class="space-y-3 border-t border-slate-200 pt-6"
       >
         <h3
-          class="text-sm font-medium text-slate-800 dark:text-slate-200"
+          class="text-sm font-medium text-slate-800"
         >
           {{ mode === 'DIRECT_KO' ? '2. Nächste K.O.-Runde' : '2. K.O.-Runden' }}
         </h3>
 
-        <p v-if="!hasGroupMatches && !hasAnyKoMatches" class="text-xs text-slate-500 dark:text-slate-500">
+        <p v-if="!hasGroupMatches && !hasAnyKoMatches" class="text-xs text-slate-500">
           Erzeuge zuerst die Spiele, damit die passenden Tabellenplätze für die
           K.-o.-Runden feststehen.
         </p>
 
         <template v-else>
-          <p class="text-xs text-slate-500 dark:text-slate-500">
+          <p class="text-xs text-slate-500">
             Nur sinnvoll, wenn die vorherige Runde beendet ist — sonst fehlen Paarungen.
           </p>
 
@@ -306,7 +306,7 @@ async function generateGroupWithCurrentSettings(): Promise<void>
 
           <p
             v-if="!canCreateR16 && !canCreateQuarter && !canCreateSemi && !canCreateFinal"
-            class="mt-3 text-xs text-slate-600 dark:text-slate-400"
+            class="mt-3 text-xs text-slate-600"
           >
             Aktuell kann keine weitere K.-o.-Runde erzeugt werden
             (bereits angelegt oder zu wenige Mannschaften/Sieger).
@@ -316,17 +316,17 @@ async function generateGroupWithCurrentSettings(): Promise<void>
 
       <div
         v-if="mode === 'ROUND_ROBIN' && hasGroupMatches"
-        class="space-y-3 border-t border-slate-200 pt-6 dark:border-slate-800"
+        class="space-y-3 border-t border-slate-200 pt-6"
       >
-        <h3 class="text-sm font-medium text-slate-800 dark:text-slate-200">
+        <h3 class="text-sm font-medium text-slate-800">
           2. Turnier abschließen
         </h3>
-        <p class="text-xs text-slate-500 dark:text-slate-500">
+        <p class="text-xs text-slate-500">
           Wenn alle Spiele beendet sind, kann das Turnier als abgeschlossen markiert werden.
         </p>
         <button
           type="button"
-          class="rounded-lg border border-emerald-400 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-100 dark:hover:bg-emerald-950/50"
+          class="rounded-lg border border-emerald-400 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100"
           @click="advance('COMPLETED')"
         >
           Turnier abschließen
@@ -335,17 +335,17 @@ async function generateGroupWithCurrentSettings(): Promise<void>
 
       <div
         v-if="hasAnyMatches"
-        class="space-y-2 border-t border-slate-200 pt-6 dark:border-slate-800"
+        class="space-y-2 border-t border-slate-200 pt-6"
       >
-        <h3 class="text-sm font-medium text-red-700 dark:text-red-400">
+        <h3 class="text-sm font-medium text-red-700">
           Gefahrenzone
         </h3>
-        <p class="text-xs text-slate-500 dark:text-slate-500">
+        <p class="text-xs text-slate-500">
           Löscht alle erzeugten Spiele (inkl. Ergebnisse) unwiderruflich.
         </p>
         <button
           type="button"
-          class="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+          class="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
           @click="deleteAllMatches"
         >
           Alle Spiele und Gruppen löschen

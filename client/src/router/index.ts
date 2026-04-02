@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { getToken } from "@/api/http";
+import { getToken } from "../api/http";
 
 const router = createRouter({
   history: createWebHistory(),

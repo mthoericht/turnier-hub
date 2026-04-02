@@ -1,0 +1,12 @@
+{
+  "extends": "../../../client/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "paths": {
+      "@/*": ["../../../client/src/*"]
+    },
+    "types": ["vite/client"]
+  },
+  "include": ["./**/*.ts", "./**/*.tsx"]
+}

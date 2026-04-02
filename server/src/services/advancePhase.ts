@@ -1,11 +1,5 @@
-import {
-  MatchPhase,
-  MatchStatus,
-  type Match,
-  type PrismaClient,
-  type Tournament,
-  TournamentPhase,
-} from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
+import type { MatchPhase, MatchStatus, TournamentPhase } from "@prisma/client";
 import {
   computePoolStandings,
   requireKnockoutWinnerTeamId,
@@ -17,6 +11,9 @@ import {
   tournamentPhaseForMatchPhase,
   type KoPairing,
 } from "./knockoutBracket.js";
+
+type Match = Prisma.MatchGetPayload<{}>;
+type Tournament = Prisma.TournamentGetPayload<{}>;
 
 type Tx = Omit<
   PrismaClient,
@@ -69,10 +66,10 @@ function mulberry32(seed: number): () => number
  */
 function koPhaseFromCount(count: number): MatchPhase
 {
-  if (count <= 2) return MatchPhase.FINAL;
-  if (count <= 4) return MatchPhase.SEMI;
-  if (count <= 8) return MatchPhase.QUARTER;
-  return MatchPhase.ROUND_OF_16;
+  if (count <= 2) return "FINAL";
+  if (count <= 4) return "SEMI";
+  if (count <= 8) return "QUARTER";
+  return "ROUND_OF_16";
 }
 
 /**
@@ -93,7 +90,7 @@ function collectGroupQualifiers(
   const teamsById = new Map(
     teams.map((t) => [t.id, { id: t.id, name: t.name }] as const)
   );
-  const groupMatches = matches.filter((m) => m.phase === MatchPhase.GROUP);
+  const groupMatches = matches.filter((m) => m.phase === "GROUP");
 
   if (groupCount > 1)
   {
@@ -161,31 +158,73 @@ export function pickQualifiersWithRandomPointsTie(
     return { teamIds: table.map((r) => r.teamId), notices: [] };
   }
 
-  const boundaryPoints = table[limit - 1]!.points;
-  const firstTieIdx = table.findIndex((r) => r.points === boundaryPoints);
-  const tieRows: typeof table = [];
-  for (const row of table)
-  {
-    if (row.points === boundaryPoints) tieRows.push(row);
-  }
-  const fixedBefore = table.slice(0, firstTieIdx);
-  const slotsFromTie = limit - fixedBefore.length;
+  const boundaryRow = table[limit - 1]!;
+  const boundaryPoints = boundaryRow.points;
+  const boundaryGd = boundaryRow.goalsFor - boundaryRow.goalsAgainst;
+  const boundaryGf = boundaryRow.goalsFor;
 
-  if (slotsFromTie <= 0 || slotsFromTie >= tieRows.length)
+  // Suche die „vollständig gleichen“ Cluster-Grenzen rund um die Cutoff-Position:
+  // gleiche Punkte, gleiche Tordifferenz, gleiche erzielte Tore.
+  let clusterStart = limit - 1;
+  while (clusterStart - 1 >= 0)
+  {
+    const r = table[clusterStart - 1]!;
+    if (
+      r.points === boundaryPoints
+      && r.goalsFor - r.goalsAgainst === boundaryGd
+      && r.goalsFor === boundaryGf
+    )
+    {
+      clusterStart -= 1;
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  let clusterEnd = limit;
+  while (clusterEnd < table.length)
+  {
+    const r = table[clusterEnd]!;
+    if (
+      r.points === boundaryPoints
+      && r.goalsFor - r.goalsAgainst === boundaryGd
+      && r.goalsFor === boundaryGf
+    )
+    {
+      clusterEnd += 1;
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  const fixedBefore = table.slice(0, clusterStart);
+  const cluster = table.slice(clusterStart, clusterEnd);
+  const slotsFromCluster = limit - fixedBefore.length;
+
+  // Wenn der Cluster vollständig in die verfügbaren Slots passt oder gar keine
+  // Slots aus dem Cluster benötigt werden, bleibt die bestehende Sortierung
+  // (inkl. Tordifferenz / Tore) vollständig erhalten.
+  if (slotsFromCluster <= 0 || slotsFromCluster >= cluster.length)
   {
     return { teamIds: table.slice(0, limit).map((r) => r.teamId), notices: [] };
   }
 
-  const shuffled = [...tieRows];
+  const shuffled = [...cluster];
   const rand = mulberry32(
-    seedFromString(`${tournamentId}|${label}|${boundaryPoints}|${limit}|${tieRows.length}`)
+    seedFromString(
+      `${tournamentId}|${label}|${boundaryPoints}|${boundaryGd}|${boundaryGf}|${cluster.length}|${limit}`
+    )
   );
   for (let i = shuffled.length - 1; i > 0; i--)
   {
     const j = Math.floor(rand() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
   }
-  const chosen = shuffled.slice(0, slotsFromTie);
+  const chosen = shuffled.slice(0, slotsFromCluster);
   const chosenNames = chosen.map((r) => r.team.name).sort((a, b) => a.localeCompare(b));
   const notice =
     `${label}: Mehrere Teams hatten gleich viele Punkte auf dem Qualifikationsplatz. `
@@ -220,17 +259,17 @@ async function createKoRoundMatches(
         roundOrder: order++,
         homeTeamId: home,
         awayTeamId: away,
-        status: away === null ? MatchStatus.FINISHED : MatchStatus.SCHEDULED,
+        status: away === null ? "FINISHED" : "SCHEDULED",
       },
     });
   }
 }
 
 const KO_PHASES_ORDER: MatchPhase[] = [
-  MatchPhase.ROUND_OF_16,
-  MatchPhase.QUARTER,
-  MatchPhase.SEMI,
-  MatchPhase.FINAL,
+  "ROUND_OF_16",
+  "QUARTER",
+  "SEMI",
+  "FINAL",
 ];
 
 /**
@@ -261,7 +300,7 @@ function collectWinnersFromPreviousPhase(
       winners.push(m.homeTeamId);
       continue;
     }
-    if (m.status !== MatchStatus.FINISHED)
+    if (m.status !== "FINISHED")
     {
       throw new Error(
         `Alle ${formatPhaseName(prevKoPhase)}-Spiele müssen beendet sein`
@@ -282,9 +321,9 @@ function collectWinnersFromPreviousPhase(
  */
 function requiredQualifierCount(targetMatchPhase: MatchPhase): number
 {
-  return targetMatchPhase === MatchPhase.ROUND_OF_16 ? 16
-    : targetMatchPhase === MatchPhase.QUARTER ? 8
-      : targetMatchPhase === MatchPhase.SEMI ? 4
+  return targetMatchPhase === "ROUND_OF_16" ? 16
+    : targetMatchPhase === "QUARTER" ? 8
+      : targetMatchPhase === "SEMI" ? 4
         : 2;
 }
 
@@ -312,7 +351,7 @@ async function rebuildKnockoutFromPairs(
         phase: { in: phasesAtOrAfter(targetMatchPhase) },
       },
     });
-    if (tournament.phase === TournamentPhase.GROUP)
+    if (tournament.phase === "GROUP")
     {
       const extraPhases = KO_PHASES_ORDER.filter(
         (p) => KO_PHASES_ORDER.indexOf(p) < KO_PHASES_ORDER.indexOf(targetMatchPhase)
@@ -348,7 +387,7 @@ export async function advanceTournamentPhase(
   target: "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL"
 ): Promise<{ notices: string[] }>
 {
-  const targetMatchPhase = MatchPhase[target];
+  const targetMatchPhase: MatchPhase = target;
   const targetTournamentPhase = tournamentPhaseForMatchPhase(targetMatchPhase);
 
   const prevKoPhaseIdx = KO_PHASES_ORDER.indexOf(targetMatchPhase) - 1;

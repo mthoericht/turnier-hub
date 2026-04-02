@@ -1,4 +1,4 @@
-import { MatchPhase, TournamentPhase } from "@prisma/client";
+import type { MatchPhase, TournamentPhase } from "@prisma/client";
 
 export type KoBracketMatch = {
   phase: MatchPhase;
@@ -92,11 +92,11 @@ function nextPowerOf2(n: number): number
  */
 export function koPhaseForBracketSize(size: number): MatchPhase
 {
-  if (size <= 1) return MatchPhase.FINAL;
-  if (size <= 2) return MatchPhase.FINAL;
-  if (size <= 4) return MatchPhase.SEMI;
-  if (size <= 8) return MatchPhase.QUARTER;
-  return MatchPhase.ROUND_OF_16;
+  if (size <= 1) return "FINAL";
+  if (size <= 2) return "FINAL";
+  if (size <= 4) return "SEMI";
+  if (size <= 8) return "QUARTER";
+  return "ROUND_OF_16";
 }
 
 /**
@@ -106,11 +106,11 @@ export function tournamentPhaseForMatchPhase(mp: MatchPhase): TournamentPhase
 {
   switch (mp)
   {
-    case MatchPhase.ROUND_OF_16: return TournamentPhase.ROUND_OF_16;
-    case MatchPhase.QUARTER: return TournamentPhase.QUARTER;
-    case MatchPhase.SEMI: return TournamentPhase.SEMI;
-    case MatchPhase.FINAL: return TournamentPhase.FINAL;
-    default: return TournamentPhase.GROUP;
+    case "ROUND_OF_16": return "ROUND_OF_16";
+    case "QUARTER": return "QUARTER";
+    case "SEMI": return "SEMI";
+    case "FINAL": return "FINAL";
+    default: return "GROUP";
   }
 }
 

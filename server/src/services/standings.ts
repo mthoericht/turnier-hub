@@ -1,5 +1,5 @@
 import type { Match } from "@prisma/client";
-import { MatchPhase, MatchStatus } from "@prisma/client";
+import type { MatchPhase, MatchStatus } from "@prisma/client";
 
 export type TeamRef = { id: string; name: string };
 
@@ -20,7 +20,7 @@ export type TeamStandingRow = {
  */
 function isMatchDecided(m: Match): boolean
 {
-  if (m.status === MatchStatus.CANCELLED) return false;
+  if (m.status === "CANCELLED") return false;
   return m.homeScore != null && m.awayScore != null;
 }
 
@@ -61,7 +61,7 @@ export function computePoolStandings(
 
   for (const m of groupMatches)
   {
-    if (m.phase !== MatchPhase.GROUP) continue;
+    if (m.phase !== "GROUP") continue;
     if (!m.homeTeamId || !m.awayTeamId) continue;
     if (!idSet.has(m.homeTeamId) || !idSet.has(m.awayTeamId)) continue;
     if (!isMatchDecided(m)) continue;

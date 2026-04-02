@@ -1,4 +1,4 @@
-import { getToken } from "@/api/http";
+import { getToken } from "../api/http";
 
 type ServerPushMessage =
   | { type: "tournamentChanged"; tournamentId: string }

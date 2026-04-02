@@ -6,3 +6,5 @@ dist
 .env
 .DS_Store
 figma-preset
+*storybook.log
+storybook-static

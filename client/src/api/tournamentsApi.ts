@@ -1,4 +1,4 @@
-import { api } from "@/api/http";
+import { api } from "./http";
 import type { MatchRow, TournamentDetail, TournamentMode } from "@/tournament/tournamentContext";
 import type { CreatedBy } from "@/types";
 

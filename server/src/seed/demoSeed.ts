@@ -1,11 +1,5 @@
 import bcrypt from "bcryptjs";
-import {
-  MatchPhase,
-  MatchStatus,
-  TournamentMode,
-  TournamentPhase,
-  type PrismaClient,
-} from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 import {
   distributeIntoGroups,
   generateRoundRobinSchedule,
@@ -78,8 +72,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
     data: {
       name: "Demo: Fußball Schulcup",
       sport: "Fußball",
-      mode: TournamentMode.GROUP_KO,
-      phase: TournamentPhase.GROUP,
+      mode: "GROUP_KO",
+      phase: "GROUP",
       groupCount: 2,
       advancesPerGroup: 2,
       teamsAreIndividuals: false,
@@ -143,13 +137,13 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
       await prisma.match.create({
         data: {
           tournamentId: tGroupKo.id,
-          phase: MatchPhase.GROUP,
+          phase: "GROUP",
           groupLabel: group.label,
           roundOrder: m.round,
           slotIndex: gkoSlot++,
           homeTeamId: m.home,
           awayTeamId: m.away,
-          status: MatchStatus.SCHEDULED,
+          status: "SCHEDULED",
         },
       });
     }
@@ -159,8 +153,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
     data: {
       name: "Demo: Volleyball K.O.",
       sport: "Volleyball",
-      mode: TournamentMode.DIRECT_KO,
-      phase: TournamentPhase.QUARTER,
+      mode: "DIRECT_KO",
+      phase: "QUARTER",
       groupCount: 1,
       advancesPerGroup: 2,
       teamsAreIndividuals: false,
@@ -195,7 +189,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
         slotIndex: m.roundOrder,
         homeTeamId: m.homeTeamId,
         awayTeamId: m.awayTeamId,
-        status: m.awayTeamId === null ? MatchStatus.FINISHED : MatchStatus.SCHEDULED,
+            status: m.awayTeamId === null ? "FINISHED" : "SCHEDULED",
       },
     });
   }
@@ -204,8 +198,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
     data: {
       name: "Demo: Badminton Jeder gegen Jeden",
       sport: "Badminton",
-      mode: TournamentMode.ROUND_ROBIN,
-      phase: TournamentPhase.GROUP,
+      mode: "ROUND_ROBIN",
+      phase: "GROUP",
       groupCount: 1,
       advancesPerGroup: 1,
       teamsAreIndividuals: true,
@@ -238,12 +232,12 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
     await prisma.match.create({
       data: {
         tournamentId: tRoundRobin.id,
-        phase: MatchPhase.GROUP,
+        phase: "GROUP",
         roundOrder: m.round,
         slotIndex: rrSlot++,
         homeTeamId: m.home,
         awayTeamId: m.away,
-        status: MatchStatus.SCHEDULED,
+        status: "SCHEDULED",
       },
     });
   }
@@ -252,8 +246,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
     data: {
       name: "Demo: Direkt K.O. mit 15 Mannschaften",
       sport: "Fußball",
-      mode: TournamentMode.DIRECT_KO,
-      phase: TournamentPhase.ROUND_OF_16,
+      mode: "DIRECT_KO",
+      phase: "ROUND_OF_16",
       groupCount: 1,
       advancesPerGroup: 1,
       teamsAreIndividuals: false,
@@ -289,7 +283,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
         slotIndex: m.roundOrder,
         homeTeamId: m.homeTeamId,
         awayTeamId: m.awayTeamId,
-        status: m.awayTeamId === null ? MatchStatus.FINISHED : MatchStatus.SCHEDULED,
+        status: m.awayTeamId === null ? "FINISHED" : "SCHEDULED",
       },
     });
   }

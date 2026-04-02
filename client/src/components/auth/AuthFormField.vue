@@ -16,7 +16,7 @@ const describedBy = computed(() => (props.helpText ? helpId : undefined));
 <template>
   <div>
     <label
-      class="mb-1 block text-sm text-slate-600 dark:text-slate-400"
+      class="mb-1 block text-sm text-slate-600"
       :for="fieldId"
     >
       {{ label }}

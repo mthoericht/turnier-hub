@@ -5,7 +5,7 @@ import {
   postAuthLogin,
   postAuthSignup,
 } from "@/api/authApi";
-import { getToken, setToken } from "@/api/http";
+import { getToken, setToken } from "../api/http";
 import {
   connectRealtime,
   disconnectRealtime,

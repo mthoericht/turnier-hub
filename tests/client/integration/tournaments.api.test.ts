@@ -1,5 +1,6 @@
 import type { Server } from "node:http";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import bcrypt from "bcryptjs";
 import { createApp } from "../../../server/src/app.js";
 import { prisma } from "../../../server/src/db.js";
 import {
@@ -28,7 +29,6 @@ const app = createApp();
 let server: Server | null = null;
 let apiBaseUrl = "";
 const originalFetch = globalThis.fetch;
-const TEST_PASSWORD_HASH = "$2a$10$p6ohlzMYdCHSTiTpLu9.ZudDxV1wu9rpJ45te9kXG7az3ZWdAVccW";
 
 type StorageLike = {
   getItem: (key: string) => string | null;
@@ -54,11 +54,12 @@ function installLocalStorageMock(): void
 
 async function seedMinimalAuthAndPlayers(): Promise<void>
 {
+  const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
   const user = await prisma.user.create({
     data: {
       email: SEED_EMAIL,
       username: "seeduser",
-      passwordHash: TEST_PASSWORD_HASH,
+      passwordHash,
     },
   });
   await prisma.player.createMany({

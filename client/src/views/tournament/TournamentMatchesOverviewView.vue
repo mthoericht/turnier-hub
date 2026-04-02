@@ -153,10 +153,10 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
         :class="[cardClass, 'space-y-4']"
       >
         <h2
-          class="font-display font-semibold text-lg text-slate-900 dark:text-white"
+          class="font-display font-semibold text-lg text-slate-900"
         >
           Spielrunde {{ roundIdx + 1 }}
-          <span class="text-sm font-normal text-slate-500 dark:text-slate-400">
+          <span class="text-sm font-normal text-slate-500">
             ({{ roundMatches.length }} {{ roundMatches.length === 1 ? 'Spiel' : 'Spiele' }} parallel)
           </span>
         </h2>
@@ -186,19 +186,19 @@ const { phaseFlow, stepState } = useTournamentPhaseStepper(tournament);
         cardClass,
         'space-y-4',
         isKnockoutPhase(block.phase as MatchPhase)
-          ? 'border-blue-200/80 bg-blue-50/40 dark:border-blue-800/50 dark:bg-blue-950/25'
+          ? 'border-blue-200/80 bg-blue-50/40'
           : '',
       ]"
     >
       <template v-if="block.phase !== 'GROUP' || !groupMatchesByRound">
         <h2
-          class="font-display font-semibold text-xl text-slate-900 dark:text-white"
+          class="font-display font-semibold text-xl text-slate-900"
         >
           {{ formatPhaseLabel(block.phase as MatchPhase) }}
         </h2>
         <p
           v-if="block.matches.length === 0"
-          class="text-sm text-slate-600 dark:text-slate-400"
+          class="text-sm text-slate-600"
         >
           Noch keine Spiele für diese Runde.
         </p>

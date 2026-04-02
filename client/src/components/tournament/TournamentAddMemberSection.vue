@@ -75,13 +75,13 @@ function onClassChange(value: string): void
   <div
     :class="[
       props.mode === 'member'
-        ? 'space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40'
+        ? 'space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4'
         : '',
     ]"
   >
     <h3
       v-if="props.mode === 'member'"
-      class="font-display font-semibold text-base text-slate-900 dark:text-white"
+      class="font-display font-semibold text-base text-slate-900"
     >
       Spieler zur Mannschaft hinzufügen
     </h3>
@@ -90,7 +90,7 @@ function onClassChange(value: string): void
         v-if="props.mode === 'member' && hasGroups && groupOptions.length > 0"
         class="min-w-0 flex-1 sm:max-w-xs"
       >
-        <label class="mb-1 block text-xs text-slate-600 dark:text-slate-500">
+        <label class="mb-1 block text-xs text-slate-600">
           Gruppe
         </label>
         <select
@@ -112,7 +112,7 @@ function onClassChange(value: string): void
         v-if="props.mode === 'member'"
         class="min-w-0 flex-1 sm:max-w-xs"
       >
-        <label class="mb-1 block text-xs text-slate-600 dark:text-slate-500">
+        <label class="mb-1 block text-xs text-slate-600">
           Mannschaft
         </label>
         <select
@@ -132,7 +132,7 @@ function onClassChange(value: string): void
         </select>
       </div>
       <div class="min-w-0 flex-1 sm:max-w-xs">
-        <label class="mb-1 block text-xs text-slate-600 dark:text-slate-500">
+        <label class="mb-1 block text-xs text-slate-600">
           Klasse
         </label>
         <select
@@ -151,7 +151,7 @@ function onClassChange(value: string): void
         </select>
       </div>
       <div class="min-w-0 flex-1 sm:max-w-md">
-        <label class="mb-1 block text-xs text-slate-600 dark:text-slate-500">
+        <label class="mb-1 block text-xs text-slate-600">
           {{ props.mode === "member" ? "Spieler" : "Spieler als Teilnehmer hinzufügen" }}
         </label>
         <select

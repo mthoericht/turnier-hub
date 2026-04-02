@@ -130,10 +130,48 @@ Wenn an der Qualifikationsgrenze mehrere Teams **exakt gleich viele Punkte** hab
 
 1. Die Tabelle wird nach den Standardkriterien (Punkte, Tordifferenz, Tore, Name) sortiert.
 2. Es wird geprüft, ob an der Grenzposition (letzter Qualifikationsplatz) eine Punktgleichheit vorliegt.
-3. Wenn ja: Alle Teams mit dieser Punktzahl werden in eine Tie-Gruppe zusammengefasst.
-4. Ein **deterministischer Pseudo-Zufallsgenerator** (Mulberry32-PRNG, geseedet mit Turnier-ID + Gruppenlabel + Punktzahl) mischt diese Tie-Gruppe.
-5. Die benötigte Anzahl Teams wird aus der gemischten Tie-Gruppe gewählt.
+3. Zunächst greifen weiterhin die **normalen Sortierkriterien** (Punkte, Tordifferenz, Tore). Nur wenn mehrere Teams **nach diesen Kriterien vollständig gleichauf** sind (gleiche Punkte, gleiche Tordifferenz, gleiche erzielten Tore), bilden sie einen Tie-Cluster.
+4. Liegt ein solcher vollständig gleicher Tie-Cluster über der Qualifikationsgrenze und es gibt darin **mehr Teams als freie Plätze**, wird innerhalb dieses Clusters gelost:
+   - Ein **deterministischer Pseudo-Zufallsgenerator** (Mulberry32-PRNG, geseedet mit Turnier-ID + Gruppenlabel + Punktzahl + Tordifferenz + Toranzahl) mischt diesen Cluster.
+   - Die benötigte Anzahl Teams wird aus der gemischten Teilmenge gewählt.
+5. Alle Teams **vor** diesem vollständig gleichen Cluster bleiben unverändert gemäß der Tabellenreihenfolge qualifiziert.
 6. Ein **Toast-Hinweis** wird dem Benutzer angezeigt, welche Teams per Losverfahren ausgewählt wurden.
+
+### Konkretes Beispiel
+
+Angenommen, es gibt eine Gruppe A mit folgender sortierter Abschlusstabelle (inkl. Torverhältnis) und es sollen **3 Teams** weiterkommen:
+
+- 1. Team Alpha – 10 Punkte, +6 Tore (10:4)  
+- 2. Team Bravo – 9 Punkte, +4 Tore (8:4)  
+- 3. Team Charlie – 9 Punkte, +2 Tore (7:5)  
+- 4. Team Delta – 9 Punkte,  0 Tore (5:5)  
+- 5. Team Echo – 5 Punkte,  -3 Tore (4:7)  
+
+Hier liegt die **Qualifikationsgrenze** zwischen Platz 3 und 4:
+
+- Platz 1 (Alpha) ist eindeutig gesetzt.  
+- Alle Teams mit 9 Punkten werden **zunächst** durch Tordifferenz/Tore auseinandergezogen:  
+  - Bravo vor Charlie vor Delta.  
+
+Da sich die Teams mit 9 Punkten **nicht vollständig gleichen**, gibt es **keinen Tie-Cluster** – es wird **nicht gelost**, sondern einfach die besten drei Teams nach Tabelle genommen:
+
+- Qualifiziert: **Alpha, Bravo, Charlie**.  
+- Delta und Echo sind nicht qualifiziert.
+
+Nur wenn ein Beispiel so aussieht:
+
+- 1. Team Alpha – 10 Punkte, +6 Tore (10:4)  
+- 2. Team Bravo – 9 Punkte, +3 Tore (7:4)  
+- 3. Team Charlie – 9 Punkte, +2 Tore (6:4)  
+- 4. Team Delta – 9 Punkte, +2 Tore (6:4)  
+- 5. Team Echo – 5 Punkte,  -3 Tore (4:7)  
+
+Dann sind Charlie und Delta **vollständig gleichauf** (gleiche Punkte, gleiche Tordifferenz, gleiche erzielte Tore) und bilden einen Tie-Cluster:
+
+1. Alpha und Bravo sind gesetzt (Punkte/Tordifferenz).  
+2. Zwischen Charlie und Delta ist **genau ein Platz frei**.  
+3. Nur für Charlie/Delta wird der deterministische PRNG verwendet, um zu entscheiden, wer den letzten Platz erhält.  
+4. Der Hinweis-Text nennt explizit das per Losverfahren ausgewählte Team (z. B. „Gruppe A: … (Charlie)“).
 
 ### Warum deterministisch?
 

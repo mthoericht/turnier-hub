@@ -21,7 +21,7 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="inline-flex flex-wrap rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-900/40"
+    class="inline-flex flex-wrap rounded-xl border border-slate-200 bg-slate-50 p-1"
   >
     <button
       v-if="hasGroupMatches"
@@ -29,8 +29,8 @@ const emit = defineEmits<{
       class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
       :class="[
         modelValue === 'group'
-          ? 'bg-blue-600 text-white dark:bg-blue-500'
-          : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ? 'bg-blue-600 text-white'
+          : 'text-slate-700 hover:bg-slate-100',
       ]"
       @click="emit('update:modelValue', 'group')"
     >
@@ -42,8 +42,8 @@ const emit = defineEmits<{
       class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
       :class="[
         modelValue === 'r16'
-          ? 'bg-blue-600 text-white dark:bg-blue-500'
-          : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ? 'bg-blue-600 text-white'
+          : 'text-slate-700 hover:bg-slate-100',
       ]"
       @click="emit('update:modelValue', 'r16')"
     >
@@ -55,8 +55,8 @@ const emit = defineEmits<{
       class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
       :class="[
         modelValue === 'quarter'
-          ? 'bg-blue-600 text-white dark:bg-blue-500'
-          : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ? 'bg-blue-600 text-white'
+          : 'text-slate-700 hover:bg-slate-100',
       ]"
       @click="emit('update:modelValue', 'quarter')"
     >
@@ -68,8 +68,8 @@ const emit = defineEmits<{
       class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
       :class="[
         modelValue === 'semi'
-          ? 'bg-blue-600 text-white dark:bg-blue-500'
-          : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ? 'bg-blue-600 text-white'
+          : 'text-slate-700 hover:bg-slate-100',
       ]"
       @click="emit('update:modelValue', 'semi')"
     >
@@ -81,8 +81,8 @@ const emit = defineEmits<{
       class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
       :class="[
         modelValue === 'final'
-          ? 'bg-blue-600 text-white dark:bg-blue-500'
-          : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ? 'bg-blue-600 text-white'
+          : 'text-slate-700 hover:bg-slate-100',
       ]"
       @click="emit('update:modelValue', 'final')"
     >
@@ -93,8 +93,8 @@ const emit = defineEmits<{
       class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
       :class="[
         modelValue === 'overview'
-          ? 'bg-blue-600 text-white dark:bg-blue-500'
-          : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+          ? 'bg-blue-600 text-white'
+          : 'text-slate-700 hover:bg-slate-100',
       ]"
       @click="emit('update:modelValue', 'overview')"
     >

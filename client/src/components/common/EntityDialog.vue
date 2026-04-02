@@ -35,19 +35,19 @@ useDialogFocusTrap(toRef(props, "open"), dialogRootRef, () => emit("close"));
     @click.self="emit('close')"
   >
     <div
-      class="ui-card w-full max-w-md bg-white p-6 shadow-lg dark:bg-slate-950"
+      class="ui-card w-full max-w-md bg-white p-6 shadow-lg"
     >
       <div class="mb-4">
         <h2
           :id="titleId"
-          class="font-display text-xl font-semibold text-slate-900 dark:text-white"
+          class="font-display text-xl font-semibold text-slate-900"
         >
           {{ title }}
         </h2>
         <p
           v-if="description"
           :id="descriptionId"
-          class="mt-1 text-sm text-slate-600 dark:text-slate-400"
+          class="mt-1 text-sm text-slate-600"
         >
           {{ description }}
         </p>

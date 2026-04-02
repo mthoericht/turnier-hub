@@ -1,5 +1,4 @@
 import type { Router } from "express";
-import { MatchPhase, TournamentMode, TournamentPhase } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db.js";
 import { advanceTournamentPhase } from "../../services/advancePhase.js";
@@ -29,7 +28,7 @@ export function registerTournamentStandingsAdvanceRoutes(router: Router): void
     const teamsById = new Map(
       t.teams.map((tm) => [tm.id, { id: tm.id, name: tm.name }] as const)
     );
-    const groupMatches = t.matches.filter((m) => m.phase === MatchPhase.GROUP);
+    const groupMatches = t.matches.filter((m) => m.phase === "GROUP");
 
     if (t.groupCount > 1)
     {
@@ -57,7 +56,7 @@ export function registerTournamentStandingsAdvanceRoutes(router: Router): void
       )
       .map((tm) => tm.id);
     const rows = computePoolStandings(teamIds, teamsById, groupMatches);
-    const label = t.mode === TournamentMode.ROUND_ROBIN ? "Jeder gegen Jeden" : "Gruppenspiele";
+    const label = t.mode === "ROUND_ROBIN" ? "Jeder gegen Jeden" : "Gruppenspiele";
     res.json({ groups: { [label]: rows } });
   });
 
@@ -81,7 +80,7 @@ export function registerTournamentStandingsAdvanceRoutes(router: Router): void
     {
       await prisma.tournament.update({
         where: { id: t.id },
-        data: { phase: TournamentPhase.COMPLETED },
+        data: { phase: "COMPLETED" },
       });
       const full = await loadTournamentById(t.id);
       notifyTournamentChanged(t.id);

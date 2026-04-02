@@ -25,7 +25,7 @@ const {
 } = useClassesManagementState();
 
 const inputClass =
-  "ui-input-blue min-h-[48px] dark:bg-slate-950 sm:min-h-0 sm:text-sm";
+  "ui-input-blue min-h-[48px] sm:min-h-0 sm:text-sm";
 </script>
 
 <template>
@@ -35,11 +35,11 @@ const inputClass =
     >
       <div class="min-w-0">
         <h1
-          class="font-display text-xl font-semibold text-slate-900 dark:text-white sm:text-2xl"
+          class="font-display text-xl font-semibold text-slate-900 sm:text-2xl"
         >
           Klassen
         </h1>
-        <p class="text-slate-600 dark:text-slate-400 text-sm mt-1 max-w-xl">
+        <p class="text-slate-600 text-sm mt-1 max-w-xl">
           Verwalte deine Schulklassen. Beim Anlegen oder Bearbeiten von
           Spielern wählst du eine dieser Klassen zu — oder keine.
         </p>
@@ -60,7 +60,7 @@ const inputClass =
 
     <p
       v-if="error"
-      class="mb-4 text-sm text-rose-600 dark:text-rose-400"
+      class="mb-4 text-sm text-rose-600"
       role="alert"
     >
       {{ error }}
@@ -83,15 +83,15 @@ const inputClass =
           <div class="flex items-start justify-between gap-3 mb-3">
             <div class="min-w-0">
               <p
-                class="font-display text-lg font-semibold text-slate-900 dark:text-white truncate"
+                class="font-display text-lg font-semibold text-slate-900 truncate"
               >
                 {{ c.name }}
               </p>
-              <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 truncate">
+              <p class="text-sm text-slate-500 mt-1 truncate">
                 Schulklasse
               </p>
               <p
-                class="mt-2 text-xs text-slate-500 dark:text-slate-500 truncate"
+                class="mt-2 text-xs text-slate-500 truncate"
                 :title="c.createdBy.email"
               >
                 Von {{ formatCreator(c.createdBy) }}
@@ -100,7 +100,7 @@ const inputClass =
             <div v-if="isMine(c)" class="flex gap-2 shrink-0">
               <button
                 type="button"
-                class="rounded-lg p-2 text-slate-700 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
+                class="rounded-lg p-2 text-slate-700 hover:bg-slate-100"
                 title="Bearbeiten"
                 aria-label="Klasse bearbeiten"
                 @click="openEdit(c)"
@@ -109,7 +109,7 @@ const inputClass =
               </button>
               <button
                 type="button"
-                class="rounded-lg p-2 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                class="rounded-lg p-2 text-rose-600 hover:bg-rose-50"
                 title="Löschen"
                 aria-label="Klasse löschen"
                 @click="remove(c.id)"
@@ -119,7 +119,7 @@ const inputClass =
             </div>
           </div>
 
-          <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+          <div class="flex items-center gap-2 text-slate-600">
             <AppIcon name="players" class="h-4 w-4" />
             <span class="text-sm">{{ getPlayerCount(c.id) }} Spieler</span>
           </div>
@@ -138,7 +138,7 @@ const inputClass =
     >
       <div class="space-y-2">
         <label
-          class="block text-sm font-medium text-slate-700 dark:text-slate-200"
+          class="block text-sm font-medium text-slate-700"
           for="class-name"
         >
           Klassenname

@@ -26,7 +26,7 @@ const { displayElapsedMs } = useMatchTimerDisplay(() => props.match);
 <template>
   <div>
     <div
-      class="font-mono text-3xl text-blue-800 tabular-nums dark:text-blue-100 sm:text-2xl"
+      class="font-mono text-3xl text-blue-800 tabular-nums sm:text-2xl"
     >
       {{ formatMs(displayElapsedMs) }}
     </div>

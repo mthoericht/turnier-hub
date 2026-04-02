@@ -16,12 +16,12 @@ const emit = defineEmits<{
 }>();
 
 const inactiveClass =
-  "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800";
+  "text-slate-600 hover:bg-slate-100";
 </script>
 
 <template>
   <div
-    class="inline-flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-700"
+    class="inline-flex rounded-lg border border-slate-200 p-0.5"
     role="group"
     aria-label="Ansicht"
   >

@@ -1,5 +1,4 @@
 import type { Router } from "express";
-import { MatchPhase, MatchStatus, TournamentMode, TournamentPhase } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db.js";
 import { computeElapsedMs } from "../../services/matchTimer.js";
@@ -85,13 +84,13 @@ export function registerTournamentMatchRoutes(router: Router): void
           await tx.match.create({
             data: {
               tournamentId: t.id,
-              phase: MatchPhase.GROUP,
+              phase: "GROUP",
               groupLabel: gc > 1 ? group.label : null,
               roundOrder: m.round,
               slotIndex: globalSlot++,
               homeTeamId: m.home,
               awayTeamId: m.away,
-              status: MatchStatus.SCHEDULED,
+              status: "SCHEDULED",
             },
           });
         }
@@ -99,7 +98,7 @@ export function registerTournamentMatchRoutes(router: Router): void
 
       await tx.tournament.update({
         where: { id: t.id },
-        data: { phase: TournamentPhase.GROUP },
+        data: { phase: "GROUP" },
       });
     });
 
@@ -118,7 +117,7 @@ export function registerTournamentMatchRoutes(router: Router): void
       res.status(404).json({ error: "Turnier nicht gefunden" });
       return;
     }
-    if (t.mode !== TournamentMode.DIRECT_KO)
+    if (t.mode !== "DIRECT_KO")
     {
       res.status(400).json({ error: "K.O.-Generierung nur für Direkt-K.O.-Turniere" });
       return;
@@ -152,7 +151,7 @@ export function registerTournamentMatchRoutes(router: Router): void
             slotIndex: m.roundOrder,
             homeTeamId: m.homeTeamId,
             awayTeamId: m.awayTeamId,
-            status: m.awayTeamId === null ? MatchStatus.FINISHED : MatchStatus.SCHEDULED,
+            status: m.awayTeamId === null ? "FINISHED" : "SCHEDULED",
           },
         });
       }
@@ -185,7 +184,7 @@ export function registerTournamentMatchRoutes(router: Router): void
     });
     await prisma.tournament.update({
       where: { id: t.id },
-      data: { phase: TournamentPhase.GROUP },
+      data: { phase: "GROUP" },
     });
     const full = await loadTournamentById(t.id);
     notifyTournamentChanged(t.id);
@@ -222,7 +221,7 @@ export function registerTournamentMatchRoutes(router: Router): void
       },
       include: matchUpdateInclude,
     });
-    if (m.phase === MatchPhase.FINAL)
+    if (m.phase === "FINAL")
     {
       await completeTournamentIfFinalFinished(req.params.id);
     }
@@ -254,7 +253,7 @@ export function registerTournamentMatchRoutes(router: Router): void
 
     if (action === "start")
     {
-      if (m.status !== MatchStatus.SCHEDULED && m.status !== MatchStatus.CANCELLED)
+      if (m.status !== "SCHEDULED" && m.status !== "CANCELLED")
       {
         res.status(400).json({ error: "Spiel kann nur von „Geplant“ gestartet werden" });
         return;
@@ -262,7 +261,7 @@ export function registerTournamentMatchRoutes(router: Router): void
       const updated = await prisma.match.update({
         where: { id: m.id },
         data: {
-          status: MatchStatus.LIVE,
+          status: "LIVE",
           matchStartedAt: now,
           totalPausedMs: 0,
           pausedAt: null,
@@ -277,14 +276,14 @@ export function registerTournamentMatchRoutes(router: Router): void
 
     if (action === "pause")
     {
-      if (m.status !== MatchStatus.LIVE)
+      if (m.status !== "LIVE")
       {
         res.status(400).json({ error: "Nur laufende Spiele können pausiert werden" });
         return;
       }
       const updated = await prisma.match.update({
         where: { id: m.id },
-        data: { status: MatchStatus.PAUSED, pausedAt: now },
+        data: { status: "PAUSED", pausedAt: now },
         include: matchUpdateInclude,
       });
       notifyTournamentChanged(req.params.id);
@@ -294,7 +293,7 @@ export function registerTournamentMatchRoutes(router: Router): void
 
     if (action === "resume")
     {
-      if (m.status !== MatchStatus.PAUSED || !m.pausedAt)
+      if (m.status !== "PAUSED" || !m.pausedAt)
       {
         res.status(400).json({ error: "Spiel ist nicht pausiert" });
         return;
@@ -303,7 +302,7 @@ export function registerTournamentMatchRoutes(router: Router): void
       const updated = await prisma.match.update({
         where: { id: m.id },
         data: {
-          status: MatchStatus.LIVE,
+          status: "LIVE",
           totalPausedMs: m.totalPausedMs + extra,
           pausedAt: null,
         },
@@ -317,9 +316,9 @@ export function registerTournamentMatchRoutes(router: Router): void
     if (action === "end")
     {
       if (
-        m.status !== MatchStatus.LIVE
-        && m.status !== MatchStatus.PAUSED
-        && m.status !== MatchStatus.SCHEDULED
+        m.status !== "LIVE"
+        && m.status !== "PAUSED"
+        && m.status !== "SCHEDULED"
       )
       {
         res.status(400).json({ error: "Spiel kann so nicht beendet werden" });
@@ -329,13 +328,13 @@ export function registerTournamentMatchRoutes(router: Router): void
       const updated = await prisma.match.update({
         where: { id: m.id },
         data: {
-          status: MatchStatus.FINISHED,
+          status: "FINISHED",
           elapsedSnapshotMs: snap,
           pausedAt: null,
         },
         include: matchUpdateInclude,
       });
-      if (m.phase === MatchPhase.FINAL)
+      if (m.phase === "FINAL")
       {
         await completeTournamentIfFinalFinished(req.params.id);
       }
@@ -347,13 +346,13 @@ export function registerTournamentMatchRoutes(router: Router): void
     if (action === "cancel")
     {
       const snap =
-        m.matchStartedAt && (m.status === MatchStatus.LIVE || m.status === MatchStatus.PAUSED)
+        m.matchStartedAt && (m.status === "LIVE" || m.status === "PAUSED")
           ? computeElapsedMs(m, now)
           : 0;
       const updated = await prisma.match.update({
         where: { id: m.id },
         data: {
-          status: MatchStatus.CANCELLED,
+          status: "CANCELLED",
           elapsedSnapshotMs: snap,
           pausedAt: null,
         },
