@@ -172,6 +172,8 @@ npm run db:clear:test -- --yes
 | `npm run clean` | Removes `node_modules` and `dist` folders in the monorepo. |
 | `npm run clean:install` | Runs `clean` then `npm install`. |
 
+**Prisma — `db:push` / `db:deploy` vs `db:generate`:** `db:push` and `db:deploy` apply **`schema.prisma` to the database** (tables and columns). `db:generate` only **rebuilds the Prisma Client** under `node_modules` (typed API for your code) and does **not** modify the database. After schema edits you usually run a push (or deploy) and ensure the client is generated (`db:generate`, or rely on tooling that runs it — e.g. `prod:prepare` runs `db:generate` before the build).
+
 Realtime test coverage (current baseline):
 - **Server WS hub:** `tests/server/unit/realtimeHub.test.ts` (auth, subscribe routing, user-scoped push events).
 - **Client WS adapter:** `tests/client/unit/realtimeClient.test.ts` (connect URL, subscribe flush/send, message dispatch hook, disconnect behavior).

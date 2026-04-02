@@ -50,6 +50,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 ## Database and Prisma
 
 - Schema: `server/prisma/schema.prisma`.
+- **`db:push` / `db:deploy`** update the **database** from the schema; **`db:generate`** regenerates the **Prisma Client** only (no DB writes). After changing `schema.prisma`, you typically need both push/deploy and a fresh client.
 - **Dev DB**: uses `server/.env` (SQLite file referenced by `DATABASE_URL`) and the root scripts:
   - Apply schema: `npm run db:push`
   - Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)

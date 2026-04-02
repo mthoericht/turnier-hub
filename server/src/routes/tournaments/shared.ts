@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import type { MatchPhase, MatchStatus, TournamentPhase, Match } from "@prisma/client";
+import type { MatchRow, TournamentDetail } from "@turnier-hub/shared";
 import { prisma } from "../../db.js";
 import {
   createdBySelect,
@@ -40,12 +41,19 @@ export const matchUpdateInclude = {
   awayTeam: { select: { id: true, name: true } },
 } as const;
 
-export function serializeMatch(m: MatchWithTeams)
+function dateToIso(d: Date | null): string | null
+{
+  return d ? d.toISOString() : null;
+}
+
+export function serializeMatch(m: MatchWithTeams): MatchRow
 {
   const now = new Date();
-  const { homeTeam, awayTeam, ...rest } = m;
+  const { homeTeam, awayTeam, matchStartedAt, pausedAt, ...rest } = m;
   return {
     ...rest,
+    matchStartedAt: dateToIso(matchStartedAt),
+    pausedAt: dateToIso(pausedAt),
     homeTeam: homeTeam ?? null,
     awayTeam: awayTeam ?? null,
     elapsedMs: computeElapsedMs(m, now),
@@ -81,7 +89,7 @@ export async function loadTournamentById(id: string)
 
 export function serializeTournamentDetail(
   t: NonNullable<Awaited<ReturnType<typeof loadTournamentById>>>
-)
+): TournamentDetail
 {
   const { user, matches, teams, ...rest } = t;
   return {

@@ -1,19 +1,5 @@
 import type { Match } from "@prisma/client";
-import type { MatchPhase, MatchStatus } from "@prisma/client";
-
-export type TeamRef = { id: string; name: string };
-
-export type TeamStandingRow = {
-  teamId: string;
-  team: TeamRef;
-  played: number;
-  wins: number;
-  draws: number;
-  losses: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  points: number;
-};
+import type { StandingTeamRow, TeamRef } from "@turnier-hub/shared";
 
 /**
  * Returns whether a match has a persisted and usable result.
@@ -37,12 +23,12 @@ export function computePoolStandings(
   teamIds: string[],
   teamsById: Map<string, TeamRef>,
   groupMatches: Match[]
-): TeamStandingRow[]
+): StandingTeamRow[]
 {
   const idSet = new Set(teamIds);
   const stats = new Map<
     string,
-    Omit<TeamStandingRow, "team" | "teamId"> & { teamId: string }
+    Omit<StandingTeamRow, "team" | "teamId"> & { teamId: string }
   >();
 
   for (const tid of teamIds)
@@ -100,7 +86,7 @@ export function computePoolStandings(
     }
   }
 
-  const rows: TeamStandingRow[] = teamIds.map((tid) =>
+  const rows: StandingTeamRow[] = teamIds.map((tid) =>
   {
     const s = stats.get(tid)!;
     const team = teamsById.get(tid);

@@ -1,4 +1,5 @@
 import type { SchoolClass } from "@prisma/client";
+import type { CreatedBy, Player, SchoolClass as SchoolClassApi } from "@turnier-hub/shared";
 
 export const createdBySelect = {
   id: true,
@@ -12,7 +13,7 @@ export type CreatedByUser = {
   email: string;
 };
 
-export function toCreatedBy(user: CreatedByUser): CreatedByUser {
+export function toCreatedBy(user: CreatedByUser): CreatedBy {
   return {
     id: user.id,
     username: user.username,
@@ -33,7 +34,7 @@ export type PlayerApiRow = {
   schoolClass: { id: string; name: string } | null;
 };
 
-export function playerToApi(p: PlayerApiRow) {
+export function playerToApi(p: PlayerApiRow): Player {
   return {
     id: p.id,
     name: p.name,
@@ -44,7 +45,7 @@ export function playerToApi(p: PlayerApiRow) {
 
 export type SchoolClassWithUser = SchoolClass & { user: CreatedByUser };
 
-export function schoolClassToApi(row: SchoolClassWithUser) {
+export function schoolClassToApi(row: SchoolClassWithUser): SchoolClassApi {
   const { user, userId, ...rest } = row;
   return {
     id: rest.id,

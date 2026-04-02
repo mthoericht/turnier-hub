@@ -3,13 +3,14 @@
   "private": true,
   "workspaces": [
     "client",
-    "server"
+    "server",
+    "shared"
   ],
   "scripts": {
     "clean": "rimraf node_modules client/node_modules server/node_modules client/dist server/dist",
     "clean:install": "npm run clean && npm install",
     "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
-    "build": "npm run build -w server && npm run build -w client",
+    "build": "npm run build -w @turnier-hub/shared && npm run build -w server && npm run build -w client",
     "lint": "npm run lint -w client",
     "lint:fix": "npm run lint:fix -w client",
     "prod:prepare": "npm run db:generate -w server && npm run build",

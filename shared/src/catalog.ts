@@ -1,0 +1,33 @@
+/** User summary as embedded in API payloads (creator of a resource). */
+export type CreatedBy = {
+  id: string;
+  username: string | null;
+  email: string;
+};
+
+/** Class shape nested under players in API responses. */
+export type PlayerSchoolClass = {
+  id: string;
+  name: string;
+};
+
+/** Player as returned by the HTTP API. */
+export type Player = {
+  id: string;
+  name: string;
+  schoolClass: PlayerSchoolClass | null;
+  createdBy: CreatedBy;
+};
+
+/** School class row from `/api/classes`. */
+export type SchoolClass = {
+  id: string;
+  name: string;
+  createdBy: CreatedBy;
+};
+
+export function formatCreator(c: CreatedBy): string
+{
+  if (c.username) return `@${c.username}`;
+  return c.email;
+}
