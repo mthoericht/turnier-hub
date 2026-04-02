@@ -1,4 +1,5 @@
 {
+  "references": [{ "path": "../shared" }],
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",
@@ -8,7 +9,11 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "baseUrl": "."
+    "baseUrl": ".",
+    "paths": {
+      "@turnier-hub/shared": ["../shared/src/index.ts"],
+      "@turnier-hub/shared/*": ["../shared/src/*"]
+    }
   },
   "include": ["src/**/*"]
 }
