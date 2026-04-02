@@ -6,7 +6,7 @@ export function usePlayersManagementState()
   const classFilter = ref("");
 
   const players = ref<unknown[]>([]);
-  const myClasses = ref<unknown[]>([]);
+  const schoolClassOptions = ref<unknown[]>([]);
 
   const loading = ref(false);
   const classesLoading = ref(false);
@@ -19,15 +19,10 @@ export function usePlayersManagementState()
 
   const filteredPlayers = computed(() => []);
 
-  const canAddPlayer = computed(() => false);
+  const canAddPlayer = computed(() => true);
 
   const distinctClassOptions = computed(() => []);
   const hasPlayersWithoutClass = computed(() => false);
-
-  function isMine(): boolean
-  {
-    return false;
-  }
 
   function getClassName(): string
   {
@@ -59,7 +54,7 @@ export function usePlayersManagementState()
   return {
     scope,
     players,
-    myClasses,
+    schoolClassOptions,
     classFilter,
     loading,
     classesLoading,
@@ -77,7 +72,6 @@ export function usePlayersManagementState()
     closeDialog,
     submitDialog,
     remove,
-    isMine,
     getClassName,
     loadPlayers,
     loadClasses,

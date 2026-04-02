@@ -8,7 +8,7 @@ import {
   parseListScope,
   schoolClassToApi,
 } from "../lib/createdBy.js";
-import { notifyUserCatalog } from "../realtime/notify.js";
+import { notifyCatalogChanged } from "../realtime/notify.js";
 
 const router = Router();
 router.use(authMiddleware);
@@ -45,7 +45,7 @@ router.post("/", async (req, res) => {
       data: { name, userId: req.userId! },
       include: { user: { select: createdBySelect } },
     });
-    notifyUserCatalog(req.userId!, ["classes", "players"]);
+    notifyCatalogChanged(["classes", "players"]);
     res.status(201).json(schoolClassToApi(row));
   }
   catch (e) 
@@ -69,7 +69,7 @@ router.patch("/:id", async (req, res) => {
     return;
   }
   const existing = await prisma.schoolClass.findFirst({
-    where: { id: req.params.id, userId: req.userId! },
+    where: { id: req.params.id },
   });
   if (!existing) {
     res.status(404).json({ error: "Klasse nicht gefunden" });
@@ -83,7 +83,7 @@ router.patch("/:id", async (req, res) => {
       data: { name },
       include: { user: { select: createdBySelect } },
     });
-    notifyUserCatalog(req.userId!, ["classes", "players"]);
+    notifyCatalogChanged(["classes", "players"]);
     res.json(schoolClassToApi(row));
   }
   catch (e) 
@@ -102,14 +102,14 @@ router.patch("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   const existing = await prisma.schoolClass.findFirst({
-    where: { id: req.params.id, userId: req.userId! },
+    where: { id: req.params.id },
   });
   if (!existing) {
     res.status(404).json({ error: "Klasse nicht gefunden" });
     return;
   }
   await prisma.schoolClass.delete({ where: { id: req.params.id } });
-  notifyUserCatalog(req.userId!, ["classes", "players"]);
+  notifyCatalogChanged(["classes", "players"]);
   res.status(204).send();
 });
 

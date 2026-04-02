@@ -13,7 +13,6 @@ export function usePlayersManagementState()
   });
   return {
     ...storeToRefs(store),
-    isMine: store.isMine,
     getClassName: store.getClassName,
     openCreate: store.openCreate,
     openEdit: store.openEdit,

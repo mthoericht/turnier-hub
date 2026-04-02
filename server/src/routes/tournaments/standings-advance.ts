@@ -5,7 +5,7 @@ import { advanceTournamentPhase } from "../../services/advancePhase.js";
 import { computePoolStandings } from "../../services/standings.js";
 import {
   loadTournamentById,
-  requireTournamentOwner,
+  requireTournamentExists,
   serializeTournamentDetail,
 } from "./shared.js";
 import { notifyTournamentChanged } from "../../realtime/notify.js";
@@ -68,7 +68,7 @@ export function registerTournamentStandingsAdvanceRoutes(router: Router): void
       res.status(400).json({ error: "Ungültige Zielphase" });
       return;
     }
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     const t = await loadTournamentById(req.params.id);
     if (!t)

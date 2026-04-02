@@ -5,7 +5,6 @@ import TournamentsListItem from "@/components/tournaments/TournamentsListItem.vu
 defineProps<{
   list: TournamentListRow[];
   loading: boolean;
-  isMine: (t: TournamentListRow) => boolean;
   remove: (id: string) => Promise<void>;
 }>();
 </script>
@@ -17,7 +16,6 @@ defineProps<{
       v-for="t in list"
       :key="t.id"
       :t="t"
-      :is-mine="isMine"
       :remove="remove"
     />
   </ul>

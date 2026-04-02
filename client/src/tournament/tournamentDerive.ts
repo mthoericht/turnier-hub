@@ -175,14 +175,13 @@ export function filterAvailablePlayers(
   return allPlayers.filter((p) => !assigned.has(p.id));
 }
 
+/** Any logged-in user may edit; `createdBy` on the tournament is display-only. */
 export function canUserEditTournament(
   tournament: TournamentDetail | null,
   userId: string | undefined
 ): boolean 
 {
-  return (
-    !!tournament && !!userId && tournament.createdBy.id === userId
-  );
+  return Boolean(tournament && userId);
 }
 
 /** Keeps current team selection when still valid; otherwise first team or "". */

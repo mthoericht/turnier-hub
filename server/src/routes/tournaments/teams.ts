@@ -5,7 +5,7 @@ import { prisma } from "../../db.js";
 import { playerApiInclude, playerToApi } from "../../lib/createdBy.js";
 import {
   loadTournamentById,
-  requireTournamentOwner,
+  requireTournamentExists,
   serializeTournamentDetail,
 } from "./shared.js";
 import { notifyTournamentChanged } from "../../realtime/notify.js";
@@ -37,7 +37,7 @@ export function registerTournamentTeamRoutes(router: Router): void
 {
   router.post("/:id/teams", async (req, res) =>
   {
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     const parsed = createTeamSchema.safeParse(req.body);
     if (!parsed.success)
@@ -76,7 +76,7 @@ export function registerTournamentTeamRoutes(router: Router): void
 
   router.patch("/:id/teams/:teamId", async (req, res) =>
   {
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     const parsed = patchTeamSchema.safeParse(req.body);
     if (!parsed.success)
@@ -118,7 +118,7 @@ export function registerTournamentTeamRoutes(router: Router): void
 
   router.delete("/:id/teams/:teamId", async (req, res) =>
   {
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     const existing = await prisma.tournamentTeam.findFirst({
       where: { id: req.params.teamId, tournamentId: req.params.id },
@@ -199,7 +199,7 @@ export function registerTournamentTeamRoutes(router: Router): void
 
   router.patch("/:id/groups/rename", async (req, res) =>
   {
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     const parsed = renameGroupSchema.safeParse(req.body);
     if (!parsed.success)
@@ -250,7 +250,7 @@ export function registerTournamentTeamRoutes(router: Router): void
       res.status(400).json({ error: "Spieler erforderlich" });
       return;
     }
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     const team = await prisma.tournamentTeam.findFirst({
       where: { id: req.params.teamId, tournamentId: req.params.id },
@@ -261,7 +261,7 @@ export function registerTournamentTeamRoutes(router: Router): void
       return;
     }
     const player = await prisma.player.findFirst({
-      where: { id: parsed.data.playerId, userId: req.userId! },
+      where: { id: parsed.data.playerId },
       include: playerApiInclude,
     });
     if (!player)
@@ -300,7 +300,7 @@ export function registerTournamentTeamRoutes(router: Router): void
 
   router.delete("/:id/teams/:teamId/members/:playerId", async (req, res) =>
   {
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     await prisma.tournamentTeamMember.deleteMany({
       where: {
@@ -322,17 +322,12 @@ export function registerTournamentTeamRoutes(router: Router): void
       return;
     }
 
-    const targetOwned = await requireTournamentOwner(
-      res,
-      req.params.id,
-      req.userId!
-    );
+    const targetOwned = await requireTournamentExists(res, req.params.id);
     if (!targetOwned) return;
 
-    const sourceOwned = await requireTournamentOwner(
+    const sourceOwned = await requireTournamentExists(
       res,
-      req.params.sourceTournamentId,
-      req.userId!
+      req.params.sourceTournamentId
     );
     if (!sourceOwned) return;
 

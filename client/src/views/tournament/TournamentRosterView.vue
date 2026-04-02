@@ -196,7 +196,7 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
           @add="addMember"
         />
         <p v-else class="text-sm text-slate-500">
-          Mannschaften siehst du unten; bearbeiten nur als Ersteller.
+          Mannschaften siehst du unten.
         </p>
       </template>
 

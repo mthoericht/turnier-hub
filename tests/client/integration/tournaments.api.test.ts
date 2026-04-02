@@ -21,6 +21,7 @@ import {
   postGenerateGroupMatches,
   postTournament,
 } from "../../../client/src/api/tournamentsApi";
+import { prisma } from "../../../server/src/db.js";
 import { fetchPlayersAll } from "../../../client/src/api/playersApi";
 import { setToken } from "../../../client/src/api/http";
 import { resetDatabase } from "../../server/helpers/db.js";
@@ -236,6 +237,40 @@ describe("tournaments API integration (via client API)", () =>
     const advanced = await postAdvancePhase(created.id, "FINAL");
     expect((advanced.notices ?? []).length).toBeGreaterThan(0);
     expect((advanced.notices ?? []).some((n) => n.includes("Zufallsprinzip"))).toBe(true);
+  });
+
+  it("turnier-ersteller kann fremden Spieler in den Kader aufnehmen", async () =>
+  {
+    const auth = await postAuthLogin(SEED_EMAIL, SEED_PASSWORD);
+    setToken(auth.token);
+
+    const otherUser = await prisma.user.create({
+      data: {
+        email: "other@turnier-hub.test",
+        username: "othercoach",
+        passwordHash: await bcrypt.hash("x", 10),
+      },
+    });
+    const otherPlayer = await prisma.player.create({
+      data: {
+        name: "Spieler anderer Nutzer",
+        userId: otherUser.id,
+        schoolClassId: null,
+      },
+    });
+
+    const created = await postTournament({
+      name: "Cross-user roster",
+      sport: "Fußball",
+      mode: "GROUP_KO",
+      groupCount: 1,
+      advancesPerGroup: 2,
+    });
+    await createTournamentTeam(created.id, { name: "Team A" });
+    const detail = await fetchTournamentDetail(created.id);
+    await addTeamMember(created.id, detail.teams[0]!.id, otherPlayer.id);
+    const after = await fetchTournamentDetail(created.id);
+    expect(after.teams[0]?.members.some((m) => m.playerId === otherPlayer.id)).toBe(true);
   });
 
   // Hinweis: Gruppen-Generierung berücksichtigt nun auch Teams ohne Spieler.

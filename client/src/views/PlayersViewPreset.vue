@@ -11,7 +11,7 @@ import { usePlayersManagementState } from "@/composables/players/usePlayersManag
 const {
   scope,
   players,
-  myClasses,
+  schoolClassOptions,
   classFilter,
   loading,
   classesLoading,
@@ -29,7 +29,6 @@ const {
   closeDialog,
   submitDialog,
   remove,
-  isMine,
   getClassName,
 } = usePlayersManagementState();
 
@@ -111,56 +110,42 @@ const selectClass =
     <p v-if="loading || classesLoading" class="text-slate-500">Lade …</p>
 
     <div v-else>
-      <EmptyStateCard v-if="myClasses.length === 0" title="Erstelle zuerst eine Klasse, bevor du Spieler hinzufügst">
+      <EmptyStateCard
+        v-if="players.length === 0"
+        title="Noch keine Spieler erstellt"
+        action-label="Ersten Spieler erstellen"
+        :action-disabled="!canAddPlayer"
+        @action="openCreate"
+      >
         <template #icon>
-        <AppIcon name="players" class="mx-auto mb-4 h-12 w-12 text-slate-400" />
+          <AppIcon name="players" class="mx-auto mb-4 h-12 w-12 text-slate-400" />
         </template>
         <template #action>
-          <RouterLink
-            to="/classes"
-            class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50"
+          <button
+            type="button"
+            class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-medium text-white transition hover:bg-blue-600/90 disabled:opacity-50"
+            :disabled="!canAddPlayer"
+            @click="openCreate"
           >
-            Zu den Klassen
-          </RouterLink>
+            Ersten Spieler erstellen
+          </button>
         </template>
       </EmptyStateCard>
 
-        <div v-else>
-          <EmptyStateCard
-            v-if="players.length === 0"
-            title="Noch keine Spieler erstellt"
-            action-label="Ersten Spieler erstellen"
-            :action-disabled="!canAddPlayer"
-            @action="openCreate"
-          >
-            <template #icon>
-            <AppIcon name="players" class="mx-auto mb-4 h-12 w-12 text-slate-400" />
-            </template>
-            <template #action>
-              <button
-                type="button"
-                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-medium text-white transition hover:bg-blue-600/90 disabled:opacity-50"
-                :disabled="!canAddPlayer"
-                @click="openCreate"
-              >
-                Ersten Spieler erstellen
-              </button>
-            </template>
-          </EmptyStateCard>
+      <template v-else-if="players.length > 0">
+        <div
+          v-if="filteredPlayers.length === 0"
+          class="ui-empty-card"
+        >
+          <p class="text-slate-600">
+            Keine Spieler für diese Klassenauswahl.
+          </p>
+        </div>
 
-          <div
-            v-else-if="filteredPlayers.length === 0"
-            class="ui-empty-card"
-          >
-            <p class="text-slate-600">
-              Keine Spieler für diese Klassenauswahl.
-            </p>
-          </div>
-
-          <div
-            v-else
-            class="ui-card overflow-hidden"
-          >
+        <div
+          v-else
+          class="ui-card overflow-hidden"
+        >
           <table class="w-full text-left text-sm">
             <caption class="sr-only">
               Spielerliste
@@ -203,7 +188,6 @@ const selectClass =
                 <td class="px-5 py-3 text-right text-slate-600">
                   <div class="flex justify-end gap-2">
                     <button
-                      v-if="isMine(p)"
                       type="button"
                       class="rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
                       @click="openEdit(p)"
@@ -211,7 +195,6 @@ const selectClass =
                       Bearbeiten
                     </button>
                     <button
-                      v-if="isMine(p)"
                       type="button"
                       class="rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
                       @click="remove(p.id)"
@@ -224,7 +207,7 @@ const selectClass =
             </tbody>
           </table>
         </div>
-      </div>
+      </template>
     </div>
 
     <EntityDialog
@@ -232,7 +215,7 @@ const selectClass =
       :title="editingId ? 'Spieler bearbeiten' : 'Neuer Spieler'"
       :description="editingId ? 'Bearbeite die Spielerinformationen' : 'Füge einen neuen Spieler hinzu'"
       :submit-label="editingId ? 'Speichern' : 'Hinzufügen'"
-      :submit-disabled="!dialogName.trim() || myClasses.length === 0"
+      :submit-disabled="!dialogName.trim()"
       @close="closeDialog"
       @submit="submitDialog"
     >
@@ -265,7 +248,7 @@ const selectClass =
           :class="selectClass"
         >
           <option value="">Keine Klasse</option>
-          <option v-for="c in myClasses" :key="c.id" :value="c.id">
+          <option v-for="c in schoolClassOptions" :key="c.id" :value="c.id">
             {{ c.name }}
           </option>
         </select>

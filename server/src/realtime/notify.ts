@@ -12,15 +12,14 @@ export function notifyTournamentChanged(tournamentId: string): void
   hub?.notifyTournamentChanged(tournamentId);
 }
 
-export function notifyUserCatalog(
-  userId: string,
+export function notifyCatalogChanged(
   kinds: Array<"players" | "classes">
 ): void
 {
-  hub?.notifyUserCatalog(userId, kinds);
+  hub?.notifyCatalogChanged(kinds);
 }
 
-export function notifyUserTournamentsChanged(userId: string): void
+export function notifyTournamentsListChanged(): void
 {
-  hub?.notifyUserTournamentsChanged(userId);
+  hub?.notifyTournamentsListChanged();
 }

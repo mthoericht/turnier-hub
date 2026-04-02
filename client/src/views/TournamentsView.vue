@@ -14,7 +14,6 @@ const {
   teamsAreIndividuals,
   createT,
   remove,
-  isMine,
 } = useTournamentsListState();
 </script>
 
@@ -52,7 +51,6 @@ const {
       <TournamentsList
         :list="list"
         :loading="loading"
-        :is-mine="isMine"
         :remove="remove"
       />
     </div>

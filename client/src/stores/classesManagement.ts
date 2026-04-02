@@ -7,7 +7,6 @@ import {
   postSchoolClass,
 } from "@/api/classesApi";
 import { fetchPlayers } from "@/api/playersApi";
-import { useAuthStore } from "@/stores/auth";
 import { useConfirmDialogStore } from "@/stores/confirmDialog";
 import { useToastStore } from "@/stores/toast";
 import type { Player, SchoolClass } from "@/types";
@@ -16,7 +15,6 @@ export type ClassesScope = "all" | "own";
 
 export const useClassesManagementStore = defineStore("classesManagement", () =>
 {
-  const auth = useAuthStore();
   const toast = useToastStore();
 
   const scope = ref<ClassesScope>("all");
@@ -46,11 +44,6 @@ export const useClassesManagementStore = defineStore("classesManagement", () =>
   function getPlayerCount(classId: string): number
   {
     return playerCountByClassId.value.get(classId) ?? 0;
-  }
-
-  function isMine(c: SchoolClass): boolean
-  {
-    return !!auth.user && c.createdBy.id === auth.user.id;
   }
 
   async function load(): Promise<void>
@@ -95,7 +88,6 @@ export const useClassesManagementStore = defineStore("classesManagement", () =>
 
   function openEdit(c: SchoolClass): void
   {
-    if (!isMine(c)) return;
     editingId.value = c.id;
     dialogName.value = c.name;
     dialogOpen.value = true;
@@ -168,7 +160,6 @@ export const useClassesManagementStore = defineStore("classesManagement", () =>
     editingId,
     dialogName,
     getPlayerCount,
-    isMine,
     openCreate,
     openEdit,
     closeDialog,

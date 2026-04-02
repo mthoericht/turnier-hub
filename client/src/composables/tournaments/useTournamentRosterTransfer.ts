@@ -28,8 +28,8 @@ export function useTournamentRosterTransfer(
       loadingSources.value = true;
       try
       {
-        const own = await fetchTournaments("own");
-        sourceTournaments.value = own.filter((x) => x.id !== t.id);
+        const all = await fetchTournaments("all");
+        sourceTournaments.value = all.filter((x) => x.id !== t.id);
       }
       finally
       {

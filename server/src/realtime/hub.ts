@@ -160,28 +160,18 @@ export class RealtimeHub
     for (const ws of set) this.send(ws, payload);
   }
 
-  notifyUserCatalog(userId: string, kinds: Array<"players" | "classes">): void
+  /** Broadcast to every connected client (shared catalog / tournament list). */
+  notifyCatalogChanged(kinds: Array<"players" | "classes">): void
   {
     if (kinds.length === 0) return;
     const payload: ServerPushMessage = { type: "catalogChanged", kinds };
-    this.forEachSocketOfUser(userId, (ws) => this.send(ws, payload));
+    for (const ws of this.wss.clients) this.send(ws, payload);
   }
 
-  notifyUserTournamentsChanged(userId: string): void
+  /** Broadcast to every connected client. */
+  notifyTournamentsListChanged(): void
   {
     const payload: ServerPushMessage = { type: "tournamentsChanged" };
-    this.forEachSocketOfUser(userId, (ws) => this.send(ws, payload));
-  }
-
-  private forEachSocketOfUser(
-    userId: string,
-    fn: (ws: WebSocket) => void
-  ): void
-  {
-    for (const ws of this.wss.clients)
-    {
-      const meta = this.socketMeta.get(ws);
-      if (meta?.userId === userId) fn(ws);
-    }
+    for (const ws of this.wss.clients) this.send(ws, payload);
   }
 }

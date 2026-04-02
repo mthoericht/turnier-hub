@@ -16,11 +16,6 @@ export function useClassesManagementState()
     return 0;
   }
 
-  function isMine(): boolean
-  {
-    return false;
-  }
-
   function openCreate(): void
   {
     editingId.value = null;
@@ -53,7 +48,6 @@ export function useClassesManagementState()
     editingId,
     dialogName,
     getPlayerCount,
-    isMine,
     openCreate,
     openEdit,
     closeDialog,

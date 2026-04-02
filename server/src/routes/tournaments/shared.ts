@@ -136,21 +136,16 @@ export async function completeTournamentIfFinalFinished(tournamentId: string): P
   });
 }
 
-export async function requireTournamentOwner(
+/** Any authenticated user may mutate tournaments; `userId` on the row is the original creator (display only). */
+export async function requireTournamentExists(
   res: Response,
-  tournamentId: string,
-  userId: string
+  tournamentId: string
 )
 {
   const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
   if (!t)
   {
     res.status(404).json({ error: "Turnier nicht gefunden" });
-    return null;
-  }
-  if (t.userId !== userId)
-  {
-    res.status(403).json({ error: "Nur der Ersteller darf das bearbeiten." });
     return null;
   }
   return t;

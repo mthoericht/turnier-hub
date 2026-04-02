@@ -6,7 +6,6 @@ import type { TournamentListRow } from "@/api/tournamentsApi";
 
 defineProps<{
   t: TournamentListRow;
-  isMine: (t: TournamentListRow) => boolean;
   remove: (id: string) => Promise<void>;
 }>();
 </script>
@@ -44,7 +43,6 @@ defineProps<{
         Öffnen
       </RouterLink>
       <button
-        v-if="isMine(t)"
         type="button"
         class="ui-link-danger"
         @click="() => void remove(t.id)"

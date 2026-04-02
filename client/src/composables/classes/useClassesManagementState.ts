@@ -14,7 +14,6 @@ export function useClassesManagementState()
   return {
     ...storeToRefs(store),
     getPlayerCount: store.getPlayerCount,
-    isMine: store.isMine,
     openCreate: store.openCreate,
     openEdit: store.openEdit,
     closeDialog: store.closeDialog,

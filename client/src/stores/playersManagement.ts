@@ -7,7 +7,6 @@ import {
   postPlayer,
 } from "@/api/playersApi";
 import { fetchSchoolClasses } from "@/api/classesApi";
-import { useAuthStore } from "@/stores/auth";
 import { useConfirmDialogStore } from "@/stores/confirmDialog";
 import { useToastStore } from "@/stores/toast";
 import type { Player, SchoolClass } from "@/types";
@@ -16,12 +15,12 @@ export type PlayersScope = "all" | "own";
 
 export const usePlayersManagementStore = defineStore("playersManagement", () =>
 {
-  const auth = useAuthStore();
   const toast = useToastStore();
 
   const scope = ref<PlayersScope>("all");
   const players = ref<Player[]>([]);
-  const myClasses = ref<SchoolClass[]>([]);
+  /** All school classes (assignable when creating/editing a player). */
+  const schoolClassOptions = ref<SchoolClass[]>([]);
 
   const loading = ref(true);
   const classesLoading = ref(true);
@@ -34,11 +33,6 @@ export const usePlayersManagementStore = defineStore("playersManagement", () =>
   const dialogClassId = ref("");
   const classFilter = ref("");
 
-  function isMine(p: Player): boolean
-  {
-    return !!auth.user && p.createdBy.id === auth.user.id;
-  }
-
   function getClassName(p: Player): string
   {
     return p.schoolClass?.name ?? "Ohne Klasse";
@@ -49,11 +43,11 @@ export const usePlayersManagementStore = defineStore("playersManagement", () =>
     classesLoading.value = true;
     try
     {
-      myClasses.value = await fetchSchoolClasses("own");
+      schoolClassOptions.value = await fetchSchoolClasses("all");
     }
     catch
     {
-      myClasses.value = [];
+      schoolClassOptions.value = [];
     }
     finally
     {
@@ -124,7 +118,6 @@ export const usePlayersManagementStore = defineStore("playersManagement", () =>
 
   function openEdit(p: Player): void
   {
-    if (!isMine(p)) return;
     editingId.value = p.id;
     dialogName.value = p.name;
     dialogClassId.value = p.schoolClass?.id ?? "";
@@ -190,9 +183,7 @@ export const usePlayersManagementStore = defineStore("playersManagement", () =>
     }
   }
 
-  const canAddPlayer = computed(
-    () => !classesLoading.value && myClasses.value.length > 0,
-  );
+  const canAddPlayer = computed(() => !classesLoading.value);
 
   const distinctClassOptions = computed(() =>
   {
@@ -229,7 +220,7 @@ export const usePlayersManagementStore = defineStore("playersManagement", () =>
   return {
     scope,
     players,
-    myClasses,
+    schoolClassOptions,
     loading,
     classesLoading,
     error,
@@ -248,7 +239,6 @@ export const usePlayersManagementStore = defineStore("playersManagement", () =>
     closeDialog,
     submitDialog,
     remove,
-    isMine,
     getClassName,
     loadPlayers,
     loadClasses,

@@ -172,7 +172,7 @@ describe("RealtimeHub (WebSocket)", () =>
     await waitForClose(ws);
   });
 
-  it("pushes catalogChanged only to sockets of the user", async () =>
+  it("pushes catalogChanged to all connected clients", async () =>
   {
     const tokenA = signToken("user-a");
     const wsA1 = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenA)}`);
@@ -183,19 +183,16 @@ describe("RealtimeHub (WebSocket)", () =>
     const wsB = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenB)}`);
     await waitForOpen(wsB);
 
-    hub.notifyUserCatalog("user-a", ["players"]);
+    hub.notifyCatalogChanged(["players"]);
 
-    const [m1, m2] = await Promise.all([
+    const [m1, m2, m3] = await Promise.all([
       waitForMessage<Push>(wsA1),
       waitForMessage<Push>(wsA2),
+      waitForMessage<Push>(wsB),
     ]);
     expect(m1).toEqual({ type: "catalogChanged", kinds: ["players"] });
     expect(m2).toEqual({ type: "catalogChanged", kinds: ["players"] });
-
-    let bReceived = false;
-    wsB.on("message", () => (bReceived = true));
-    await new Promise((r) => setTimeout(r, 30));
-    expect(bReceived).toBe(false);
+    expect(m3).toEqual({ type: "catalogChanged", kinds: ["players"] });
 
     wsA1.close();
     wsA2.close();
@@ -203,7 +200,7 @@ describe("RealtimeHub (WebSocket)", () =>
     await Promise.all([waitForClose(wsA1), waitForClose(wsA2), waitForClose(wsB)]);
   });
 
-  it("pushes tournamentsChanged only to sockets of the user", async () =>
+  it("pushes tournamentsChanged to all connected clients", async () =>
   {
     const tokenA = signToken("user-a");
     const wsA = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenA)}`);
@@ -213,14 +210,13 @@ describe("RealtimeHub (WebSocket)", () =>
     const wsB = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenB)}`);
     await waitForOpen(wsB);
 
-    hub.notifyUserTournamentsChanged("user-b");
-    const msgB = await waitForMessage<Push>(wsB);
+    hub.notifyTournamentsListChanged();
+    const [msgA, msgB] = await Promise.all([
+      waitForMessage<Push>(wsA),
+      waitForMessage<Push>(wsB),
+    ]);
+    expect(msgA).toEqual({ type: "tournamentsChanged" });
     expect(msgB).toEqual({ type: "tournamentsChanged" });
-
-    let aReceived = false;
-    wsA.on("message", () => (aReceived = true));
-    await new Promise((r) => setTimeout(r, 30));
-    expect(aReceived).toBe(false);
 
     wsA.close();
     wsB.close();

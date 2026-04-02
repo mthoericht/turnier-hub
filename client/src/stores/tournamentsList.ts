@@ -6,7 +6,6 @@ import {
   fetchTournaments,
   type TournamentListRow,
 } from "@/api/tournamentsApi";
-import { useAuthStore } from "@/stores/auth";
 import { useConfirmDialogStore } from "@/stores/confirmDialog";
 import type { TournamentMode } from "@/tournament/tournamentContext";
 
@@ -14,8 +13,6 @@ export type TournamentsScope = "all" | "own";
 
 export const useTournamentsListStore = defineStore("tournamentsList", () =>
 {
-  const auth = useAuthStore();
-
   const scope = ref<TournamentsScope>("all");
   const list = ref<TournamentListRow[]>([]);
   const loading = ref(true);
@@ -53,11 +50,6 @@ export const useTournamentsListStore = defineStore("tournamentsList", () =>
   }
 
   watch(scope, () => void load());
-
-  function isMine(t: TournamentListRow): boolean
-  {
-    return !!auth.user && t.createdBy.id === auth.user.id;
-  }
 
   async function createT(): Promise<TournamentListRow | null>
   {
@@ -116,7 +108,6 @@ export const useTournamentsListStore = defineStore("tournamentsList", () =>
     teamsAreIndividuals,
     createT,
     remove,
-    isMine,
     load,
     reloadIfInitialized,
   };

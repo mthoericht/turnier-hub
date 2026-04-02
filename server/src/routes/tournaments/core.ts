@@ -5,12 +5,12 @@ import { prisma } from "../../db.js";
 import { createdBySelect, parseListScope, toCreatedBy } from "../../lib/createdBy.js";
 import {
   loadTournamentById,
-  requireTournamentOwner,
+  requireTournamentExists,
   serializeTournamentDetail,
 } from "./shared.js";
 import {
   notifyTournamentChanged,
-  notifyUserTournamentsChanged,
+  notifyTournamentsListChanged,
 } from "../../realtime/notify.js";
 
 const createTournamentSchema = z.object({
@@ -82,7 +82,7 @@ export function registerTournamentCoreRoutes(router: Router): void
         },
       });
       const { user, ...row } = t;
-      notifyUserTournamentsChanged(req.userId!);
+      notifyTournamentsListChanged();
       res.status(201).json({
         ...row,
         createdBy: toCreatedBy(user),
@@ -113,26 +113,26 @@ export function registerTournamentCoreRoutes(router: Router): void
       res.status(400).json({ error: "Ungültige Eingaben" });
       return;
     }
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
-    if (!owned) return;
+    const exists = await requireTournamentExists(res, req.params.id);
+    if (!exists) return;
     await prisma.tournament.update({
       where: { id: req.params.id },
       data: parsed.data,
     });
     const full = await loadTournamentById(req.params.id);
     notifyTournamentChanged(req.params.id);
-    notifyUserTournamentsChanged(req.userId!);
+    notifyTournamentsListChanged();
     res.json(serializeTournamentDetail(full!));
   });
 
   router.delete("/:id", async (req, res) =>
   {
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
-    if (!owned) return;
+    const exists = await requireTournamentExists(res, req.params.id);
+    if (!exists) return;
     const tid = req.params.id;
     await prisma.tournament.delete({ where: { id: tid } });
     notifyTournamentChanged(tid);
-    notifyUserTournamentsChanged(req.userId!);
+    notifyTournamentsListChanged();
     res.status(204).send();
   });
 }

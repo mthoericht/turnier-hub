@@ -140,4 +140,4 @@ When `turnier_hub_prisma_studio_enabled` is `true` and you use **systemd**, this
 - Pin deployment to a tag/commit via variables when releasing.
 - Keep `turnier_hub_healthcheck_url` aligned with your actual API endpoint.
 - Keep Prisma Studio disabled in production unless you have a clear operational need and network controls.
-- **WebSocket / realtime:** the app uses **`/api/ws`** on the same port as the HTTP API. If you terminate TLS or proxy with **Nginx** (or similar), configure **WebSocket upgrade** for that path (e.g. `proxy_http_version 1.1`, `Upgrade`, `Connection "upgrade"`), or clients will not receive live tournament/catalog updates.
+- **WebSocket / realtime:** the app uses **`/api/ws`** on the same port as the HTTP API. If you terminate TLS or proxy with **Nginx** (or similar), configure **WebSocket upgrade** for that path (e.g. `proxy_http_version 1.1`, `Upgrade`, `Connection "upgrade"`), or clients will not receive live tournament updates, catalog refreshes, or tournament-list sync.

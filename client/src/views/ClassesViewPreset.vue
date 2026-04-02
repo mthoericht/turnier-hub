@@ -16,7 +16,6 @@ const {
   editingId,
   dialogName,
   getPlayerCount,
-  isMine,
   openCreate,
   openEdit,
   closeDialog,
@@ -40,8 +39,8 @@ const inputClass =
           Klassen
         </h1>
         <p class="text-slate-600 text-sm mt-1 max-w-xl">
-          Verwalte deine Schulklassen. Beim Anlegen oder Bearbeiten von
-          Spielern wählst du eine dieser Klassen zu — oder keine.
+          Schulklassen im gemeinsamen Katalog. Beim Anlegen oder Bearbeiten von
+          Spielern kann jede Klasse zugewiesen werden — oder keine.
         </p>
       </div>
 
@@ -97,7 +96,7 @@ const inputClass =
                 Von {{ formatCreator(c.createdBy) }}
               </p>
             </div>
-            <div v-if="isMine(c)" class="flex gap-2 shrink-0">
+            <div class="flex gap-2 shrink-0">
               <button
                 type="button"
                 class="rounded-lg p-2 text-slate-700 hover:bg-slate-100"

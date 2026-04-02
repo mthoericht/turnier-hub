@@ -15,7 +15,6 @@ export function useTournamentsListState()
     ...storeToRefs(store),
     createT: store.createT,
     remove: store.remove,
-    isMine: store.isMine,
     load: store.load,
   };
 }

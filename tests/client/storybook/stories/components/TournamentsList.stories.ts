@@ -13,11 +13,14 @@ const meta: Meta<typeof TournamentsList> = {
         sport: "Fußball",
         mode: "GROUP_KO",
         phase: "GROUP",
-        createdBy: { id: "u1", email: "demo@example.com", name: "Demo Nutzer" },
+        createdBy: {
+          id: "u1",
+          username: "demo",
+          email: "demo@example.com",
+        },
         _count: { teams: 6, matches: 10 },
       },
     ],
-    isMine: (t: unknown) => (t as any).createdBy?.id === "u1",
     remove: async (_id: string) => {},
   },
 };

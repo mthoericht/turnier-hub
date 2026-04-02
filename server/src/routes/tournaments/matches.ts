@@ -8,7 +8,7 @@ import {
   completeTournamentIfFinalFinished,
   loadTournamentById,
   matchUpdateInclude,
-  requireTournamentOwner,
+  requireTournamentExists,
   serializeMatch,
   serializeTournamentDetail,
   type MatchWithTeams,
@@ -28,7 +28,7 @@ export function registerTournamentMatchRoutes(router: Router): void
 {
   router.post("/:id/generate-group-matches", async (req, res) =>
   {
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     const t = await loadTournamentById(req.params.id);
     if (!t)
@@ -109,7 +109,7 @@ export function registerTournamentMatchRoutes(router: Router): void
 
   router.post("/:id/generate-knockout", async (req, res) =>
   {
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     const t = await loadTournamentById(req.params.id);
     if (!t)
@@ -169,7 +169,7 @@ export function registerTournamentMatchRoutes(router: Router): void
 
   router.delete("/:id/matches", async (req, res) =>
   {
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     const t = await loadTournamentById(req.params.id);
     if (!t)
@@ -199,7 +199,7 @@ export function registerTournamentMatchRoutes(router: Router): void
       res.status(400).json({ error: "Ungültige Ergebnisse" });
       return;
     }
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     const m = await prisma.match.findFirst({
       where: { id: req.params.matchId, tournamentId: req.params.id },
@@ -237,7 +237,7 @@ export function registerTournamentMatchRoutes(router: Router): void
       res.status(400).json({ error: "Ungültige Aktion" });
       return;
     }
-    const owned = await requireTournamentOwner(res, req.params.id, req.userId!);
+    const owned = await requireTournamentExists(res, req.params.id);
     if (!owned) return;
     const m = await prisma.match.findFirst({
       where: { id: req.params.matchId, tournamentId: req.params.id },

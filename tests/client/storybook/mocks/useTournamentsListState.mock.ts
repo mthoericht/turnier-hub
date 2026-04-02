@@ -14,8 +14,8 @@ export function useTournamentsListState()
       phase: "GROUP",
       createdBy: {
         id: "u1",
+        username: "demo",
         email: "demo@example.com",
-        name: "Demo Nutzer",
       },
       _count: { teams: 6, matches: 10 },
     },
@@ -36,11 +36,6 @@ export function useTournamentsListState()
 
   async function remove(): Promise<void> {}
 
-  function isMine(t: TournamentListRow): boolean
-  {
-    return t.createdBy.id === "u1";
-  }
-
   return {
     scope,
     list,
@@ -52,7 +47,6 @@ export function useTournamentsListState()
     teamsAreIndividuals,
     createT,
     remove,
-    isMine,
   };
 }
 

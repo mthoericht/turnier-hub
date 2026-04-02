@@ -7,7 +7,7 @@ import {
   playerApiInclude,
   playerToApi,
 } from "../lib/createdBy.js";
-import { notifyUserCatalog } from "../realtime/notify.js";
+import { notifyCatalogChanged } from "../realtime/notify.js";
 
 const router = Router();
 router.use(authMiddleware);
@@ -43,7 +43,7 @@ router.post("/", async (req, res) => {
   if (schoolClassId) 
   {
     const sc = await prisma.schoolClass.findFirst({
-      where: { id: schoolClassId, userId: req.userId! },
+      where: { id: schoolClassId },
     });
     if (!sc) 
     {
@@ -59,7 +59,7 @@ router.post("/", async (req, res) => {
     },
     include: playerApiInclude,
   });
-  notifyUserCatalog(req.userId!, ["players", "classes"]);
+  notifyCatalogChanged(["players", "classes"]);
   res.status(201).json(playerToApi(row));
 });
 
@@ -70,7 +70,7 @@ router.patch("/:id", async (req, res) => {
     return;
   }
   const existing = await prisma.player.findFirst({
-    where: { id: req.params.id, userId: req.userId! },
+    where: { id: req.params.id },
   });
   if (!existing) {
     res.status(404).json({ error: "Spieler nicht gefunden" });
@@ -82,7 +82,7 @@ router.patch("/:id", async (req, res) => {
   ) 
   {
     const sc = await prisma.schoolClass.findFirst({
-      where: { id: parsed.data.schoolClassId, userId: req.userId! },
+      where: { id: parsed.data.schoolClassId },
     });
     if (!sc) 
     {
@@ -100,20 +100,20 @@ router.patch("/:id", async (req, res) => {
     },
     include: playerApiInclude,
   });
-  notifyUserCatalog(req.userId!, ["players", "classes"]);
+  notifyCatalogChanged(["players", "classes"]);
   res.json(playerToApi(row));
 });
 
 router.delete("/:id", async (req, res) => {
   const existing = await prisma.player.findFirst({
-    where: { id: req.params.id, userId: req.userId! },
+    where: { id: req.params.id },
   });
   if (!existing) {
     res.status(404).json({ error: "Spieler nicht gefunden" });
     return;
   }
   await prisma.player.delete({ where: { id: req.params.id } });
-  notifyUserCatalog(req.userId!, ["players", "classes"]);
+  notifyCatalogChanged(["players", "classes"]);
   res.status(204).send();
 });
 

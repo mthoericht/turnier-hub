@@ -171,12 +171,6 @@ async function generateGroupWithCurrentSettings(): Promise<void>
 
 <template>
   <div v-if="tournament" class="space-y-8 sm:space-y-10">
-    <p
-      v-if="!canEdit"
-      class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
-    >
-      Nur der Ersteller kann Spiele anlegen und K.-o.-Runden starten.
-    </p>
     <section v-if="canEdit" :class="[cardClass, 'space-y-6']">
       <h2
         class="font-display font-semibold text-lg text-slate-900"
