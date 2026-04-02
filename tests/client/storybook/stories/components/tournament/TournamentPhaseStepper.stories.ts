@@ -7,7 +7,7 @@ import {
 } from "@/tournament/tournamentPhaseFlow";
 
 const meta: Meta<typeof TournamentPhaseStepper> = {
-  title: "Tournament/TournamentPhaseStepper",
+  title: "Components/Tournament/TournamentPhaseStepper",
   component: TournamentPhaseStepper,
 };
 

@@ -182,6 +182,10 @@ export default definePreview({
       // 'off' - skip a11y checks entirely
       test: "todo",
     },
+    docs: {
+      // Embedded inline docs + Vue can hide or clip the preview; iframe is more reliable.
+      story: { inline: false },
+    },
   },
   decorators: [
     (story) => ({
@@ -195,9 +199,11 @@ export default definePreview({
         // Storybook rerenders when switching views; re-stub to avoid globals being reset.
         ensureVueDevtoolsKitGlobals();
       },
+      // Padding + full width so previews are not glued to the iframe corner; `min-h` keeps empty
+      // states from collapsing to a zero-height strip (looked like “nothing renders”).
       template: `
         <div
-          class="sb-canvas-root min-h-[50vh] text-slate-900 antialiased"
+          class="sb-canvas-root box-border min-h-[50vh] w-full p-6 text-slate-900 antialiased"
           style="font-family: system-ui, sans-serif;"
         >
           <story />

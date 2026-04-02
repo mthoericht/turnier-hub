@@ -1,12 +1,10 @@
 // This file has been automatically migrated to valid ESM format by Storybook.
 import type { StorybookConfig } from "@storybook/vue3-vite";
-import vue from "@vitejs/plugin-vue";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import path from "node:path";
+import vue from "@vitejs/plugin-vue";
 import { mergeConfig } from "vite";
-
-const __filename = fileURLToPath(import.meta.url);
 
 /**
  * This function is used to resolve the absolute path of a package.
@@ -24,10 +22,27 @@ const __dirname =
     : dirname(fileURLToPath(import.meta.url));
 
 const clientRoot = path.resolve(__dirname, "../../../client");
-const clientSrc = path.join(clientRoot, "src");
+// Same as client/vite.shared.ts; Storybook's Node main loader breaks relative imports to that file.
+const clientSrc = path.resolve(clientRoot, "src");
+function clientPlugins()
+{
+  return [vue()];
+}
 const dashboardStateMock = path.resolve(
   __dirname,
   "./mocks/useDashboardState.mock.ts",
+);
+const tournamentsListStateMock = path.resolve(
+  __dirname,
+  "./mocks/useTournamentsListState.mock.ts",
+);
+const playersManagementStateMock = path.resolve(
+  __dirname,
+  "./mocks/usePlayersManagementState.mock.ts",
+);
+const classesManagementStateMock = path.resolve(
+  __dirname,
+  "./mocks/useClassesManagementState.mock.ts",
 );
 
 function buildResolveAlias(
@@ -43,6 +58,9 @@ function buildResolveAlias(
       const f = entry.find;
       if (
         f === "@/composables/dashboard/useDashboardState" ||
+        f === "@/composables/tournaments/useTournamentsListState" ||
+        f === "@/composables/players/usePlayersManagementState" ||
+        f === "@/composables/classes/useClassesManagementState" ||
         f === "@"
       )
       {
@@ -57,6 +75,9 @@ function buildResolveAlias(
     {
       if (
         find === "@/composables/dashboard/useDashboardState" ||
+        find === "@/composables/tournaments/useTournamentsListState" ||
+        find === "@/composables/players/usePlayersManagementState" ||
+        find === "@/composables/classes/useClassesManagementState" ||
         find === "@"
       )
       {
@@ -67,6 +88,18 @@ function buildResolveAlias(
   }
   return [
     { find: "@/composables/dashboard/useDashboardState", replacement: dashboardStateMock },
+    {
+      find: "@/composables/tournaments/useTournamentsListState",
+      replacement: tournamentsListStateMock,
+    },
+    {
+      find: "@/composables/players/usePlayersManagementState",
+      replacement: playersManagementStateMock,
+    },
+    {
+      find: "@/composables/classes/useClassesManagementState",
+      replacement: classesManagementStateMock,
+    },
     ...tail,
     { find: "@", replacement: clientAlias },
   ];
@@ -106,7 +139,7 @@ const config: StorybookConfig = {
       },
     });
     // Mit configDir außerhalb von client fehlt mitunter plugin-vue in der Pipeline.
-    merged.plugins = [vue(), ...((merged.plugins ?? []) as [])];
+    merged.plugins = [...clientPlugins(), ...((merged.plugins ?? []) as [])];
     // Vite matches the short `@` alias before a longer `@/composables/...` key in a plain
     // object, so the dashboard mock never applied → real Pinia auth → HomeView login branch.
     merged.resolve ??= {};

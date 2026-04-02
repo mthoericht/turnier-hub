@@ -4,7 +4,7 @@ import TournamentPhaseTabs from "@/components/tournament/TournamentPhaseTabs.vue
 import { formatPhaseLabel } from "@/tournament/tournamentFormat";
 
 const meta: Meta<typeof TournamentPhaseTabs> = {
-  title: "Tournament/TournamentPhaseTabs",
+  title: "Components/Tournament/TournamentPhaseTabs",
   component: TournamentPhaseTabs,
   args: {
     mode: "GROUP_KO",

@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useAuthStore } from "@/stores/auth";
+import { useConfirmDialogStore } from "@/stores/confirmDialog";
 import { useToastStore } from "@/stores/toast";
 import {
   advanceTargetRisksDataLoss,
@@ -22,7 +23,10 @@ import {
   formatPhaseLabel,
 } from "@/tournament/tournamentFormat";
 import { buildKnockoutAdvancePrompt } from "@/tournament/knockoutAdvancePrompt";
-import type { TournamentDetail } from "@/tournament/tournamentContext";
+import type {
+  ConfirmDialogActionOptions,
+  TournamentDetail,
+} from "@/tournament/tournamentContext";
 import { fetchPlayersAll } from "@/api/playersApi";
 import {
   addTeamMember,
@@ -75,6 +79,11 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
   const standings = ref<Record<string, unknown> | null>(null);
   const scoreDraft = ref<ScoreDraftMap>({});
   const scoreDraftDirtyByMatchId = ref<Record<string, boolean>>({});
+
+  function confirmAction(opts: ConfirmDialogActionOptions): Promise<boolean>
+  {
+    return useConfirmDialogStore().requestConfirm(opts);
+  }
 
   let silentRefreshInFlight = false;
 
@@ -249,16 +258,16 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     const id = activeTournamentId.value;
     if (!id) return;
     const isIndividuals = tournament.value?.teamsAreIndividuals ?? false;
-    if (
-      !confirm(
-        isIndividuals
+    const ok = await confirmAction(
+      {
+        title: isIndividuals ? "Teilnehmer entfernen" : "Mannschaft löschen",
+        description: isIndividuals
           ? "Teilnehmer entfernen? Zugeordnete Gruppenspiele werden mit gelöscht."
-          : "Mannschaft löschen? Zugeordnete Gruppenspiele werden mit gelöscht."
-      )
-    )
-    {
-      return;
-    }
+          : "Mannschaft löschen? Zugeordnete Gruppenspiele werden mit gelöscht.",
+        submitLabel: isIndividuals ? "Entfernen" : "Löschen",
+      }
+    );
+    if (!ok) return;
     try
     {
       const result = await deleteTournamentTeam(id, teamId);
@@ -409,17 +418,19 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     const id = activeTournamentId.value;
     if (!id) return;
     const t = tournament.value;
-    if (
-      t
-      && groupRegenerateRisksDataLoss(t.matches)
-      && !confirm(
-        "Es gibt bereits Ergebnisse, laufende oder beendete Spiele. "
-          + "Wenn du die Gruppenspiele neu erzeugst, werden alle Spiele "
-          + "(inkl. K.-o.) und ihre Ergebnisse gelöscht. Fortfahren?"
-      )
-    )
+    if (t && groupRegenerateRisksDataLoss(t.matches))
     {
-      return;
+      const ok = await confirmAction(
+        {
+          title: "Gruppenspiele neu erzeugen",
+          description:
+            "Es gibt bereits Ergebnisse, laufende oder beendete Spiele. "
+            + "Wenn du die Gruppenspiele neu erzeugst, werden alle Spiele "
+            + "(inkl. K.-o.) und ihre Ergebnisse gelöscht. Fortfahren?",
+          submitLabel: "Fortfahren",
+        }
+      );
+      if (!ok) return;
     }
     try
     {
@@ -440,13 +451,16 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     const id = activeTournamentId.value;
     if (!id) return;
     const t = tournament.value;
-    if (
-      t
-      && t.matches.length > 0
-      && !confirm("Bestehende K.O.-Spiele werden gelöscht und neu erzeugt. Fortfahren?")
-    )
+    if (t && t.matches.length > 0)
     {
-      return;
+      const ok = await confirmAction(
+        {
+          title: "K.O.-Spiele neu erzeugen",
+          description: "Bestehende K.O.-Spiele werden gelöscht und neu erzeugt. Fortfahren?",
+          submitLabel: "Fortfahren",
+        }
+      );
+      if (!ok) return;
     }
     try
     {
@@ -465,7 +479,14 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
   {
     const id = activeTournamentId.value;
     if (!id) return;
-    if (!confirm("Alle Spiele unwiderruflich löschen?")) return;
+    const ok = await confirmAction(
+      {
+        title: "Alle Spiele löschen",
+        description: "Alle Spiele unwiderruflich löschen?",
+        submitLabel: "Löschen",
+      }
+    );
+    if (!ok) return;
     try
     {
       const detail = await apiDeleteAllMatches(id);
@@ -489,7 +510,14 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     const t = tournament.value;
     if (target === "COMPLETED")
     {
-      if (!confirm("Turnier als abgeschlossen markieren?")) return;
+      const ok = await confirmAction(
+        {
+          title: "Turnier abschließen",
+          description: "Turnier als abgeschlossen markieren?",
+          submitLabel: "Abschließen",
+        }
+      );
+      if (!ok) return;
     }
     else if (t)
     {
@@ -511,7 +539,14 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
 
       if (prompt?.kind === "confirm")
       {
-        if (!confirm(prompt.message)) return;
+        const ok = await confirmAction(
+          {
+            title: phaseLabel,
+            description: prompt.message,
+            submitLabel: "Fortfahren",
+          }
+        );
+        if (!ok) return;
       }
       else if (prompt?.kind === "toastInfo")
       {
@@ -643,6 +678,7 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     advance,
     patchScores,
     timerAction,
+    confirmAction,
     fieldClass: tournamentFieldClass,
     fieldSmClass: tournamentFieldSmClass,
     cardClass: tournamentCardClass,

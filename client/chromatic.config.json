@@ -1,0 +1,7 @@
+{
+  "onlyChanged": true,
+  "projectId": "Project:69ce419a7c3be300ee7cc2b8",
+  "storybookBaseDir": "client",
+  "storybookConfigDir": "../tests/client/storybook",
+  "zip": true
+}

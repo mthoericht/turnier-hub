@@ -3,7 +3,7 @@ import { fn } from "storybook/test";
 import KnockoutStageActionList from "@/components/tournament/KnockoutStageActionList.vue";
 
 const meta: Meta<typeof KnockoutStageActionList> = {
-  title: "Tournament/KnockoutStageActionList",
+  title: "Components/Tournament/KnockoutStageActionList",
   component: KnockoutStageActionList,
   args: {
     canCreateR16: true,

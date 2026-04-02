@@ -1,11 +1,18 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import { ref, watch, onMounted } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 import ToastHost from "./components/ToastHost.vue";
 import AppIcon from "./components/common/AppIcon.vue";
+import EntityDialog from "./components/common/EntityDialog.vue";
+import GlobalTextPromptDialog from "./components/common/GlobalTextPromptDialog.vue";
 import { useAuthStore } from "./stores/auth";
+import { useConfirmDialogStore } from "./stores/confirmDialog";
 
 const auth = useAuthStore();
+const confirmDialog = useConfirmDialogStore();
+const { open: confirmOpen, title: confirmTitle, description: confirmDescription, submitLabel: confirmSubmitLabel } =
+  storeToRefs(confirmDialog);
 const route = useRoute();
 const navOpen = ref(false);
 
@@ -203,5 +210,14 @@ function navLinkClass(prefix: string): string
       <RouterView />
     </main>
     <ToastHost />
+    <EntityDialog
+      :open="confirmOpen"
+      :title="confirmTitle"
+      :description="confirmDescription"
+      :submit-label="confirmSubmitLabel"
+      @close="confirmDialog.close"
+      @submit="confirmDialog.submit"
+    />
+    <GlobalTextPromptDialog />
   </div>
 </template>

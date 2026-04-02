@@ -10,4 +10,4 @@ export default meta;
 
 type Story = StoryObj<typeof HomeView>;
 
-export const DefaultDashboard: Story = {};
+export const Default: Story = {};

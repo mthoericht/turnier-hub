@@ -30,9 +30,12 @@ export const useDashboardStore = defineStore("dashboard", () =>
     return "ongoing";
   }
 
-  function tournamentPillClass(
-    status: TournamentStatus
-  ): string
+  /**
+   * Returns the CSS class for the tournament pill based on the tournament status.
+   * @param status - The status of the tournament.
+   * @returns The CSS class for the tournament pill.
+   */
+  function tournamentPillClass(status: TournamentStatus): string
   {
     if (status === "ongoing")
     {

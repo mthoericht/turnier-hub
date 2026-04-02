@@ -8,6 +8,8 @@ import {
   subscribeTournamentRealtime,
   unsubscribeTournamentRealtime,
 } from "@/realtime/realtimeClient";
+import { useConfirmDialogStore } from "@/stores/confirmDialog";
+import { useTextPromptDialogStore } from "@/stores/textPromptDialog";
 import { useTournamentLayoutStore } from "@/stores/tournamentLayout";
 import type { TournamentLayoutContext } from "@/tournament/tournamentContext";
 
@@ -35,6 +37,8 @@ export function useTournamentLayoutState(
   });
 
   const refs = storeToRefs(store);
+  const confirmDialog = useConfirmDialogStore();
+  const textPromptDialog = useTextPromptDialogStore();
 
   return {
     tournamentId,
@@ -57,6 +61,11 @@ export function useTournamentLayoutState(
     formatPhaseLabel: store.formatPhaseLabel,
     formatMatchStatusLabel: store.formatMatchStatusLabel,
     formatMs: store.formatMs,
+
+    confirmAction: confirmDialog.requestConfirm,
+
+    promptText: textPromptDialog.requestPrompt,
+
     load: () => store.load(),
     loadStandings: () => store.loadStandings(),
     loadPlayers: () => store.loadPlayers(),

@@ -7,7 +7,7 @@ import { demoPlayers, demoTeamWithMembers } from "../../fixtures/rosterStoryHelp
 const fieldClass = "ui-input w-full max-w-md";
 
 const meta: Meta<typeof TournamentAddMemberSection> = {
-  title: "Tournament/TournamentAddMemberSection",
+  title: "Components/Tournament/TournamentAddMemberSection",
   component: TournamentAddMemberSection,
   args: {
     mode: "participant",

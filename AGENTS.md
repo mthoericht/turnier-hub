@@ -36,6 +36,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - **Client** dev server proxies **`/api`** to the backend (default `http://localhost:3001`) with **`ws: true`** so WebSockets work through Vite in development.
 - **Client** ESLint: flat config in `client/eslint.config.js` (`typescript-eslint`, `eslint-plugin-vue`; stylistic rules include semicolons, Allman braces, 2-space indent).
 - Tests live in the repository root under `tests/` (`tests/server/**`, `tests/client/**`), executed via each workspace's Vitest config.
+- **Storybook** (`npm run storybook`): config under `tests/client/storybook/`. Name the primary CSF export **`Default`** when reasonable so URLs and tooling that expect `…--default` keep working; preview wraps the canvas with padding and uses **non-inline** docs stories for reliable Vue rendering.
 - Realtime tests: `tests/server/unit/realtimeHub.test.ts` (hub/auth/subscriptions) and `tests/client/unit/realtimeClient.test.ts` (client adapter behavior).
 - Client TypeScript config uses `tsconfig.base.json` + `tsconfig.app.json`/`tsconfig.node.json`; `*.tsbuildinfo` is cache-only and ignored.
 
@@ -75,7 +76,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 ## Front end
 
-- **Pinia:** global **`auth`** and **`toast`**; domain stores in `client/src/stores/` — **`tournamentLayout`** (active tournament detail, standings, score draft, roster form state), **`playersManagement`**, **`classesManagement`**, **`tournamentsList`**, **`dashboard`**. Feature composables mostly **delegate** to these stores (`storeToRefs` + `onMounted` loads). **Vue Router**.
+- **Pinia:** global **`auth`** and **`toast`**; domain stores in `client/src/stores/` — **`tournamentLayout`** (active tournament detail, standings, score draft, roster form state), **`playersManagement`**, **`classesManagement`**, **`tournamentsList`**, **`dashboard`**. **Global modal APIs (no local `EntityDialog` in views):** **`confirmDialog`** (`requestConfirm` → boolean) and **`textPromptDialog`** (`requestPrompt` → string or null); hosts in **`App.vue`** (`EntityDialog` + **`GlobalTextPromptDialog.vue`**). Feature composables mostly **delegate** to these stores (`storeToRefs` + `onMounted` loads). **Vue Router**.
 - **Realtime client:** `client/src/realtime/realtimeClient.ts` — connects after login/hydrate, disconnects on logout; **subscribe/unsubscribe** tournament IDs from `useTournamentLayoutState`; dynamic `import()` of stores in the message dispatcher avoids circular deps with `auth` (prefer **relative** paths in those imports for `vue-tsc`).
 - **Realtime client tests:** `setRealtimeDispatchForTests(...)` exists only as a small test seam for unit tests; production code should keep using the default internal dispatch.
 - Styling: keep style decisions centralized. Use `client/src/style.css` for semantic UI color variables and shared utility classes (`.ui-card`, `.ui-btn-*`, `.ui-input-*`, etc.). Keep font and Tailwind token sources in `client/src/theme/designTokens.js` and `client/src/theme/fonts.css`.
@@ -129,13 +130,14 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Client views | `client/src/views/` |
 | Match card + stopwatch | `client/src/components/tournament/TournamentMatchCard.vue`, `MatchTimer.vue`; `client/src/composables/tournaments/useMatchTimerDisplay.ts` |
 | HTTP API (resource modules) | `client/src/api/authApi.ts`, `classesApi.ts`, `playersApi.ts`, `tournamentsApi.ts` (use `http.ts` for `getToken` / `setToken` / low-level `api`) |
-| Pinia domain stores | `client/src/stores/tournamentLayout.ts`, `playersManagement.ts`, `classesManagement.ts`, `tournamentsList.ts`, `dashboard.ts` (+ `auth`, `theme`, `toast`) |
+| Pinia domain stores | `client/src/stores/tournamentLayout.ts`, `playersManagement.ts`, `classesManagement.ts`, `tournamentsList.ts`, `dashboard.ts` (+ `auth`, `theme`, `toast`, **`confirmDialog`**, **`textPromptDialog`**) |
 | Realtime (client) | `client/src/realtime/realtimeClient.ts` |
 | Tournament domain (pure helpers + UI tokens) | `client/src/tournament/tournamentFormat.ts`, `tournamentDerive.ts`, `tournamentPhaseFlow.ts`, `matchElapsed.ts` (client stopwatch math), `tournamentUi.ts` |
 | Tournament composables (layout + phase UI) | `client/src/tournament/useTournamentLayoutState.ts` (route + WS subscribe → **`tournamentLayout`** store), `useTournamentPhaseStepper.ts` (re-exported from `client/src/composables/tournaments/`) |
 | Tournament composables (roster + lists) | `client/src/composables/tournaments/` — `useTournamentRosterTransfer`, `useTournamentRosterAddMemberForm`, `useTournamentRosterGroupsDisplay`, `useTournamentRosterRenamePrompts`, `useTournamentRosterAddIndividual`, `useTournamentsListState`, `useMatchTimerDisplay` |
 | Feature composables (non-tournament) | `client/src/composables/dashboard/`, `classes/`, `players/` |
 | Modal dialog + focus trap | `client/src/components/common/EntityDialog.vue`, `client/src/composables/useDialogFocusTrap.ts` |
+| Global confirm + text prompt | `client/src/stores/confirmDialog.ts`, `textPromptDialog.ts`, `GlobalTextPromptDialog.vue`, mounted in `App.vue`; Storybook under `tests/client/storybook/stories/components/common/` (`GlobalTextPromptDialog.stories.ts`) |
 | Ansible production deploy | `ansible/README.md`, `ansible/playbooks/`, `ansible/roles/turnier_hub/` |
 | Tournament views | `client/src/views/tournament/` |
 | Tournament types + inject key | `client/src/tournament/tournamentContext.ts` |

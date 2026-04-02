@@ -8,6 +8,7 @@ import {
 } from "@/api/classesApi";
 import { fetchPlayers } from "@/api/playersApi";
 import { useAuthStore } from "@/stores/auth";
+import { useConfirmDialogStore } from "@/stores/confirmDialog";
 import { useToastStore } from "@/stores/toast";
 import type { Player, SchoolClass } from "@/types";
 
@@ -134,12 +135,15 @@ export const useClassesManagementStore = defineStore("classesManagement", () =>
 
   async function remove(id: string): Promise<void>
   {
-    if (
-      !confirm(
-        "Klasse wirklich löschen? Zugeordnete Spieler verlieren die Zuordnung.",
-      )
-    )
-      return;
+    const ok = await useConfirmDialogStore().requestConfirm(
+      {
+        title: "Klasse löschen",
+        description:
+          "Klasse wirklich löschen? Zugeordnete Spieler verlieren die Zuordnung.",
+        submitLabel: "Löschen",
+      }
+    );
+    if (!ok) return;
     try
     {
       await deleteSchoolClass(id);

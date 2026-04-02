@@ -3,7 +3,7 @@ import AppIcon from "@/components/common/AppIcon.vue";
 import DashboardCard from "@/components/dashboard/DashboardCard.vue";
 
 const meta: Meta<typeof DashboardCard> = {
-  title: "Dashboard/DashboardCard",
+  title: "Components/Dashboard/DashboardCard",
   component: DashboardCard,
 };
 

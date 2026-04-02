@@ -3,7 +3,7 @@ import { fn } from "storybook/test";
 import EntityDialog from "@/components/common/EntityDialog.vue";
 
 const meta: Meta<typeof EntityDialog> = {
-  title: "Common/EntityDialog",
+  title: "Components/Common/EntityDialog",
   component: EntityDialog,
   args: {
     open: true,
@@ -20,7 +20,7 @@ export default meta;
 
 type Story = StoryObj<typeof EntityDialog>;
 
-export const Open: Story = {
+export const Default: Story = {
   render: (args) => ({
     components: { EntityDialog },
     setup()
@@ -38,19 +38,5 @@ export const Open: Story = {
         </p>
       </EntityDialog>
     `,
-  }),
-};
-
-export const Closed: Story = {
-  args: {
-    open: false,
-  },
-  render: (args) => ({
-    components: { EntityDialog },
-    setup()
-    {
-      return { args };
-    },
-    template: "<EntityDialog v-bind=\"args\" />",
   }),
 };

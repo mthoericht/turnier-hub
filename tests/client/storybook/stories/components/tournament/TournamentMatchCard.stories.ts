@@ -8,7 +8,7 @@ import {
 } from "../../fixtures/matchStoryHelpers";
 
 const meta: Meta<typeof TournamentMatchCard> = {
-  title: "Tournament/TournamentMatchCard",
+  title: "Components/Tournament/TournamentMatchCard",
   component: TournamentMatchCard,
   args: {
     match: baseScheduledMatch,

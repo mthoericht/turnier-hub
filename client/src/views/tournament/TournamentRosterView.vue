@@ -33,6 +33,8 @@ const {
   fieldClass,
   cardClass,
   transferKaderFromTournament,
+  confirmAction,
+  promptText,
 } = ctx;
 
 const { addIndividualAsTeam } = useTournamentRosterAddIndividual({
@@ -57,7 +59,11 @@ const {
   sourceTournaments,
   loadingSources,
   transferFromSource,
-} = useTournamentRosterTransfer({ tournament, transferKaderFromTournament });
+} = useTournamentRosterTransfer({
+  tournament,
+  transferKaderFromTournament,
+  confirmAction,
+});
 
 const {
   isIndividuals,
@@ -71,6 +77,7 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
   canEdit,
   renameGroupLabel,
   renameTeam,
+  promptText,
 });
 </script>
 

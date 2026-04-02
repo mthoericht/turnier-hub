@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import AuthFormField from "@/components/auth/AuthFormField.vue";
 
 const meta: Meta<typeof AuthFormField> = {
-  title: "Auth/AuthFormField",
+  title: "Components/Auth/AuthFormField",
   component: AuthFormField,
   args: {
     label: "E-Mail",

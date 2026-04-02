@@ -1,18 +1,14 @@
 import { defineConfig, type TestProjectConfiguration } from "vitest/config";
-import vue from "@vitejs/plugin-vue";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
-const dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
-const vitestSetupFile = path.join(dirname, "vitest.setup.ts");
+import { clientPlugins, clientAlias, clientRoot } from "./vite.shared";
+const vitestSetupFile = path.join(clientRoot, "vitest.setup.ts");
 
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
-  plugins: [vue()],
+  plugins: clientPlugins(),
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src")
-    }
+    alias: clientAlias,
   },
   test: {
     // Integration tests share one SQLite file (server/.env.test); parallel files
@@ -38,7 +34,7 @@ export default defineConfig({
             // The plugin will run tests for the stories defined in your Storybook config
             // See options at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon#storybooktest
             storybookTest({
-              configDir: path.join(dirname, "../tests/client/storybook"),
+              configDir: path.join(clientRoot, "../tests/client/storybook"),
             }),
           ],
           test: {

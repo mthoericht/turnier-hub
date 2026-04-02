@@ -3,7 +3,7 @@ import { ref } from "vue";
 import ScopeToggle from "@/components/common/ScopeToggle.vue";
 
 const meta: Meta<typeof ScopeToggle> = {
-  title: "Common/ScopeToggle",
+  title: "Components/Common/ScopeToggle",
   component: ScopeToggle,
 };
 

@@ -1,5 +1,9 @@
 import type { ComputedRef, Ref } from "vue";
+import type { ConfirmDialogActionOptions } from "@/stores/confirmDialog";
+import type { TextPromptOptions } from "@/stores/textPromptDialog";
 import type { CreatedBy, Player } from "@/types";
+
+export type { ConfirmDialogActionOptions, TextPromptOptions };
 
 export type TournamentMode = "GROUP_KO" | "DIRECT_KO" | "ROUND_ROBIN";
 export type MatchPhase = "GROUP" | "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL";
@@ -96,6 +100,11 @@ export type TournamentLayoutContext = {
   formatPhaseLabel: (phase: MatchPhase | string) => string;
   formatMatchStatusLabel: (status: MatchStatus) => string;
   formatMs: (ms: number) => string;
+
+  confirmAction: (opts: ConfirmDialogActionOptions) => Promise<boolean>;
+
+  promptText: (opts: TextPromptOptions) => Promise<string | null>;
+
   load: () => Promise<void>;
   loadStandings: () => Promise<void>;
   loadPlayers: () => Promise<void>;

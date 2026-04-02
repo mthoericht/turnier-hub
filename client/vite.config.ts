@@ -1,11 +1,10 @@
 import { defineConfig } from "vite";
-import vue from "@vitejs/plugin-vue";
-import path from "node:path";
+import { clientPlugins, clientAlias } from "./vite.shared";
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: clientPlugins(),
   resolve: {
-    alias: { "@": path.resolve(__dirname, "src") },
+    alias: clientAlias,
   },
   server: {
     port: 5173,

@@ -4,7 +4,7 @@ import ToastHost from "@/components/ToastHost.vue";
 import { useToastStore } from "@/stores/toast";
 
 const meta: Meta<typeof ToastHost> = {
-  title: "Common/ToastHost",
+  title: "Components/Common/ToastHost",
   component: ToastHost,
 };
 

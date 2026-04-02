@@ -10,7 +10,7 @@ const timerBtnClass =
   "rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-100";
 
 const meta: Meta<typeof MatchTimer> = {
-  title: "Tournament/MatchTimer",
+  title: "Components/Tournament/MatchTimer",
   component: MatchTimer,
   args: {
     match: baseScheduledMatch,

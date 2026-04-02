@@ -7,6 +7,7 @@ import {
   type TournamentListRow,
 } from "@/api/tournamentsApi";
 import { useAuthStore } from "@/stores/auth";
+import { useConfirmDialogStore } from "@/stores/confirmDialog";
 import type { TournamentMode } from "@/tournament/tournamentContext";
 
 export type TournamentsScope = "all" | "own";
@@ -84,7 +85,14 @@ export const useTournamentsListStore = defineStore("tournamentsList", () =>
 
   async function remove(id: string): Promise<void>
   {
-    if (!confirm("Turnier wirklich löschen?")) return;
+    const ok = await useConfirmDialogStore().requestConfirm(
+      {
+        title: "Turnier löschen",
+        description: "Turnier wirklich löschen?",
+        submitLabel: "Löschen",
+      }
+    );
+    if (!ok) return;
     try
     {
       await deleteTournament(id);

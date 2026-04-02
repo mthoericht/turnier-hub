@@ -4,7 +4,7 @@ import AppIcon from "@/components/common/AppIcon.vue";
 import EmptyStateCard from "@/components/common/EmptyStateCard.vue";
 
 const meta: Meta<typeof EmptyStateCard> = {
-  title: "Common/EmptyStateCard",
+  title: "Components/Common/EmptyStateCard",
   component: EmptyStateCard,
   args: {
     title: "Noch keine Daten vorhanden",

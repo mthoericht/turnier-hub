@@ -39,7 +39,7 @@ const groupA: StandingTeamRow[] = [
 ];
 
 const meta: Meta<typeof TournamentStandingsTable> = {
-  title: "Tournament/TournamentStandingsTable",
+  title: "Components/Tournament/TournamentStandingsTable",
   component: TournamentStandingsTable,
   args: {
     standingsGroups: { A: groupA },

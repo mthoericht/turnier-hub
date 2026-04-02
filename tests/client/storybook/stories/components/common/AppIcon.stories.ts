@@ -15,7 +15,7 @@ const iconNames = [
 ] as const;
 
 const meta: Meta<typeof AppIcon> = {
-  title: "Common/AppIcon",
+  title: "Components/Common/AppIcon",
   component: AppIcon,
   argTypes: {
     name: { control: "select", options: [...iconNames] },
@@ -30,7 +30,8 @@ export default meta;
 
 type Story = StoryObj<typeof AppIcon>;
 
-export const Playground: Story = {};
+/** Primary story; URL suffix `--default` matches Storybook / bookmarks. */
+export const Default: Story = {};
 
 export const AllIcons: Story = {
   render: () => ({

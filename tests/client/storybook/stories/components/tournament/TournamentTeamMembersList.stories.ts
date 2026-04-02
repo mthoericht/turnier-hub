@@ -6,7 +6,7 @@ import { demoTeamEmpty, demoTeamWithMembers } from "../../fixtures/rosterStoryHe
 const onRemoveMember = fn();
 
 const meta: Meta<typeof TournamentTeamMembersList> = {
-  title: "Tournament/TournamentTeamMembersList",
+  title: "Components/Tournament/TournamentTeamMembersList",
   component: TournamentTeamMembersList,
 };
 

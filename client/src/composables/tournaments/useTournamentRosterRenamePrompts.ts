@@ -2,7 +2,7 @@ import type { TournamentLayoutContext, TournamentTeam } from "@/tournament/tourn
 
 type RosterRenamePromptsDeps = Pick<
   TournamentLayoutContext,
-  "canEdit" | "renameGroupLabel" | "renameTeam"
+  "canEdit" | "renameGroupLabel" | "renameTeam" | "promptText"
 >;
 
 export function useTournamentRosterRenamePrompts(
@@ -15,7 +15,13 @@ export function useTournamentRosterRenamePrompts(
   async function promptRenameGroup(label: string): Promise<void>
   {
     if (!deps.canEdit.value) return;
-    const next = prompt("Neuer Gruppenname", label);
+    const next = await deps.promptText({
+      title: "Neuer Gruppenname",
+      inputLabel: "Gruppenname",
+      placeholder: label,
+      initialValue: label,
+      submitLabel: "Speichern",
+    });
     if (!next) return;
     await deps.renameGroupLabel(label, next);
   }
@@ -23,7 +29,13 @@ export function useTournamentRosterRenamePrompts(
   async function promptRenameTeam(team: TournamentTeam): Promise<void>
   {
     if (!deps.canEdit.value) return;
-    const next = prompt("Neuer Mannschaftsname", team.name);
+    const next = await deps.promptText({
+      title: "Neuer Mannschaftsname",
+      inputLabel: "Mannschaftsname",
+      placeholder: team.name,
+      initialValue: team.name,
+      submitLabel: "Speichern",
+    });
     if (!next) return;
     await deps.renameTeam(team.id, next);
   }

@@ -4,7 +4,7 @@ import { fetchTournaments, type TournamentListRow } from "@/api/tournamentsApi";
 
 type RosterTransferDeps = Pick<
   TournamentLayoutContext,
-  "tournament" | "transferKaderFromTournament"
+  "tournament" | "transferKaderFromTournament" | "confirmAction"
 >;
 
 export function useTournamentRosterTransfer(
@@ -50,8 +50,13 @@ export function useTournamentRosterTransfer(
 
     if (hasExistingMembers)
     {
-      const ok = confirm(
-        "Im Ziel gibt es bereits Zuordnungen. Spieler, die im Ziel bereits zugeordnet sind, werden übersprungen. Fortfahren?"
+      const ok = await deps.confirmAction(
+        {
+          title: "Kader übertragen",
+          description:
+            "Im Ziel gibt es bereits Zuordnungen. Spieler, die im Ziel bereits zugeordnet sind, werden übersprungen. Fortfahren?",
+          submitLabel: "Fortfahren",
+        }
       );
       if (!ok) return;
     }
