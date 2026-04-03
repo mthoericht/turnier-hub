@@ -1,6 +1,8 @@
 import "./stubs/vueDevtoolsNextHook";
 
-import { definePreview, setup } from "@storybook/vue3-vite";
+import type { AfterEach } from "storybook/internal/csf";
+import type { Preview } from "@storybook/vue3-vite";
+import { setup } from "@storybook/vue3-vite";
 import { createPinia } from "pinia";
 import { createMemoryHistory, createRouter } from "vue-router";
 import "../../../client/src/style.css";
@@ -31,98 +33,6 @@ function ensureVueDevtoolsKitGlobals()
 }
 
 ensureVueDevtoolsKitGlobals();
-
-function isVueDevtoolsPrepareAppReadError(reason: unknown): boolean
-{
-  const message = (reason as { message?: unknown } | undefined)?.message ?? reason;
-  if (typeof message !== "string")
-  {
-    return false;
-  }
-  return (
-    message.includes("Cannot read properties of undefined") &&
-    message.includes("reading 'app'")
-  );
-}
-
-// In some Storybook view switches, `@vue/devtools-kit` throws an unhandled promise.
-// If it's exactly the known devtools prepare.js crash, suppress the noisy console output.
-if (typeof window !== "undefined")
-{
-  window.addEventListener("unhandledrejection", (event) =>
-  {
-    if (isVueDevtoolsPrepareAppReadError(event.reason))
-    {
-      event.preventDefault();
-    }
-  });
-
-  window.addEventListener("error", (event) =>
-  {
-    const msg = event?.message;
-    if (typeof msg === "string" && msg.includes("reading 'app'"))
-    {
-      // Best-effort suppression of the devtools prepare.js crash noise.
-      event.preventDefault?.();
-    }
-  });
-}
-
-const decodeEntitiesWarningFragment =
-  "decodeEntities option is passed but will be ignored in non-browser builds.";
-
-function hasDecodeEntitiesWarning(args: unknown[]): boolean
-{
-  return args.some((arg) =>
-  {
-    if (typeof arg !== "string")
-    {
-      return false;
-    }
-    return arg.includes(decodeEntitiesWarningFragment);
-  });
-}
-
-function hasPopoverProviderAriaLabelWarning(args: unknown[]): boolean
-{
-  return args.some((arg) =>
-  {
-    if (typeof arg !== "string")
-    {
-      return false;
-    }
-    // Storybook internates `PopoverProvider` ohne `ariaLabel` (derzeit noch optional),
-    // ab SB 11 wird es verpflichtend. Für unsere Tests/Dev-Logs filtern wir das Noise.
-    return (
-      arg.includes("ariaLabel") &&
-      arg.includes("PopoverProvider") &&
-      arg.includes("will become mandatory in Storybook 11")
-    );
-  });
-}
-
-// Storybook UI runs stories in varying environments; Vue may emit a noisy
-// warning for `decodeEntities` in some non-browser compilation paths.
-// Filter it out so it doesn't clutter local dev / CI logs.
-const originalWarn = console.warn.bind(console);
-console.warn = (...args: unknown[]) =>
-{
-  if (hasDecodeEntitiesWarning(args) || hasPopoverProviderAriaLabelWarning(args))
-  {
-    return;
-  }
-  originalWarn(...args);
-};
-
-const originalError = console.error.bind(console);
-console.error = (...args: unknown[]) =>
-{
-  if (hasDecodeEntitiesWarning(args) || hasPopoverProviderAriaLabelWarning(args))
-  {
-    return;
-  }
-  originalError(...args);
-};
 
 setup((app) =>
 {
@@ -159,8 +69,42 @@ function createStorybookRouter()
   });
 }
 
-export default definePreview({
-  addons: [],
+/**
+ * @storybook/addon-a11y runs axe only when `viewMode === "story"`, but the manager still
+ * sets the Accessibility panel to "running" after `afterEach`. In Docs view no a11y report
+ * is emitted, so the panel can stay on "Accessibility scan in progress" indefinitely.
+ */
+const afterEachA11yDocsWorkaround: AfterEach = async (context) =>
+{
+  const { viewMode, reporting, parameters, globals } = context;
+  if (viewMode === "story")
+  {
+    return;
+  }
+  if (parameters?.a11y?.disable === true || parameters?.a11y?.test === "off")
+  {
+    return;
+  }
+  if (globals?.a11y?.manual === true)
+  {
+    return;
+  }
+  reporting.addReport({
+    type: "a11y",
+    version: 1,
+    result: {
+      violations: [],
+      passes: [],
+      incomplete: [],
+    },
+    status: "passed",
+  });
+};
+
+// Classic `Preview` + `setup` instead of `definePreview({ addons: [] })`, which can interact oddly
+// with addon preview annotations. A11y uses default body context + axe excludes.
+const preview: Preview = {
+  afterEach: afterEachA11yDocsWorkaround,
   parameters: {
     layout: "padded",
     backgrounds: {
@@ -177,13 +121,9 @@ export default definePreview({
       },
     },
     a11y: {
-      // 'todo' - show a11y violations in the test UI only
-      // 'error' - fail CI on a11y violations
-      // 'off' - skip a11y checks entirely
-      test: "todo",
+      test: "error",
     },
     docs: {
-      // Embedded inline docs + Vue can hide or clip the preview; iframe is more reliable.
       story: { inline: false },
     },
   },
@@ -196,11 +136,8 @@ export default definePreview({
       },
       updated()
       {
-        // Storybook rerenders when switching views; re-stub to avoid globals being reset.
         ensureVueDevtoolsKitGlobals();
       },
-      // Padding + full width so previews are not glued to the iframe corner; `min-h` keeps empty
-      // states from collapsing to a zero-height strip (looked like “nothing renders”).
       template: `
         <div
           class="sb-canvas-root box-border min-h-[50vh] w-full p-6 text-slate-900 antialiased"
@@ -211,4 +148,6 @@ export default definePreview({
       `,
     }),
   ],
-});
+};
+
+export default preview;

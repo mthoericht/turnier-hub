@@ -1,6 +1,6 @@
 import { defineConfig, type TestProjectConfiguration } from "vitest/config";
 import path from "node:path";
-import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
+import { createStorybookVitestProject } from "./storybookVitestProject";
 import { clientPlugins, clientAlias, clientRoot } from "./vite.shared";
 const vitestSetupFile = path.join(clientRoot, "vitest.setup.ts");
 
@@ -27,30 +27,11 @@ export default defineConfig({
         },
       ];
 
-      if (process.env.STORYBOOK_TESTS === "true")
+      // CLI: `STORYBOOK_TESTS=true` (see client/package.json). Storybook UI addon child sets
+      // `VITEST_STORYBOOK=true` and filters Vitest with `project: storybook:<configDir>`.
+      if (process.env.STORYBOOK_TESTS === "true" || process.env.VITEST_STORYBOOK === "true")
       {
-        baseProjects.push({
-          plugins: [
-            // The plugin will run tests for the stories defined in your Storybook config
-            // See options at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon#storybooktest
-            storybookTest({
-              configDir: path.join(clientRoot, "../tests/client/storybook"),
-            }),
-          ],
-          test: {
-            browser: {
-              enabled: true,
-              headless: true,
-              provider: "playwright",
-              instances: [
-                {
-                  browser: "chromium",
-                },
-              ],
-            },
-            setupFiles: [vitestSetupFile],
-          },
-        });
+        baseProjects.push(createStorybookVitestProject());
       }
 
       return baseProjects;
