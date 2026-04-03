@@ -51,7 +51,12 @@ defineProps<{
             {{ step.shortLabel }}
           </span>
           <span
-            class="hidden text-[10px] leading-tight text-slate-500 sm:block"
+            class="hidden text-[10px] leading-tight sm:block"
+            :class="{
+              'text-slate-700': stepState(index) === 'current',
+              'text-emerald-900': stepState(index) === 'done',
+              'text-slate-600': stepState(index) === 'upcoming',
+            }"
           >
             {{ step.hint }}
           </span>

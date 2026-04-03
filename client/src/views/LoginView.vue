@@ -90,9 +90,10 @@ async function submit(): Promise<void>
     </form>
     <p class="mt-6 text-sm text-slate-500">
       Noch kein Konto?
+      <!-- a11y-vialolation: Routerlink-class: class="text-court-800 hover:underline"-->
       <RouterLink
         to="/signup"
-        class="text-court-800 hover:underline"
+        class="text-court-800 underline underline-offset-2 hover:no-underline"
       >
         Registrieren
       </RouterLink>

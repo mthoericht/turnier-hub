@@ -135,7 +135,7 @@ async function submit(): Promise<void>
       Schon registriert?
       <RouterLink
         to="/login"
-        class="text-court-800 hover:underline"
+        class="text-court-800 underline underline-offset-2 hover:no-underline"
       >
         Login
       </RouterLink>

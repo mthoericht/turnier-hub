@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, useId } from "vue";
 import type { Player } from "@/types";
 import type { TournamentTeam } from "@/tournament/tournamentContext";
 
@@ -23,6 +23,12 @@ const props = withDefaults(defineProps<{
   groupOptions: () => [],
   selectableTeams: () => [],
 });
+
+const uid = useId();
+const groupSelectId = `${uid}-group`;
+const teamSelectId = `${uid}-team`;
+const classSelectId = `${uid}-class`;
+const playerSelectId = `${uid}-player`;
 
 const emit = defineEmits<{
   "update:selectedClassId": [value: string];
@@ -90,10 +96,11 @@ function onClassChange(value: string): void
         v-if="props.mode === 'member' && hasGroups && groupOptions.length > 0"
         class="min-w-0 flex-1 sm:max-w-xs"
       >
-        <label class="mb-1 block text-xs text-slate-600">
+        <label class="mb-1 block text-xs text-slate-600" :for="groupSelectId">
           Gruppe
         </label>
         <select
+          :id="groupSelectId"
           :value="selectedGroupLabel"
           :class="fieldClass"
           @change="emit('update:selectedGroupLabel', ($event.target as HTMLSelectElement).value)"
@@ -112,10 +119,11 @@ function onClassChange(value: string): void
         v-if="props.mode === 'member'"
         class="min-w-0 flex-1 sm:max-w-xs"
       >
-        <label class="mb-1 block text-xs text-slate-600">
+        <label class="mb-1 block text-xs text-slate-600" :for="teamSelectId">
           Mannschaft
         </label>
         <select
+          :id="teamSelectId"
           :value="selectedTeamId"
           :disabled="selectableTeams.length === 0"
           :class="fieldClass"
@@ -132,10 +140,11 @@ function onClassChange(value: string): void
         </select>
       </div>
       <div class="min-w-0 flex-1 sm:max-w-xs">
-        <label class="mb-1 block text-xs text-slate-600">
+        <label class="mb-1 block text-xs text-slate-600" :for="classSelectId">
           Klasse
         </label>
         <select
+          :id="classSelectId"
           :value="selectedClassId"
           :class="fieldClass"
           @change="onClassChange(($event.target as HTMLSelectElement).value)"
@@ -151,10 +160,11 @@ function onClassChange(value: string): void
         </select>
       </div>
       <div class="min-w-0 flex-1 sm:max-w-md">
-        <label class="mb-1 block text-xs text-slate-600">
+        <label class="mb-1 block text-xs text-slate-600" :for="playerSelectId">
           {{ props.mode === "member" ? "Spieler" : "Spieler als Teilnehmer hinzufügen" }}
         </label>
         <select
+          :id="playerSelectId"
           :value="selectedPlayerId"
           :class="fieldClass"
           @change="emit('update:selectedPlayerId', ($event.target as HTMLSelectElement).value)"

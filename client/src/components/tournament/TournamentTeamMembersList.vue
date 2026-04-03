@@ -44,7 +44,7 @@ const emit = defineEmits<{
       <button
         v-if="canEdit"
         type="button"
-        class="text-xs text-rose-600"
+        class="text-xs font-medium text-rose-800 underline decoration-rose-800/80 underline-offset-2 hover:text-rose-900"
         @click="emit('remove-member', team.id, mem.playerId)"
       >
         Entfernen

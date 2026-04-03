@@ -24,5 +24,18 @@ export default meta;
 
 type Story = StoryObj<typeof TournamentsListItem>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  render: (args) => ({
+    components: { TournamentsListItem },
+    setup()
+    {
+      return { args };
+    },
+    template: `
+      <ul class="m-0 list-none space-y-2 p-0">
+        <TournamentsListItem v-bind="args" />
+      </ul>
+    `,
+  }),
+};
 
