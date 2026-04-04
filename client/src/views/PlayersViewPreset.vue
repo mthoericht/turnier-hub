@@ -215,7 +215,6 @@ const selectClass =
       :title="editingId ? 'Spieler bearbeiten' : 'Neuer Spieler'"
       :description="editingId ? 'Bearbeite die Spielerinformationen' : 'Füge einen neuen Spieler hinzu'"
       :submit-label="editingId ? 'Speichern' : 'Hinzufügen'"
-      :submit-disabled="!dialogName.trim()"
       @close="closeDialog"
       @submit="submitDialog"
     >

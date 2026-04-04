@@ -30,7 +30,7 @@ export const Default: Story = {
       return { args, nameRef, sportRef, modeRef, teamsAreIndividualsRef };
     },
     template: `
-      <div class="max-w-md p-4 ui-card">
+      <div class="w-full max-w-3xl p-6 ui-card">
         <NewTournament
           v-model:name="nameRef"
           v-model:sport="sportRef"

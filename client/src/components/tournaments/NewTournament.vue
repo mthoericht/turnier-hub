@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId } from "vue";
+import { computed, useId } from "vue";
 import { useRouter } from "vue-router";
 import type { TournamentMode } from "@/tournament/tournamentContext";
 import type { TournamentListRow } from "@/api/tournamentsApi";
@@ -10,6 +10,8 @@ const props = defineProps<{
   mode: TournamentMode;
   teamsAreIndividuals: boolean;
   createT: () => Promise<TournamentListRow | null>;
+  /** When set, applied to the main heading (e.g. parent dialog `aria-labelledby`). */
+  headingId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -17,6 +19,8 @@ const emit = defineEmits<{
   (e: "update:sport", value: string): void;
   (e: "update:mode", value: TournamentMode): void;
   (e: "update:teamsAreIndividuals", value: boolean): void;
+  (e: "cancel"): void;
+  (e: "created"): void;
 }>();
 
 const router = useRouter();
@@ -41,9 +45,11 @@ const teamsAreIndividualsModel = computed({
   set: (v: boolean) => emit("update:teamsAreIndividuals", v),
 });
 
-const showCreateForm = ref(false);
-
 const formFieldId = useId();
+const fallbackHeadingId = useId();
+const headingIdResolved = computed(
+  () => props.headingId ?? fallbackHeadingId
+);
 const nameFieldId = `${formFieldId}-name`;
 const sportFieldId = `${formFieldId}-sport`;
 
@@ -54,44 +60,25 @@ async function handleCreate(): Promise<void>
 {
   const result = await props.createT();
   if (!result) return;
-  showCreateForm.value = false;
+  emit("created");
   void router.push({ name: "tournament-roster", params: { id: result.id } });
 }
 </script>
 
 <template>
-  <div>
-    <button
-      v-if="!showCreateForm"
-      type="button"
-      class="rounded-lg bg-blue-600 px-5 py-3 text-base font-medium text-white hover:bg-blue-600/90 sm:py-2 sm:text-sm"
-      @click="showCreateForm = true"
+  <div class="space-y-5">
+    <h2
+      :id="headingIdResolved"
+      class="font-display text-lg font-semibold text-slate-900"
     >
-      Turnier anlegen
-    </button>
+      Neues Turnier erstellen
+    </h2>
 
-    <div
-      v-else
-      class="rounded-xl border border-slate-200 bg-white/70 p-5 space-y-5"
-    >
-      <div class="flex items-center justify-between">
-        <h2 class="font-display text-lg font-semibold text-slate-900">
-          Neues Turnier erstellen
-        </h2>
-        <button
-          type="button"
-          class="text-sm text-slate-500 hover:text-slate-800"
-          @click="showCreateForm = false"
-        >
-          Abbrechen
-        </button>
-      </div>
-
-      <form class="space-y-5" @submit.prevent="() => void handleCreate()">
+    <form class="space-y-5" @submit.prevent="() => void handleCreate()">
         <div class="grid gap-4 sm:grid-cols-2">
-          <div>
+          <div class="space-y-2">
             <label
-              class="mb-1 block text-sm font-medium text-slate-700"
+              class="block text-sm font-medium text-slate-700"
               :for="nameFieldId"
             >
               Turniername
@@ -101,12 +88,13 @@ async function handleCreate(): Promise<void>
               v-model="nameModel"
               placeholder="z.B. Schulcup 2026"
               autocomplete="off"
+              required
               :class="['w-full', inputClass]"
             />
           </div>
-          <div>
+          <div class="space-y-2">
             <label
-              class="mb-1 block text-sm font-medium text-slate-700"
+              class="block text-sm font-medium text-slate-700"
               :for="sportFieldId"
             >
               Sportart
@@ -228,7 +216,7 @@ async function handleCreate(): Promise<void>
           <button
             type="button"
             class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-            @click="showCreateForm = false"
+            @click="emit('cancel')"
           >
             Abbrechen
           </button>
@@ -240,7 +228,6 @@ async function handleCreate(): Promise<void>
           </button>
         </div>
       </form>
-    </div>
   </div>
 </template>
 

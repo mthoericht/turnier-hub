@@ -131,7 +131,6 @@ const inputClass =
       :title="editingId ? 'Klasse bearbeiten' : 'Neue Klasse'"
       :description="editingId ? 'Bearbeite die Klasseninformationen' : 'Füge eine neue Klasse hinzu'"
       :submit-label="editingId ? 'Speichern' : 'Hinzufügen'"
-      :submit-disabled="!dialogName.trim()"
       @close="closeDialog"
       @submit="submitDialog"
     >
