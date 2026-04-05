@@ -88,7 +88,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - **Phase flow** is mode-aware and displays concrete rounds: GROUP_KO / DIRECT_KO show `Achtelfinale`, `Viertelfinale`, `Halbfinale`, `Finale` (as applicable), then `Ende`; ROUND_ROBIN shows `Spiele → Ende`.
 - **Round-robin scheduling** uses the circle method with parallel rounds (`roundOrder` on Match); UI shows "Spielrunde N (X Spiele parallel)".
 - **KO bracket** generation: `server/src/services/knockoutBracket.ts` centralizes randomization + pairings and handles byes (null `awayTeamId`). Bye matches are created as `FINISHED` and auto-resolved when advancing.
-- **Tournament routes are modularized** under `server/src/routes/tournaments/` (`index.ts`, `core.ts`, `teams.ts`, `matches.ts`, `standings-advance.ts`, `shared.ts`).
+- **Tournament routes are modularized** under `server/src/routes/tournaments/` (`index.ts`, `core.ts`, `teams.ts`, `matches.ts`, `standings-advance.ts`, `shared.ts`). Route handlers are thin (validate → service → notify → respond); business logic lives in `server/src/services/tournamentRosterService.ts` and `tournamentMatchService.ts`.
 - **Score draft:** `buildScoreDraftFromMatches` / `mergeScoreDraftFromMatches` in `tournamentDerive.ts` — merge on **`load()`** (including **WebSocket-driven** refetches) avoids overwriting in-progress edits; draft defaults missing DB scores to **`"0"`**; **`parseScoreDraftForPatch`** requires **both** goals when saving (no partial PATCH). Tournament action errors use **toasts** from the layout store / `useTournamentLayoutState` (initial load failure still uses layout `error`). **Regenerate group / advance** confirm dialogs when existing results would be lost (`groupRegenerateRisksDataLoss`, `advanceTargetRisksDataLoss` in `tournamentDerive.ts`). "Freilos" replaces `—` for null awayTeam in KO matches.
 - **Delete all matches:** `DELETE /api/tournaments/:id/matches` removes every match and resets the phase to `GROUP`. In the Spielbetrieb view, a **"Danger zone"** section (visible when matches exist) offers a red **"Delete all matches and groups"** button with a `confirm()` dialog. Client: `deleteAllMatches` in `tournamentsApi.ts` / `useTournamentLayoutState`.
 - **Group generation guard:** `POST /api/tournaments/:id/generate-group-matches` only includes teams with at least one member; empty teams are excluded and their `groupLabel` stays/gets `null`.
@@ -126,14 +126,15 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | WebSocket + push notify | `server/src/realtime/hub.ts`, `server/src/realtime/notify.ts` (`notifyCatalogChanged`, `notifyTournamentsListChanged` = broadcast; `notifyTournamentChanged` = per-tournament subscribers) |
 | Tournament route modules | `server/src/routes/tournaments/` |
 | Auth middleware | `server/src/middleware/auth.ts` |
-| Tournament logic | `server/src/services/` (`advancePhase`, `standings`, `matchTimer`, `roundRobinSchedule`, `knockoutBracket`) |
+| Tournament logic (pure) | `server/src/services/` (`advancePhase`, `standings`, `matchTimer`, `roundRobinSchedule`, `knockoutBracket`) |
+| Tournament services (orchestration) | `server/src/services/tournamentRosterService.ts` (teams, members, kader transfer), `server/src/services/tournamentMatchService.ts` (group/KO generation, scores, timer, delete-all); `ServiceError.ts` for typed errors |
 | DB seed | `server/scripts/seed.ts` |
 | DB clear (keep User) | `server/scripts/clearDbExceptUsers.ts` |
 | Client views | `client/src/views/` |
 | Match card + stopwatch | `client/src/components/tournament/TournamentMatchCard.vue`, `MatchTimer.vue`; `client/src/composables/tournaments/useMatchTimerDisplay.ts` |
 | Shared types + helpers (client + server) | `shared/src/catalog.ts` (catalog DTOs, `formatCreator`, `AuthUser`), `shared/src/tournament.ts` — package **`@turnier-hub/shared`** |
 | HTTP API (resource modules) | `client/src/api/authApi.ts`, `classesApi.ts`, `playersApi.ts`, `tournamentsApi.ts` (use `http.ts` for `getToken` / `setToken` / low-level `api`; types from `@turnier-hub/shared`) |
-| Pinia domain stores | `client/src/stores/tournamentLayout.ts`, `playersManagement.ts`, `classesManagement.ts`, `tournamentsList.ts`, `dashboard.ts` (+ `auth`, `theme`, `toast`, **`confirmDialog`**, **`textPromptDialog`**) |
+| Pinia domain stores | `client/src/stores/tournamentLayout/` (`index.ts` main store, `rosterActions.ts`, `matchActions.ts`, `phaseActions.ts`), `playersManagement.ts`, `classesManagement.ts`, `tournamentsList.ts`, `dashboard.ts` (+ `auth`, `theme`, `toast`, **`confirmDialog`**, **`textPromptDialog`**) |
 | Realtime (client) | `client/src/realtime/realtimeClient.ts` |
 | Tournament domain (pure helpers + UI tokens) | `client/src/tournament/tournamentFormat.ts`, `tournamentDerive.ts`, `tournamentPhaseFlow.ts`, `matchElapsed.ts` (client stopwatch math), `tournamentUi.ts` |
 | Tournament composables (layout + phase UI) | `client/src/tournament/useTournamentLayoutState.ts` (route + WS subscribe → **`tournamentLayout`** store), `useTournamentPhaseStepper.ts` (re-exported from `client/src/composables/tournaments/`) |

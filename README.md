@@ -256,7 +256,7 @@ turnier-hub/
 │   │   ├── components/        # Shared UI (e.g. CatalogPageHeader, EntityDialog, ScopeToggle); Storybook stories in tests/client/storybook/
 │   │   ├── composables/       # Thin views over Pinia (dashboard, classes, players, tournaments)
 │   │   ├── realtime/          # WebSocket client (connect, tournament subscribe, dispatch to stores)
-│   │   ├── stores/            # Pinia: auth, theme, toast + domain (tournamentLayout, players/classes/tournaments list, dashboard)
+│   │   ├── stores/            # Pinia: auth, theme, toast + domain (tournamentLayout/ with rosterActions, matchActions, phaseActions; players/classes/tournaments list, dashboard)
 │   │   ├── theme/             # centralized design tokens and font import
 │   │   ├── tournament/        # Pure derive/format logic, layout bridge (useTournamentLayoutState → store), UI class tokens; DTO types from @turnier-hub/shared
 │   │   └── views/
@@ -267,8 +267,9 @@ turnier-hub/
 │   └── src/
 │       ├── app.ts, index.ts   # Express app; HTTP server + WebSocket upgrade
 │       ├── realtime/          # WebSocket hub (/api/ws); tournament push to subscribers; catalog + list broadcast
-│       └── routes/            # auth, classes, players, tournaments/…
-│           └── tournaments/   # Modular tournament routes (index/core/teams/matches/standings-advance/shared)
+│       ├── routes/            # auth, classes, players, tournaments/…
+│       │   └── tournaments/   # Thin route handlers (validate → service → notify → respond)
+│       └── services/          # Pure logic (advancePhase, standings, matchTimer, knockoutBracket, roundRobinSchedule) + orchestration (tournamentRosterService, tournamentMatchService, ServiceError)
 ├── data/                      # SQLite files (created locally; .gitignored)
 └── package.json               # npm workspaces + shared scripts
 ```
