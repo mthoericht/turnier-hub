@@ -53,7 +53,7 @@ import {
   tournamentMatchCardClass,
   tournamentTimerBtnClass,
 } from "@/tournament/tournamentUi";
-import type { Player } from "@/types";
+import type { Player } from "@turnier-hub/shared";
 
 export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
 {

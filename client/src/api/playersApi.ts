@@ -1,5 +1,5 @@
 import { api } from "./http";
-import type { Player } from "@/types";
+import type { Player } from "@turnier-hub/shared";
 
 export type PlayersScope = "all" | "own";
 

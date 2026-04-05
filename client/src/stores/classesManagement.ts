@@ -9,7 +9,7 @@ import {
 import { fetchPlayers } from "@/api/playersApi";
 import { useConfirmDialogStore } from "@/stores/confirmDialog";
 import { useToastStore } from "@/stores/toast";
-import type { Player, SchoolClass } from "@/types";
+import type { Player, SchoolClass } from "@turnier-hub/shared";
 
 export type ClassesScope = "all" | "own";
 

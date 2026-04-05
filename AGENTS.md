@@ -4,7 +4,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 ## Repository shape
 
-- **npm workspaces** at the repo root: `client/` (Vue 3 + Vite + Tailwind), `server/` (Express + Prisma + SQLite).
+- **npm workspaces** at the repo root: `client/` (Vue 3 + Vite + Tailwind), `server/` (Express + Prisma + SQLite), **`shared/`** (`@turnier-hub/shared` — TypeScript types and small helpers shared by client and server: catalog API shapes such as `Player`, `SchoolClass`, `CreatedBy`, `AuthUser`, `formatCreator` in `shared/src/catalog.ts`; tournament DTOs in `shared/src/tournament.ts`). Import from **`@turnier-hub/shared`** in app code (no client-only `types.ts` barrel).
 - Run **install and most scripts from the repository root**, not only inside `client` or `server`, unless you have a reason.
 
 ## Commands (from repo root)
@@ -131,7 +131,8 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | DB clear (keep User) | `server/scripts/clearDbExceptUsers.ts` |
 | Client views | `client/src/views/` |
 | Match card + stopwatch | `client/src/components/tournament/TournamentMatchCard.vue`, `MatchTimer.vue`; `client/src/composables/tournaments/useMatchTimerDisplay.ts` |
-| HTTP API (resource modules) | `client/src/api/authApi.ts`, `classesApi.ts`, `playersApi.ts`, `tournamentsApi.ts` (use `http.ts` for `getToken` / `setToken` / low-level `api`) |
+| Shared types + helpers (client + server) | `shared/src/catalog.ts` (catalog DTOs, `formatCreator`, `AuthUser`), `shared/src/tournament.ts` — package **`@turnier-hub/shared`** |
+| HTTP API (resource modules) | `client/src/api/authApi.ts`, `classesApi.ts`, `playersApi.ts`, `tournamentsApi.ts` (use `http.ts` for `getToken` / `setToken` / low-level `api`; types from `@turnier-hub/shared`) |
 | Pinia domain stores | `client/src/stores/tournamentLayout.ts`, `playersManagement.ts`, `classesManagement.ts`, `tournamentsList.ts`, `dashboard.ts` (+ `auth`, `theme`, `toast`, **`confirmDialog`**, **`textPromptDialog`**) |
 | Realtime (client) | `client/src/realtime/realtimeClient.ts` |
 | Tournament domain (pure helpers + UI tokens) | `client/src/tournament/tournamentFormat.ts`, `tournamentDerive.ts`, `tournamentPhaseFlow.ts`, `matchElapsed.ts` (client stopwatch math), `tournamentUi.ts` |
@@ -143,7 +144,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Catalog page header (lists + dashboard) | `client/src/components/common/CatalogPageHeader.vue`; Storybook `tests/client/storybook/stories/components/common/CatalogPageHeader.stories.ts` |
 | Ansible production deploy | `ansible/README.md`, `ansible/playbooks/`, `ansible/roles/turnier_hub/` |
 | Tournament views | `client/src/views/tournament/` |
-| Tournament types + inject key | `client/src/tournament/tournamentContext.ts` |
+| Tournament types + inject key | `client/src/tournament/tournamentContext.ts` (re-exports tournament types from `@turnier-hub/shared`; Vue `inject` key) |
 | Client API helper | `client/src/api/http.ts` |
 | Client ESLint | `client/eslint.config.js` |
 | Client theming | `client/src/style.css`, `client/src/theme/designTokens.js`, `client/src/theme/fonts.css` |

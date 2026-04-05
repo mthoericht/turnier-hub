@@ -78,6 +78,7 @@ For a detailed German-language explanation of the tournament logic, see **[TURNI
 | -------- | ---------- |
 | Client   | Vite, Vue 3, TypeScript, Pinia, Vue Router, Tailwind CSS |
 | Server   | Express, TypeScript, **`ws`** (WebSocket on `/api/ws`, same HTTP server as the API) |
+| Shared   | **`@turnier-hub/shared`** workspace: TypeScript types for catalog and tournament API payloads (e.g. `Player`, `CreatedBy`, `AuthUser`) plus `formatCreator`; consumed by client and server |
 | Database | SQLite via Prisma ORM |
 | Auth     | JWT, bcryptjs |
 | Lint     | ESLint 9 (flat config), `typescript-eslint`, `eslint-plugin-vue` (client) |
@@ -247,6 +248,7 @@ turnier-hub/
 ├── tests/                     # Shared root test tree (server + client Vitest tests)
 │   ├── server/
 │   └── client/
+├── shared/                    # @turnier-hub/shared: catalog + tournament TypeScript types, formatCreator (client + server depend on this)
 ├── client/                    # Vue SPA (Vite)
 │   ├── eslint.config.js       # ESLint flat config
 │   ├── src/
@@ -256,7 +258,7 @@ turnier-hub/
 │   │   ├── realtime/          # WebSocket client (connect, tournament subscribe, dispatch to stores)
 │   │   ├── stores/            # Pinia: auth, theme, toast + domain (tournamentLayout, players/classes/tournaments list, dashboard)
 │   │   ├── theme/             # centralized design tokens and font import
-│   │   ├── tournament/        # Types, pure logic, layout bridge (useTournamentLayoutState → store), UI class tokens
+│   │   ├── tournament/        # Pure derive/format logic, layout bridge (useTournamentLayoutState → store), UI class tokens; DTO types from @turnier-hub/shared
 │   │   └── views/
 │   │       └── tournament/    # TournamentLayout, Matches (layout + overview + setup), Roster (thin; roster logic in composables)
 ├── server/                    # Express API, Prisma schema & scripts

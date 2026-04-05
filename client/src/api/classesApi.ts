@@ -1,5 +1,5 @@
 import { api } from "./http";
-import type { SchoolClass } from "@/types";
+import type { SchoolClass } from "@turnier-hub/shared";
 
 export type ClassesScope = "all" | "own";
 

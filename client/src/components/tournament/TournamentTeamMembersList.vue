@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatCreator } from "@/types";
+import { formatCreator } from "@turnier-hub/shared";
 import type { TournamentTeam } from "@/tournament/tournamentContext";
 
 withDefaults(

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatCreator } from "@/types";
+import { formatCreator } from "@turnier-hub/shared";
 import AppIcon from "@/components/common/AppIcon.vue";
 import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
 import ScopeToggle from "@/components/common/ScopeToggle.vue";

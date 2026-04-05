@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, useId } from "vue";
-import type { Player } from "@/types";
+import type { Player } from "@turnier-hub/shared";
 import type { TournamentTeam } from "@/tournament/tournamentContext";
 
 const props = withDefaults(defineProps<{

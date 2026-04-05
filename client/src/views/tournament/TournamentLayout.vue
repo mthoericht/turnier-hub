@@ -8,7 +8,7 @@ import {
   tournamentTabInactiveClass,
 } from "@/tournament/tournamentUi";
 import { useTournamentLayoutState } from "@/tournament/useTournamentLayoutState";
-import { formatCreator } from "@/types";
+import { formatCreator } from "@turnier-hub/shared";
 import { formatTournamentMode } from "@/tournament/tournamentFormat";
 
 const route = useRoute();

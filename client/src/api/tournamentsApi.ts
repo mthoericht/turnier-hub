@@ -1,6 +1,6 @@
 import { api } from "./http";
 import type { MatchRow, TournamentDetail, TournamentMode } from "@/tournament/tournamentContext";
-import type { CreatedBy } from "@/types";
+import type { CreatedBy } from "@turnier-hub/shared";
 
 export type TournamentsScope = "all" | "own";
 

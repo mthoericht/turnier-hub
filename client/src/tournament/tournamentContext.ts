@@ -1,11 +1,11 @@
 import type { ComputedRef, Ref } from "vue";
 import type { ConfirmDialogActionOptions } from "@/stores/confirmDialog";
 import type { TextPromptOptions } from "@/stores/textPromptDialog";
-import type { Player } from "@/types";
 import type {
   MatchPhase,
   MatchRow,
   MatchStatus,
+  Player,
   StandingTeamRow,
   TournamentDetail,
 } from "@turnier-hub/shared";

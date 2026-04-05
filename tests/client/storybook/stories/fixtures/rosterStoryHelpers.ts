@@ -1,4 +1,4 @@
-import type { CreatedBy, Player } from "@/types";
+import type { CreatedBy, Player } from "@turnier-hub/shared";
 import type { TournamentTeam } from "@/tournament/tournamentContext";
 
 const createdBy: CreatedBy = {

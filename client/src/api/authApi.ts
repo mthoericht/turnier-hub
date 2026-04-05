@@ -1,5 +1,5 @@
 import { api } from "./http";
-import type { AuthUser } from "@/types";
+import type { AuthUser } from "@turnier-hub/shared";
 
 export type AuthLoginResponse = { token: string; user: AuthUser };
 

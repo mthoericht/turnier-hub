@@ -5,7 +5,7 @@ import type {
   TournamentDetail,
   TournamentTeam,
 } from "@/tournament/tournamentContext";
-import type { Player } from "@/types";
+import type { Player } from "@turnier-hub/shared";
 
 export type ScoreDraftMap = Record<string, { home: string; away: string }>;
 

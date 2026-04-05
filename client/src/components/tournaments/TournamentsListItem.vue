@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
-import { formatCreator } from "@/types";
+import { formatCreator } from "@turnier-hub/shared";
 import { formatTournamentMode } from "@/tournament/tournamentFormat";
 import type { TournamentListRow } from "@/api/tournamentsApi";
 

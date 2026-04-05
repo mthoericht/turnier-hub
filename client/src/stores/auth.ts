@@ -10,7 +10,7 @@ import {
   connectRealtime,
   disconnectRealtime,
 } from "@/realtime/realtimeClient";
-import type { AuthUser } from "@/types";
+import type { AuthUser } from "@turnier-hub/shared";
 import router from "@/router";
 
 export const useAuthStore = defineStore("auth", () => 
