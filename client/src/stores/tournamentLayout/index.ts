@@ -1,9 +1,15 @@
+/**
+ * Pinia store for the active tournament detail layout (roster, matches, phase controls).
+ * Owns route-synced tournament id, fetched detail, standings cache, catalog players for
+ * roster pickers, score draft state, and delegates mutations to roster / match / phase action factories.
+ */
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { useConfirmDialogStore } from "@/stores/confirmDialog";
 import { useToastStore } from "@/stores/toast";
 import {
+  buildScoreDraftFromMatches,
   canUserEditTournament,
   collectAssignedPlayerIds,
   filterAvailablePlayers,
@@ -44,6 +50,7 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
   const auth = useAuthStore();
   const toast = useToastStore();
 
+  /** Maps API or user errors to a toast for tournament actions that do not use the layout `error` ref. */
   function notifyActionError(e: unknown): void
   {
     const msg = e instanceof Error ? e.message : "Fehler";
@@ -64,6 +71,7 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
   const scoreDraft = ref<ScoreDraftMap>({});
   const scoreDraftDirtyByMatchId = ref<Record<string, boolean>>({});
 
+  /** Opens the global confirm dialog; resolves when the user accepts or dismisses. */
   function confirmAction(opts: ConfirmDialogActionOptions): Promise<boolean>
   {
     return useConfirmDialogStore().requestConfirm(opts);
@@ -71,6 +79,21 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
 
   let silentRefreshInFlight = false;
 
+  /**
+   * Replaces the in-memory tournament detail and rebuilds the score draft from server matches,
+   * clearing per-match dirty flags. Use after mutations that replace the full match graph.
+   */
+  function replaceTournamentDetailAndRescoreDraft(detail: TournamentDetail): void
+  {
+    tournament.value = detail;
+    scoreDraft.value = buildScoreDraftFromMatches(detail.matches);
+    scoreDraftDirtyByMatchId.value = {};
+  }
+
+  /**
+   * Fetches tournament detail for `activeTournamentId` and merges into local state.
+   * Non-silent loads clear `error` and drive `loading`; silent loads skip user-visible error reset and loading toggles (e.g. realtime refresh).
+   */
   async function load(opts?: { silent?: boolean }): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -113,6 +136,7 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     }
   }
 
+  /** Loads standings JSON for the active tournament; failures clear `standings` to null. */
   async function loadStandings(): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -127,6 +151,7 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     }
   }
 
+  /** Loads the full player catalog for roster add-member UI. */
   async function loadPlayers(): Promise<void>
   {
     try
@@ -139,12 +164,16 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     }
   }
 
+  /** Refetches catalog players when a tournament view is active (e.g. after catalog realtime events). */
   async function reloadPlayersIfActive(): Promise<void>
   {
     if (!activeTournamentId.value) return;
     await loadPlayers();
   }
 
+  /**
+   * Binds the store to a tournament route id: sets `activeTournamentId`, shows loading, loads players, detail, and standings.
+   */
   async function syncRouteTournamentId(routeId: string): Promise<void>
   {
     activeTournamentId.value = routeId;
@@ -154,6 +183,7 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     await loadStandings();
   }
 
+  /** Clears tournament-scoped state when navigating away from tournament routes. */
   function leaveTournamentView(): void
   {
     activeTournamentId.value = null;
@@ -165,6 +195,10 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     loading.value = true;
   }
 
+  /**
+   * Refetches detail and standings when the server signals a change for the subscribed tournament.
+   * Coalesces overlapping calls with a single in-flight silent refresh.
+   */
   async function onRealtimeTournamentChanged(tournamentId: string): Promise<void>
   {
     if (tournamentId !== activeTournamentId.value) return;
@@ -181,24 +215,29 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     }
   }
 
+  /** Whether the signed-in user may edit the loaded tournament (currently any authenticated user when detail exists). */
   const canEdit = computed(() =>
     canUserEditTournament(tournament.value, auth.user?.id)
   );
 
+  /** Catalog player ids already on a roster in the active tournament. */
   const assignedPlayerIds = computed(() =>
     tournament.value
       ? collectAssignedPlayerIds(tournament.value.teams)
       : new Set<string>()
   );
 
+  /** Catalog players not yet assigned to any team in this tournament. */
   const availablePlayers = computed(() =>
     filterAvailablePlayers(allPlayers.value, assignedPlayerIds.value)
   );
 
+  /** Parsed group standings rows from the cached standings payload, or empty when missing. */
   const standingsGroups = computed(() =>
     parseStandingsGroups(standings.value)
   );
 
+  /** Matches filtered to the tournament’s current phase for the active detail view. */
   const matchesByPhase = computed(() =>
     tournament.value
       ? getMatchesByPhase(tournament.value.matches, tournament.value.phase)
@@ -220,10 +259,10 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
 
   const matchActions = createMatchActions({
     activeTournamentId,
-    tournament,
     scoreDraft,
     scoreDraftDirtyByMatchId,
     standings,
+    replaceTournamentDetailAndRescoreDraft,
     load,
     loadStandings,
     toast,
@@ -236,9 +275,7 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     tournament,
     groupCountInput,
     advancesInput,
-    scoreDraft,
-    scoreDraftDirtyByMatchId,
-    load,
+    replaceTournamentDetailAndRescoreDraft,
     loadStandings,
     toast,
     confirmAction,

@@ -1,10 +1,12 @@
+/**
+ * Phase and settings actions for the tournament layout: group count, advances per group,
+ * regenerating group or knockout matches, and advancing the tournament phase.
+ */
 import type { Ref } from "vue";
 import type { TournamentDetail, ConfirmDialogActionOptions } from "@/tournament/tournamentContext";
 import {
   advanceTargetRisksDataLoss,
-  buildScoreDraftFromMatches,
   groupRegenerateRisksDataLoss,
-  type ScoreDraftMap,
 } from "@/tournament/tournamentDerive";
 import { formatPhaseLabel } from "@/tournament/tournamentFormat";
 import { buildKnockoutAdvancePrompt } from "@/tournament/knockoutAdvancePrompt";
@@ -15,14 +17,14 @@ import {
   postGenerateKnockout,
 } from "@/api/tournamentsApi";
 
+/** Dependencies injected from `tournamentLayout` for phase transitions and tournament settings patches. */
 export type PhaseActionsContext = {
   activeTournamentId: Ref<string | null>;
   tournament: Ref<TournamentDetail | null>;
   groupCountInput: Ref<number>;
   advancesInput: Ref<number>;
-  scoreDraft: Ref<ScoreDraftMap>;
-  scoreDraftDirtyByMatchId: Ref<Record<string, boolean>>;
-  load: (opts?: { silent?: boolean }) => Promise<void>;
+  /** Applies a new detail after the match list was replaced server-side (draft + dirty reset). */
+  replaceTournamentDetailAndRescoreDraft: (detail: TournamentDetail) => void;
   loadStandings: () => Promise<void>;
   toast: {
     showInfo: (msg: string) => void;
@@ -31,6 +33,7 @@ export type PhaseActionsContext = {
   notifyActionError: (e: unknown) => void;
 };
 
+/** Returns action functions bound to the given store context (spread into the layout store public API). */
 export function createPhaseActions(ctx: PhaseActionsContext)
 {
   const {
@@ -38,50 +41,44 @@ export function createPhaseActions(ctx: PhaseActionsContext)
     tournament,
     groupCountInput,
     advancesInput,
-    scoreDraft,
-    scoreDraftDirtyByMatchId,
+    replaceTournamentDetailAndRescoreDraft,
     loadStandings,
     toast,
     confirmAction,
     notifyActionError,
   } = ctx;
 
+  async function patchSettings(
+    partial: { groupCount?: number; advancesPerGroup?: number }
+  ): Promise<void>
+  {
+    const id = activeTournamentId.value;
+    if (!id) return;
+    try
+    {
+      const detail = await patchTournamentSettings(id, partial);
+      tournament.value = detail;
+      await loadStandings();
+    }
+    catch (e)
+    {
+      notifyActionError(e);
+    }
+  }
+
+  /** Persists `groupCountInput` as the tournament group count and refreshes standings. */
   async function saveGroupCount(): Promise<void>
   {
-    const id = activeTournamentId.value;
-    if (!id) return;
-    try
-    {
-      const detail = await patchTournamentSettings(id, {
-        groupCount: groupCountInput.value,
-      });
-      tournament.value = detail;
-      await loadStandings();
-    }
-    catch (e)
-    {
-      notifyActionError(e);
-    }
+    await patchSettings({ groupCount: groupCountInput.value });
   }
 
+  /** Persists `advancesInput` as advances per group and refreshes standings. */
   async function saveAdvances(): Promise<void>
   {
-    const id = activeTournamentId.value;
-    if (!id) return;
-    try
-    {
-      const detail = await patchTournamentSettings(id, {
-        advancesPerGroup: advancesInput.value,
-      });
-      tournament.value = detail;
-      await loadStandings();
-    }
-    catch (e)
-    {
-      notifyActionError(e);
-    }
+    await patchSettings({ advancesPerGroup: advancesInput.value });
   }
 
+  /** Regenerates group-stage matches; may confirm when existing results or KO matches would be wiped. */
   async function generateGroup(): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -104,9 +101,7 @@ export function createPhaseActions(ctx: PhaseActionsContext)
     try
     {
       const detail = await postGenerateGroupMatches(id);
-      tournament.value = detail;
-      scoreDraft.value = buildScoreDraftFromMatches(detail.matches);
-      scoreDraftDirtyByMatchId.value = {};
+      replaceTournamentDetailAndRescoreDraft(detail);
       await loadStandings();
     }
     catch (e)
@@ -115,6 +110,7 @@ export function createPhaseActions(ctx: PhaseActionsContext)
     }
   }
 
+  /** Creates or replaces knockout bracket matches; confirms when matches already exist. */
   async function generateKnockout(): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -134,9 +130,7 @@ export function createPhaseActions(ctx: PhaseActionsContext)
     try
     {
       const detail = await postGenerateKnockout(id);
-      tournament.value = detail;
-      scoreDraft.value = buildScoreDraftFromMatches(detail.matches);
-      scoreDraftDirtyByMatchId.value = {};
+      replaceTournamentDetailAndRescoreDraft(detail);
     }
     catch (e)
     {
@@ -144,6 +138,10 @@ export function createPhaseActions(ctx: PhaseActionsContext)
     }
   }
 
+  /**
+   * Advances phase toward a knockout round or completion; runs confirm/toast prompts from derived risk state,
+   * then applies API detail, replays server notices, and refreshes standings.
+   */
   async function advance(
     target: "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL" | "COMPLETED"
   ): Promise<void>
@@ -199,9 +197,7 @@ export function createPhaseActions(ctx: PhaseActionsContext)
     try
     {
       const detail = await postAdvancePhase(id, target);
-      tournament.value = detail;
-      scoreDraft.value = buildScoreDraftFromMatches(detail.matches);
-      scoreDraftDirtyByMatchId.value = {};
+      replaceTournamentDetailAndRescoreDraft(detail);
       for (const notice of detail.notices ?? [])
       {
         toast.showInfo(notice);

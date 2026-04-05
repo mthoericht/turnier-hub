@@ -1,3 +1,6 @@
+/**
+ * Roster-scoped tournament layout actions: teams, members, group labels, and kader transfer from another tournament.
+ */
 import type { Ref } from "vue";
 import type { TournamentDetail, ConfirmDialogActionOptions } from "@/tournament/tournamentContext";
 import {
@@ -10,6 +13,7 @@ import {
   transferTournamentKader,
 } from "@/api/tournamentsApi";
 
+/** Dependencies injected from `tournamentLayout` for roster CRUD and related UI refs. */
 export type RosterActionsContext = {
   activeTournamentId: Ref<string | null>;
   tournament: Ref<TournamentDetail | null>;
@@ -26,6 +30,7 @@ export type RosterActionsContext = {
   notifyActionError: (e: unknown) => void;
 };
 
+/** Returns action functions bound to the given store context (spread into the layout store public API). */
 export function createRosterActions(ctx: RosterActionsContext)
 {
   const {
@@ -41,6 +46,7 @@ export function createRosterActions(ctx: RosterActionsContext)
     notifyActionError,
   } = ctx;
 
+  /** Creates a team from trimmed `newTeamName` and clears the input on success. */
   async function createTeam(): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -59,6 +65,7 @@ export function createRosterActions(ctx: RosterActionsContext)
     }
   }
 
+  /** Deletes a team or individual entry after confirm; refetches detail and standings and may toast about removed group matches. */
   async function removeTeam(teamId: string): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -94,6 +101,7 @@ export function createRosterActions(ctx: RosterActionsContext)
     }
   }
 
+  /** Renames a team when `newName` is non-empty after trim. */
   async function renameTeam(teamId: string, newName: string): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -113,6 +121,7 @@ export function createRosterActions(ctx: RosterActionsContext)
     }
   }
 
+  /** Renames a group label via API, assigns returned detail, and refreshes standings. */
   async function renameGroupLabel(oldLabel: string, newLabel: string): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -132,6 +141,7 @@ export function createRosterActions(ctx: RosterActionsContext)
     }
   }
 
+  /** Adds the selected catalog player to the selected team; clears `addPlayerId` on success. */
   async function addMember(): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -149,6 +159,7 @@ export function createRosterActions(ctx: RosterActionsContext)
     }
   }
 
+  /** Removes a player from a team roster and refetches tournament detail. */
   async function removeMember(teamId: string, playerId: string): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -164,6 +175,7 @@ export function createRosterActions(ctx: RosterActionsContext)
     }
   }
 
+  /** Copies roster from another tournament into the active one; no-op when source equals target. */
   async function transferKaderFromTournament(
     sourceTournamentId: string
   ): Promise<void>

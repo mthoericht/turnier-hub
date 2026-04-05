@@ -1,7 +1,9 @@
+/**
+ * Match-scoped tournament layout actions: score draft edits, persisting scores, timer control, bulk delete matches.
+ */
 import type { Ref } from "vue";
 import type { TournamentDetail, ConfirmDialogActionOptions } from "@/tournament/tournamentContext";
 import {
-  buildScoreDraftFromMatches,
   parseScoreDraftForPatch,
   type ScoreDraftMap,
 } from "@/tournament/tournamentDerive";
@@ -11,12 +13,14 @@ import {
   postMatchTimer,
 } from "@/api/tournamentsApi";
 
+/** Dependencies injected from `tournamentLayout` for match-related mutations and draft state. */
 export type MatchActionsContext = {
   activeTournamentId: Ref<string | null>;
-  tournament: Ref<TournamentDetail | null>;
   scoreDraft: Ref<ScoreDraftMap>;
   scoreDraftDirtyByMatchId: Ref<Record<string, boolean>>;
   standings: Ref<Record<string, unknown> | null>;
+  /** Applies a new detail after the match list was replaced server-side (draft + dirty reset). */
+  replaceTournamentDetailAndRescoreDraft: (detail: TournamentDetail) => void;
   load: (opts?: { silent?: boolean }) => Promise<void>;
   loadStandings: () => Promise<void>;
   toast: {
@@ -27,14 +31,15 @@ export type MatchActionsContext = {
   notifyActionError: (e: unknown) => void;
 };
 
+/** Returns action functions bound to the given store context (spread into the layout store public API). */
 export function createMatchActions(ctx: MatchActionsContext)
 {
   const {
     activeTournamentId,
-    tournament,
     scoreDraft,
     scoreDraftDirtyByMatchId,
     standings,
+    replaceTournamentDetailAndRescoreDraft,
     load,
     loadStandings,
     toast,
@@ -42,6 +47,7 @@ export function createMatchActions(ctx: MatchActionsContext)
     notifyActionError,
   } = ctx;
 
+  /** Updates local draft input for one side of a match and marks that match dirty until saved. */
   function updateScoreDraft(
     matchId: string,
     side: "home" | "away",
@@ -56,6 +62,7 @@ export function createMatchActions(ctx: MatchActionsContext)
     scoreDraftDirtyByMatchId.value[matchId] = true;
   }
 
+  /** Validates draft for a match, PATCHes scores when both sides are valid non-negative integers, then reloads detail and standings. */
   async function patchScores(matchId: string): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -101,6 +108,7 @@ export function createMatchActions(ctx: MatchActionsContext)
     }
   }
 
+  /** Forwards timer transitions to the API and refetches tournament detail. */
   async function timerAction(
     matchId: string,
     action: "start" | "pause" | "resume" | "end" | "cancel"
@@ -119,6 +127,7 @@ export function createMatchActions(ctx: MatchActionsContext)
     }
   }
 
+  /** Confirms, deletes every match server-side, resets local detail/draft/standings from the response. */
   async function deleteAllMatches(): Promise<void>
   {
     const id = activeTournamentId.value;
@@ -134,9 +143,7 @@ export function createMatchActions(ctx: MatchActionsContext)
     try
     {
       const detail = await apiDeleteAllMatches(id);
-      tournament.value = detail;
-      scoreDraft.value = buildScoreDraftFromMatches(detail.matches);
-      scoreDraftDirtyByMatchId.value = {};
+      replaceTournamentDetailAndRescoreDraft(detail);
       standings.value = null;
     }
     catch (e)
