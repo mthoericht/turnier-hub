@@ -3,6 +3,7 @@ import { RouterLink } from "vue-router";
 import { useDashboardState } from "@/composables/dashboard/useDashboardState";
 import { formatPhaseLabel } from "@/tournament/tournamentFormat";
 import DashboardCard from "@/components/dashboard/DashboardCard.vue";
+import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
 import AppIcon from "@/components/common/AppIcon.vue";
 import EmptyStateCard from "@/components/common/EmptyStateCard.vue";
 
@@ -22,24 +23,21 @@ const {
 
 <template>
   <div v-if="auth.user" class="space-y-8">
-    <div class="flex justify-between items-center gap-4">
-      <div class="min-w-0">
-        <h1
-          class="font-display text-3xl font-bold text-slate-900 sm:text-4xl"
-        >
-          Dashboard
-        </h1>
-        <p class="text-slate-600 mt-1">
+    <CatalogPageHeader title="Dashboard" variant="hero">
+      <template #description>
+        <p class="text-slate-600">
           Übersicht über Klassen, Spieler und deine Turniere
         </p>
-      </div>
-      <RouterLink
-        to="/tournaments"
-        class="ui-btn-primary-blue inline-flex shrink-0 items-center gap-2 px-5 py-3 text-center no-underline"
-      >
-        Neues Turnier
-      </RouterLink>
-    </div>
+      </template>
+      <template #actions>
+        <RouterLink
+          to="/tournaments"
+          class="ui-btn-primary-blue inline-flex shrink-0 items-center justify-center no-underline"
+        >
+          + Neues Turnier
+        </RouterLink>
+      </template>
+    </CatalogPageHeader>
 
     <div v-if="loading" class="text-slate-500">Lade …</div>
     <div v-else>

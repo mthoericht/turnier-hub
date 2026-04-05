@@ -4,6 +4,7 @@ import { useTournamentsListState } from "@/composables/tournaments/useTournament
 import { useDialogFocusTrap } from "@/composables/useDialogFocusTrap";
 import NewTournament from "@/components/tournaments/NewTournament.vue";
 import TournamentsList from "@/components/tournaments/TournamentsList.vue";
+import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
 import ScopeToggle from "@/components/common/ScopeToggle.vue";
 
 const {
@@ -37,25 +38,18 @@ useDialogFocusTrap(
 
 <template>
   <div>
-    <div
-      class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <h1
-        class="font-display text-xl font-semibold text-slate-900 sm:text-2xl"
-      >
-        Turniere
-      </h1>
-      <div class="flex flex-wrap items-center gap-3">
+    <CatalogPageHeader title="Turniere">
+      <template #actions>
+        <ScopeToggle v-model="scope" />
         <button
           type="button"
-          class="rounded-lg bg-blue-600 px-5 py-3 text-base font-medium text-white hover:bg-blue-600/90 sm:py-2 sm:text-sm"
+          class="ui-btn-primary-blue"
           @click="newTournamentDialogOpen = true"
         >
-          Turnier anlegen
+          + Neues Turnier
         </button>
-        <ScopeToggle v-model="scope" />
-      </div>
-    </div>
+      </template>
+    </CatalogPageHeader>
     <p
       v-if="error"
       class="mb-4 text-sm text-rose-600"

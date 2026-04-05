@@ -2,6 +2,7 @@
 import { RouterLink } from "vue-router";
 import { formatCreator } from "@/types";
 import AppIcon from "@/components/common/AppIcon.vue";
+import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
 import ScopeToggle from "@/components/common/ScopeToggle.vue";
 import EmptyStateCard from "@/components/common/EmptyStateCard.vue";
 import EntityDialog from "@/components/common/EntityDialog.vue";
@@ -42,18 +43,8 @@ const selectClass =
 
 <template>
   <div>
-    <div
-      class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div>
-        <h1
-          class="font-display text-xl font-semibold text-slate-900 sm:text-2xl"
-        >
-          Spieler
-        </h1>
-      </div>
-
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+    <CatalogPageHeader title="Spieler">
+      <template #actions>
         <ScopeToggle v-model="scope" />
 
         <label class="flex items-center gap-2 text-sm text-slate-600">
@@ -85,8 +76,8 @@ const selectClass =
         >
           + Neuer Spieler
         </button>
-      </div>
-    </div>
+      </template>
+    </CatalogPageHeader>
 
     <p
       v-if="error"

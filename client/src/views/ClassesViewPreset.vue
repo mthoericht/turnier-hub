@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { formatCreator } from "@/types";
 import AppIcon from "@/components/common/AppIcon.vue";
+import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
 import ScopeToggle from "@/components/common/ScopeToggle.vue";
 import EmptyStateCard from "@/components/common/EmptyStateCard.vue";
 import EntityDialog from "@/components/common/EntityDialog.vue";
@@ -29,22 +30,14 @@ const inputClass =
 
 <template>
   <div>
-    <div
-      class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div class="min-w-0">
-        <h1
-          class="font-display text-xl font-semibold text-slate-900 sm:text-2xl"
-        >
-          Klassen
-        </h1>
-        <p class="text-slate-600 text-sm mt-1 max-w-xl">
+    <CatalogPageHeader title="Klassen">
+      <template #description>
+        <p class="text-sm text-slate-600">
           Schulklassen im gemeinsamen Katalog. Beim Anlegen oder Bearbeiten von
           Spielern kann jede Klasse zugewiesen werden — oder keine.
         </p>
-      </div>
-
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+      </template>
+      <template #actions>
         <ScopeToggle v-model="scope" />
 
         <button
@@ -54,8 +47,8 @@ const inputClass =
         >
           + Neue Klasse
         </button>
-      </div>
-    </div>
+      </template>
+    </CatalogPageHeader>
 
     <p
       v-if="error"
