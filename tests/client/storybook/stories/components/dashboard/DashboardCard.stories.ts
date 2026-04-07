@@ -12,6 +12,9 @@ export default meta;
 type Story = StoryObj<typeof DashboardCard>;
 
 export const Klassen: Story = {
+  parameters: {
+    route: "/",
+  },
   args: {
     to: "/classes",
     title: "Klassen",
@@ -39,6 +42,9 @@ export const Klassen: Story = {
 };
 
 export const Turniere: Story = {
+  parameters: {
+    route: "/",
+  },
   args: {
     to: "/tournaments",
     title: "Turniere",

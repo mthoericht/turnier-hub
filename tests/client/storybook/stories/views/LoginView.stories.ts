@@ -10,5 +10,9 @@ export default meta;
 
 type Story = StoryObj<typeof LoginView>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  parameters: {
+    route: "/login",
+  },
+};
 

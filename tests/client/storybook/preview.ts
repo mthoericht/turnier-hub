@@ -4,14 +4,15 @@ import type { AfterEach } from "storybook/internal/csf";
 import type { Preview } from "@storybook/vue3-vite";
 import { setup } from "@storybook/vue3-vite";
 import { createPinia } from "pinia";
+import type { RouteLocationRaw } from "vue-router";
 import { createMemoryHistory, createRouter } from "vue-router";
 import "../../../client/src/style.css";
 
+/** Minimal globals for `@vue/devtools-kit` when preview/docs iframes lack a full hook. */
 function ensureVueDevtoolsKitGlobals()
 {
-  // Storybook's preview/docs iframe doesn't always provide a full devtools bridge.
-  // `@vue/devtools-kit` then throws while reading `__VUE_DEVTOOLS_KIT_ACTIVE_APP_RECORD__.app`.
-  // We stub the minimal global records so switching views doesn't crash the runner.
+  // Storybook preview/docs iframes may expose only partial devtools globals.
+  // Stub the minimal records expected by `@vue/devtools-kit` to avoid runtime crashes.
   const g = globalThis as unknown as Record<string, unknown>;
   const existingRecord = g.__VUE_DEVTOOLS_KIT_ACTIVE_APP_RECORD__;
   if (!existingRecord || typeof existingRecord !== "object")
@@ -33,20 +34,24 @@ function ensureVueDevtoolsKitGlobals()
 }
 
 ensureVueDevtoolsKitGlobals();
+const storybookRouter = createStorybookRouter();
 
 setup((app) =>
 {
   ensureVueDevtoolsKitGlobals();
   app.use(createPinia());
-  app.use(createStorybookRouter());
+  app.use(storybookRouter);
 });
 
+/** In-memory router with named routes used by stories (`RouterLink`, `useRoute`). */
 function createStorybookRouter()
 {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: "/", name: "home", component: { template: "<div />" } },
+      { path: "/login", name: "login", component: { template: "<div />" } },
+      { path: "/signup", name: "signup", component: { template: "<div />" } },
       {
         path: "/tournaments",
         name: "tournaments-list",
@@ -69,10 +74,32 @@ function createStorybookRouter()
   });
 }
 
+type StorybookRouteParameter = RouteLocationRaw | null | undefined;
+
+/** Applies `parameters.route` to the preview router (no-op if unchanged / missing). */
+async function applyRouteFromParameters(routeParam: StorybookRouteParameter)
+{
+  if (!routeParam)
+  {
+    return;
+  }
+
+  const routeTarget =
+    typeof routeParam === "string"
+      ? { path: routeParam }
+      : routeParam;
+
+  if (storybookRouter.currentRoute.value.fullPath === storybookRouter.resolve(routeTarget).fullPath)
+  {
+    return;
+  }
+
+  await storybookRouter.push(routeTarget);
+}
+
 /**
- * @storybook/addon-a11y runs axe only when `viewMode === "story"`, but the manager still
- * sets the Accessibility panel to "running" after `afterEach`. In Docs view no a11y report
- * is emitted, so the panel can stay on "Accessibility scan in progress" indefinitely.
+ * `@storybook/addon-a11y` runs axe only in Story view (`viewMode === "story"`).
+ * In Docs view, emit a no-op report so the manager panel does not stay "running".
  */
 const afterEachA11yDocsWorkaround: AfterEach = async (context) =>
 {
@@ -101,10 +128,20 @@ const afterEachA11yDocsWorkaround: AfterEach = async (context) =>
   });
 };
 
-// Classic `Preview` + `setup` instead of `definePreview({ addons: [] })`, which can interact oddly
-// with addon preview annotations. A11y uses default body context + axe excludes.
+// Keep classic `Preview` + `setup`; `definePreview` can conflict with addon preview annotations.
 const preview: Preview = {
   afterEach: afterEachA11yDocsWorkaround,
+  decorators: [
+    /**
+     * Sync only: Vue Storybook decorators must return `story()` immediately.
+     * Route navigation is fired without awaiting so the story component still mounts.
+     */
+    (story, context) =>
+    {
+      void applyRouteFromParameters(context.parameters?.route as StorybookRouteParameter);
+      return story();
+    },
+  ],
   parameters: {
     layout: "padded",
     backgrounds: {
@@ -127,27 +164,6 @@ const preview: Preview = {
       story: { inline: false },
     },
   },
-  decorators: [
-    (story) => ({
-      components: { story },
-      mounted()
-      {
-        ensureVueDevtoolsKitGlobals();
-      },
-      updated()
-      {
-        ensureVueDevtoolsKitGlobals();
-      },
-      template: `
-        <div
-          class="sb-canvas-root box-border min-h-[50vh] w-full p-6 text-slate-900 antialiased"
-          style="font-family: system-ui, sans-serif;"
-        >
-          <story />
-        </div>
-      `,
-    }),
-  ],
 };
 
 export default preview;

@@ -12,10 +12,12 @@ Dieses Verzeichnis enthält Storybook-Konfiguration und -Stories, die über den 
 
 - `tests/client/vitest.config.ts`: schlanke Vitest-Config **nur für das Storybook-Project** — `@storybook/addon-vitest` sucht `vitest.config.*` ausgehend von `tests/client/` nach oben und findet `client/vitest.config.ts` dort nicht. Die gemeinsame Projekt-Definition liegt in `client/storybookVitestProject.ts`.
 - `tests/client/storybook/main.ts`: Storybook-Config (Storie-Glob, Addons, Vite-`viteFinal`).
+- **Vite-Aliases in `main.ts`:** Beim Merge von Storybook- und Client-Vite-Config werden string-Aliase für `@` und für die gemockten Composable-Pfade aus dem Merge verworfen (`shouldSkipAlias`), damit es keine Duplikate gibt. Anschließend baut `buildResolveAlias` die Liste neu: zuerst die Storybook-Mocks (`./mocks/…`), dann übrige Aliase, zuletzt genau ein `@` → `client/src` (längere `@/composables/…`-Mocks bleiben dadurch wirksam).
 - `tests/client/storybook/preview.ts`:
   - klassisches `Preview` + `setup` aus `@storybook/vue3-vite`
   - erstellt einen kleinen `vue-router`-Stub, damit `RouterLink`/benannte Routen aus den Stories auflösbar sind
-  - relevant ist z.B. die Route `tournament-roster` unter `/tournaments/:id/roster` (sonst scheitert die `HomeView`-Story)
+  - enthält u.a. die Routen `/`, `/login`, `/signup`, `/players`, `/classes`, `/tournaments` und Tournament-Unterseiten
+  - unterstützt `parameters.route` pro Story (z.B. `"/classes"` oder `{ name: "tournament-roster", params: { id: "t1" } }`); der Route-Decorator ist **synchron** (`void applyRouteFromParameters`) — `async` + `await` vor `story()` bricht das Vue-Rendering im Canvas.
 - `tests/client/storybook/mocks/`: Storybook-Mocks für Composables (z.B. Dashboard-State).
 
 ## Barrierefreiheit (Accessibility)
@@ -29,6 +31,30 @@ Dieses Verzeichnis enthält Storybook-Konfiguration und -Stories, die über den 
   - `'off'` — keine automatischen A11y-Tests für diese Story / global (z. B. absichtliche Antipattern-Demos).
 
 Pro Story oder pro Datei kann man das überschreiben, z. B. `parameters: { a11y: { test: 'todo' } }` an einer einzelnen Story. Weitere Optionen (`context`, `config`, `options` für axe) siehe [Accessibility tests – Storybook-Dokumentation](https://storybook.js.org/docs/writing-tests/accessibility-testing).
+
+## Route pro Story setzen
+
+Für Stories, die eine bestimmte Route brauchen (aktive Tabs, Breadcrumbs, `RouterLink`-Targets), kann man in der Story direkt `parameters.route` setzen:
+
+```ts
+export const RosterRoute: Story = {
+  parameters: {
+    route: { name: "tournament-roster", params: { id: "demo-id" } },
+  },
+};
+```
+
+Alternativ als String-Pfad:
+
+```ts
+export const ClassesRoute: Story = {
+  parameters: {
+    route: "/classes",
+  },
+};
+```
+
+Komponenten mit `RouterLink` oder `useRouter` (z. B. `DashboardCard`, `TournamentsListItem`, `TournamentPhaseStepper`, `NewTournament`) sollten ebenfalls eine passende `route` setzen, damit aktive Links und Navigation dem erwarteten Kontext entsprechen.
 
 ## Test-Runner / Chromatic
 

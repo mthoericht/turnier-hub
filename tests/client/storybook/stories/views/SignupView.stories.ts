@@ -10,5 +10,9 @@ export default meta;
 
 type Story = StoryObj<typeof SignupView>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  parameters: {
+    route: "/signup",
+  },
+};
 

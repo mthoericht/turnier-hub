@@ -22,6 +22,9 @@ export default meta;
 type Story = StoryObj<typeof TournamentPhaseTabs>;
 
 export const GroupKnockout: Story = {
+  parameters: {
+    route: { name: "tournament-matches-setup", params: { id: "demo-tournament" } },
+  },
   render: (args) => ({
     components: { TournamentPhaseTabs },
     setup()
@@ -41,6 +44,9 @@ export const GroupKnockout: Story = {
 };
 
 export const RoundRobin: Story = {
+  parameters: {
+    route: { name: "tournament-matches-setup", params: { id: "demo-tournament" } },
+  },
   args: {
     mode: "ROUND_ROBIN",
     hasR16Matches: false,

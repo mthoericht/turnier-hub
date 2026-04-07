@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import path from "node:path";
 import vue from "@vitejs/plugin-vue";
 import { mergeConfig } from "vite";
+import type { Alias, AliasOptions } from "vite";
 
 /**
  * This function is used to resolve the absolute path of a package.
@@ -21,48 +22,87 @@ const __dirname =
       (globalThis.__dirname as string)
     : dirname(fileURLToPath(import.meta.url));
 
+/** Absolute path to the `client` workspace package (Vite `root` for Storybook). */
 const clientRoot = path.resolve(__dirname, "../../../client");
-// Same as client/vite.shared.ts; Storybook's Node main loader breaks relative imports to that file.
+/** Same as `client/src`; used as Vite `root` and as the `@` alias target. */
 const clientSrc = path.resolve(clientRoot, "src");
+
+/** Ensures Vue SFCs compile in Storybook when `configDir` lives outside `client/`. */
 function clientPlugins()
 {
   return [vue()];
 }
-const dashboardStateMock = path.resolve(
-  __dirname,
-  "./mocks/useDashboardState.mock.ts",
-);
-const tournamentsListStateMock = path.resolve(
-  __dirname,
-  "./mocks/useTournamentsListState.mock.ts",
-);
-const playersManagementStateMock = path.resolve(
-  __dirname,
-  "./mocks/usePlayersManagementState.mock.ts",
-);
-const classesManagementStateMock = path.resolve(
-  __dirname,
-  "./mocks/useClassesManagementState.mock.ts",
-);
 
-function buildResolveAlias(
-  raw: import("vite").AliasOptions | undefined,
-  clientAlias: string,
-): import("vite").Alias[]
+/** Story-only module swaps: real composables → lightweight mocks under `./mocks/`. */
+const composableMockReplacements: Alias[] = [
+  {
+    find: "@/composables/dashboard/useDashboardState",
+    replacement: path.resolve(__dirname, "./mocks/useDashboardState.mock.ts"),
+  },
+  {
+    find: "@/composables/tournaments/useTournamentsListState",
+    replacement: path.resolve(__dirname, "./mocks/useTournamentsListState.mock.ts"),
+  },
+  {
+    find: "@/composables/players/usePlayersManagementState",
+    replacement: path.resolve(__dirname, "./mocks/usePlayersManagementState.mock.ts"),
+  },
+  {
+    find: "@/composables/classes/useClassesManagementState",
+    replacement: path.resolve(__dirname, "./mocks/useClassesManagementState.mock.ts"),
+  },
+];
+
+const storybookAddons = [
+  "@chromatic-com/storybook",
+  "@storybook/addon-a11y",
+  "@storybook/addon-docs",
+];
+
+/**
+ * String `find` keys we re-define when merging aliases (mocks + final `@`).
+ * Regex aliases from upstream config are never skipped here.
+ */
+const mockedAliasFinders = new Set([
+  ...composableMockReplacements.map((alias) => alias.find),
+  "@",
+]);
+
+/**
+ * Drops conflicting string keys from the merged Vite alias so our mocks and
+ * a single `@` → `clientSrc` win; avoids duplicates from client/Storybook merge.
+ */
+function shouldSkipAlias(find: string | RegExp)
 {
-  const tail: import("vite").Alias[] = [];
+  return typeof find === "string" && mockedAliasFinders.has(find);
+}
+
+/** Addon list; Vitest addon optional via `STORYBOOK_DISABLE_VITEST_ADDON=1`. */
+function createAddons()
+{
+  const baseAddons = storybookAddons.map(getAbsolutePath);
+  if (process.env.STORYBOOK_DISABLE_VITEST_ADDON === "1")
+  {
+    return baseAddons;
+  }
+  return [...baseAddons, getAbsolutePath("@storybook/addon-vitest")];
+}
+
+/**
+ * Rebuilds `resolve.alias`: composable mocks first, then remaining merged aliases
+ * (minus skipped keys), then `@` last so `@` does not shadow longer `@/…` mocks.
+ */
+function buildResolveAlias(
+  raw: AliasOptions | undefined,
+  clientAlias: string,
+): Alias[]
+{
+  const tail: Alias[] = [];
   if (Array.isArray(raw))
   {
     for (const entry of raw)
     {
-      const f = entry.find;
-      if (
-        f === "@/composables/dashboard/useDashboardState" ||
-        f === "@/composables/tournaments/useTournamentsListState" ||
-        f === "@/composables/players/usePlayersManagementState" ||
-        f === "@/composables/classes/useClassesManagementState" ||
-        f === "@"
-      )
+      if (shouldSkipAlias(entry.find))
       {
         continue;
       }
@@ -73,13 +113,7 @@ function buildResolveAlias(
   {
     for (const [find, replacement] of Object.entries(raw))
     {
-      if (
-        find === "@/composables/dashboard/useDashboardState" ||
-        find === "@/composables/tournaments/useTournamentsListState" ||
-        find === "@/composables/players/usePlayersManagementState" ||
-        find === "@/composables/classes/useClassesManagementState" ||
-        find === "@"
-      )
+      if (shouldSkipAlias(find))
       {
         continue;
       }
@@ -87,66 +121,59 @@ function buildResolveAlias(
     }
   }
   return [
-    { find: "@/composables/dashboard/useDashboardState", replacement: dashboardStateMock },
-    {
-      find: "@/composables/tournaments/useTournamentsListState",
-      replacement: tournamentsListStateMock,
-    },
-    {
-      find: "@/composables/players/usePlayersManagementState",
-      replacement: playersManagementStateMock,
-    },
-    {
-      find: "@/composables/classes/useClassesManagementState",
-      replacement: classesManagementStateMock,
-    },
+    ...composableMockReplacements,
     ...tail,
     { find: "@", replacement: clientAlias },
   ];
 }
 
-const vitestAddonDisabled = process.env.STORYBOOK_DISABLE_VITEST_ADDON === "1";
+/** Vite options merged into Storybook’s config: client root, prod defines, base `@`. */
+function createViteBaseConfig()
+{
+  return {
+    // The config lives under `tests/`, but Vite root must be the client package.
+    root: clientRoot,
+    // Force production mode to disable Vue devtools hooks in Pinia and vue-router.
+    // In Storybook preview/docs iframes, partial devtools bridges can crash during setup.
+    define: {
+      "process.env.NODE_ENV": JSON.stringify("production"),
+      // Keep Vue production devtools explicitly off in Storybook bundles.
+      "__VUE_PROD_DEVTOOLS__": JSON.stringify(false),
+    },
+    resolve: {
+      alias: {
+        "@": clientSrc,
+      },
+    },
+  };
+}
 
+/**
+ * Prepends `plugin-vue` and normalizes aliases after `mergeConfig` so Storybook
+ * matches the client app’s resolution (mocks + `@`).
+ */
+function applyStorybookViteFixups(merged: Awaited<ReturnType<typeof mergeConfig>>)
+{
+  // With configDir outside `client`, `@vitejs/plugin-vue` may be missing from the pipeline.
+  merged.plugins = [...clientPlugins(), ...((merged.plugins ?? []) as [])];
+  // Ensure specific mock aliases win over the generic `@` alias.
+  merged.resolve ??= {};
+  merged.resolve.alias = buildResolveAlias(merged.resolve.alias, clientSrc);
+  return merged;
+}
+
+/** Storybook 10 + Vue 3 + Vite; `viteFinal` aligns resolution with the real app. */
 const config: StorybookConfig = {
   stories: ["./stories/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
-  addons: [
-    getAbsolutePath("@chromatic-com/storybook"),
-    ...(vitestAddonDisabled ? [] : [getAbsolutePath("@storybook/addon-vitest")]),
-    getAbsolutePath("@storybook/addon-a11y"),
-    getAbsolutePath("@storybook/addon-docs"),
-  ],
+  addons: createAddons(),
   framework: {
     name: getAbsolutePath("@storybook/vue3-vite"),
     options: {},
   },
   viteFinal: async (config) =>
   {
-    const merged = mergeConfig(config, {
-      // Config liegt unter tests/; Vite-Root = Client-Paket (wie früher unter client/.storybook).
-      root: clientRoot,
-      // Pinia + vue-router register @vue/devtools-kit when NODE_ENV !== "production".
-      // Storybook's preview/docs iframe has no full devtools bridge → prepare.js throws
-      // "Cannot read properties of undefined (reading 'app')".
-      // Pinia treats NODE_ENV==="test" like tests (no devtools), but vue-router does not,
-      // so "test" is not enough — compile-time "production" disables both integrations.
-      define: {
-        "process.env.NODE_ENV": JSON.stringify("production"),
-        // Ensure Vue devtools are fully disabled in Storybook if it's bundled as "production".
-        "__VUE_PROD_DEVTOOLS__": JSON.stringify(false),
-      },
-      resolve: {
-        alias: {
-          "@": clientSrc,
-        },
-      },
-    });
-    // Mit configDir außerhalb von client fehlt mitunter plugin-vue in der Pipeline.
-    merged.plugins = [...clientPlugins(), ...((merged.plugins ?? []) as [])];
-    // Vite matches the short `@` alias before a longer `@/composables/...` key in a plain
-    // object, so the dashboard mock never applied → real Pinia auth → HomeView login branch.
-    merged.resolve ??= {};
-    merged.resolve.alias = buildResolveAlias(merged.resolve.alias, clientSrc);
-    return merged;
+    const merged = mergeConfig(config, createViteBaseConfig());
+    return applyStorybookViteFixups(merged);
   },
 };
 

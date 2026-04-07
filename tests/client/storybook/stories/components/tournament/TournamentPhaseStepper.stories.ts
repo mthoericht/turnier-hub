@@ -16,6 +16,9 @@ export default meta;
 type Story = StoryObj<typeof TournamentPhaseStepper>;
 
 export const GroupKoInGruppenphase: Story = {
+  parameters: {
+    route: { name: "tournament-matches-setup", params: { id: "demo-tournament" } },
+  },
   render: () => ({
     components: { TournamentPhaseStepper },
     setup()
@@ -52,6 +55,9 @@ export const GroupKoInGruppenphase: Story = {
 };
 
 export const GroupKoKnockoutAktiv: Story = {
+  parameters: {
+    route: { name: "tournament-matches-setup", params: { id: "demo-tournament" } },
+  },
   render: () => ({
     components: { TournamentPhaseStepper },
     setup()

@@ -29,5 +29,9 @@ export default meta;
 
 type Story = StoryObj<typeof TournamentsList>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  parameters: {
+    route: "/tournaments",
+  },
+};
 

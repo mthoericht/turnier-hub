@@ -10,5 +10,9 @@ export default meta;
 
 type Story = StoryObj<typeof TournamentsView>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  parameters: {
+    route: "/tournaments",
+  },
+};
 

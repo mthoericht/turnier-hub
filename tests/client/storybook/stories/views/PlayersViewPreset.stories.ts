@@ -10,5 +10,9 @@ export default meta;
 
 type Story = StoryObj<typeof PlayersViewPreset>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  parameters: {
+    route: "/players",
+  },
+};
 

@@ -10,4 +10,8 @@ export default meta;
 
 type Story = StoryObj<typeof HomeView>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  parameters: {
+    route: "/",
+  },
+};
