@@ -6,8 +6,8 @@ const router = createRouter({
   routes: [
     {
       path: "/",
-      name: "home",
-      component: () => import("@/views/HomeView.vue"),
+      name: "dashboard",
+      component: () => import("@/views/DashboardView.vue"),
     },
     {
       path: "/login",
@@ -91,7 +91,7 @@ router.beforeEach((to) =>
   }
   if (to.meta.guest && getToken()) 
   {
-    return { name: "home" };
+    return { name: "dashboard" };
   }
   return true;
 });

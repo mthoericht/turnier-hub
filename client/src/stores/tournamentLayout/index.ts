@@ -202,8 +202,11 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
   async function onRealtimeTournamentChanged(tournamentId: string): Promise<void>
   {
     if (tournamentId !== activeTournamentId.value) return;
+
+    //to avoid multiple simultaneous silent refreshes
     if (silentRefreshInFlight) return;
     silentRefreshInFlight = true;
+    
     try
     {
       await load({ silent: true });

@@ -51,6 +51,14 @@ const composableMockReplacements: Alias[] = [
     find: "@/composables/classes/useClassesManagementState",
     replacement: path.resolve(__dirname, "./mocks/useClassesManagementState.mock.ts"),
   },
+  {
+    find: "@/tournament/useTournamentLayoutState",
+    replacement: path.resolve(__dirname, "./mocks/useTournamentLayoutState.mock.ts"),
+  },
+  {
+    find: "@/api/tournamentsApi",
+    replacement: path.resolve(__dirname, "./mocks/tournamentsApi.mock.ts"),
+  },
 ];
 
 const storybookAddons = [

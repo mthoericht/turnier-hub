@@ -193,10 +193,14 @@ async function generateGroupWithCurrentSettings(): Promise<void>
         </p>
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div v-if="mode === 'GROUP_KO'" class="min-w-0 sm:w-44">
-            <label class="mb-1 block text-xs text-slate-600">
+            <label
+              class="mb-1 block text-xs text-slate-600"
+              for="tournament-setup-group-count"
+            >
               Anzahl Gruppen
             </label>
             <input
+              id="tournament-setup-group-count"
               v-model.number="groupCountInput"
               type="number"
               min="1"
@@ -219,10 +223,14 @@ async function generateGroupWithCurrentSettings(): Promise<void>
           Gruppen-Einstellungen
         </h3>
         <div class="sm:max-w-xs">
-          <label class="mb-1 block text-xs text-slate-600">
+          <label
+            class="mb-1 block text-xs text-slate-600"
+            for="tournament-setup-advances-per-group"
+          >
             Weiterkommen pro Gruppe
           </label>
           <input
+            id="tournament-setup-advances-per-group"
             v-model.number="advancesInput"
             type="number"
             min="1"

@@ -16,9 +16,37 @@ Dieses Verzeichnis enthält Storybook-Konfiguration und -Stories, die über den 
 - `tests/client/storybook/preview.ts`:
   - klassisches `Preview` + `setup` aus `@storybook/vue3-vite`
   - erstellt einen kleinen `vue-router`-Stub, damit `RouterLink`/benannte Routen aus den Stories auflösbar sind
-  - enthält u.a. die Routen `/`, `/login`, `/signup`, `/players`, `/classes`, `/tournaments` und Tournament-Unterseiten
+  - enthält u.a. die Routen `/`, `/login`, `/signup`, `/players`, `/classes`, `/tournaments` und **geschachtelte** Tournament-Routen (`/tournaments/:id`, Kinder: `roster`, `matches` mit Overview/Setup — analog zur App in `client/src/router/index.ts`)
   - unterstützt `parameters.route` pro Story (z.B. `"/classes"` oder `{ name: "tournament-roster", params: { id: "t1" } }`); der Route-Decorator ist **synchron** (`void applyRouteFromParameters`) — `async` + `await` vor `story()` bricht das Vue-Rendering im Canvas.
-- `tests/client/storybook/mocks/`: Storybook-Mocks für Composables (z.B. Dashboard-State).
+- `tests/client/storybook/StorybookRouterCanvas.vue`: minimale Root-Komponente mit **einem** `<router-view />` für Stories, die wie in der echten App nur über den Router gerendert werden sollen (verhindert doppeltes Mounting von verschachtelten Layouts). Turnier-Stories nutzen diese Hülle als `component` und setzen `parameters.route` auf z. B. `/tournaments/<id>/roster`.
+- `tests/client/storybook/stubs/`: Hilfen für die Preview-Umgebung (z. B. Vue-Devtools-Globals).
+
+## Fixtures (`stories/fixtures/`)
+
+Statische Demo-Daten und kleine Builder, die Stories **und** Mocks teilen können:
+
+| Datei | Rolle |
+| ----- | ----- |
+| `matchStoryHelpers.ts` | Basis-`MatchRow`, Format-Helfer für Match-Karten-Stories |
+| `rosterStoryHelpers.ts` | `demoPlayers`, Demo-Teams/Mitglieder für Kader-Kontext |
+| `tournamentDetailStory.ts` | `buildDemoTournamentDetail()`, feste Story-IDs (`storyTournamentId`, `storyTournamentIndividualsId`, `storyTournamentDirectKoId`), **`getTournamentStoryScenario(id)`** — liefert passendes `TournamentDetail` + Standings-Payload je Route-Parameter |
+
+**Konvention:** Fixture-IDs müssen zu den Routen in den Stories passen (z. B. Story `IndividualsMode` → `parameters.route` mit `storyTournamentIndividualsId`).
+
+## Mocks (`mocks/`)
+
+Über **Vite-Aliase** in `main.ts` wird in Storybook statt der echten Module eine leichte Variante geladen (kein API/WS, wo nicht nötig):
+
+| Alias-Ziel | Mock-Datei | Zweck |
+| ---------- | ---------- | ----- |
+| `@/composables/dashboard/useDashboardState` | `useDashboardState.mock.ts` | Dashboard-Demo-State |
+| `@/composables/tournaments/useTournamentsListState` | `useTournamentsListState.mock.ts` | Turnierliste ohne Backend |
+| `@/composables/players/usePlayersManagementState` | `usePlayersManagementState.mock.ts` | Spieler-Verwaltung |
+| `@/composables/classes/useClassesManagementState` | `useClassesManagementState.mock.ts` | Klassen-Verwaltung |
+| `@/tournament/useTournamentLayoutState` | `useTournamentLayoutState.mock.ts` | Turnier-Layout: statisches Detail aus `getTournamentStoryScenario`, keine Realtime-Subscription |
+| `@/api/tournamentsApi` | `tournamentsApi.mock.ts` | re-exportiert die echte API, **stubbt** `fetchTournaments` → `[]` (Kader: „aus Turnier übertragen“ ohne Netzwerk) |
+
+Nur Pfade, die **exakt** so importiert werden, werden ersetzt; Barrel-Exports aus `@/composables/.../index` werden aufgelöst — die Aliase greifen trotzdem für die zugrundeliegenden Module.
 
 ## Barrierefreiheit (Accessibility)
 

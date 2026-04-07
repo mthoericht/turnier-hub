@@ -7,6 +7,11 @@ import { createPinia } from "pinia";
 import type { RouteLocationRaw } from "vue-router";
 import { createMemoryHistory, createRouter } from "vue-router";
 import "../../../client/src/style.css";
+import TournamentLayout from "../../../client/src/views/tournament/TournamentLayout.vue";
+import TournamentMatchesLayout from "../../../client/src/views/tournament/TournamentMatchesLayout.vue";
+import TournamentMatchesOverviewView from "../../../client/src/views/tournament/TournamentMatchesOverviewView.vue";
+import TournamentMatchesSetupView from "../../../client/src/views/tournament/TournamentMatchesSetupView.vue";
+import TournamentRosterView from "../../../client/src/views/tournament/TournamentRosterView.vue";
 
 /** Minimal globals for `@vue/devtools-kit` when preview/docs iframes lack a full hook. */
 function ensureVueDevtoolsKitGlobals()
@@ -49,7 +54,7 @@ function createStorybookRouter()
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: "/", name: "home", component: { template: "<div />" } },
+      { path: "/", name: "dashboard", component: { template: "<div />" } },
       { path: "/login", name: "login", component: { template: "<div />" } },
       { path: "/signup", name: "signup", component: { template: "<div />" } },
       {
@@ -58,14 +63,43 @@ function createStorybookRouter()
         component: { template: "<div />" },
       },
       {
-        path: "/tournaments/:id/roster",
-        name: "tournament-roster",
-        component: { template: "<div />" },
-      },
-      {
-        path: "/tournaments/:id/matches/setup",
-        name: "tournament-matches-setup",
-        component: { template: "<div />" },
+        path: "/tournaments/:id",
+        component: TournamentLayout,
+        children: [
+          {
+            path: "",
+            name: "tournament-detail",
+            redirect: (to) => ({
+              name: "tournament-roster",
+              params: { id: to.params.id as string },
+            }),
+          },
+          {
+            path: "roster",
+            name: "tournament-roster",
+            component: TournamentRosterView,
+          },
+          {
+            path: "matches",
+            component: TournamentMatchesLayout,
+            redirect: (to) => ({
+              name: "tournament-matches-overview",
+              params: { id: to.params.id as string },
+            }),
+            children: [
+              {
+                path: "",
+                name: "tournament-matches-overview",
+                component: TournamentMatchesOverviewView,
+              },
+              {
+                path: "setup",
+                name: "tournament-matches-setup",
+                component: TournamentMatchesSetupView,
+              },
+            ],
+          },
+        ],
       },
       { path: "/classes", name: "classes", component: { template: "<div />" } },
       { path: "/players", name: "players", component: { template: "<div />" } },

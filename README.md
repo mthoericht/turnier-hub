@@ -181,7 +181,7 @@ npm run db:clear:test -- --yes
 | `npm run test:integration` | Pushes test schema and runs client-API integration tests (Vitest, against test DB/API). |
 | `npm run clean` | Removes `node_modules` and `dist` folders in the monorepo. |
 | `npm run clean:install` | Runs `clean` then `npm install`. |
-| `npm run storybook` | Starts Storybook for the client (port `6006`; config in `tests/client/storybook/`). |
+| `npm run storybook` | Starts Storybook for the client (port `6006`; config in `tests/client/storybook/`). See **[tests/client/storybook/README.md](tests/client/storybook/README.md)** for fixtures, mocks, and routed stories. |
 | `npm run build-storybook` | Static Storybook build (output under `client/storybook-static/`). |
 
 **Prisma — `db:push` / `db:deploy` vs `db:generate`:** `db:push` and `db:deploy` apply **`schema.prisma` to the database** (tables and columns). `db:generate` only **rebuilds the Prisma Client** under `node_modules` (typed API for your code) and does **not** modify the database. After schema edits you usually run a push (or deploy) and ensure the client is generated (`db:generate`, or rely on tooling that runs it — e.g. `prod:prepare` runs `db:generate` before the build).

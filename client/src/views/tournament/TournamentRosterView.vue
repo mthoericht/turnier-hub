@@ -111,10 +111,14 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
         </p>
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
           <div class="min-w-0 flex-1 sm:max-w-xs">
-            <label class="mb-1 block text-xs text-slate-600">
+            <label
+              class="mb-1 block text-xs text-slate-600"
+              for="roster-transfer-from-tournament"
+            >
               Von Turnier
             </label>
             <select
+              id="roster-transfer-from-tournament"
               v-model="transferFromTournamentId"
               :disabled="loadingSources || sourceTournaments.length === 0"
               :class="fieldClass"
@@ -264,7 +268,7 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
                     </button>
                     <button
                       type="button"
-                      class="text-xs text-rose-600 hover:text-rose-700"
+                      class="text-xs font-medium text-rose-800 hover:text-rose-900"
                       @click="removeTeam(team.id)"
                     >
                       Löschen
@@ -308,7 +312,7 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
                 </button>
                 <button
                   type="button"
-                  class="text-sm text-rose-600 hover:text-rose-700"
+                  class="text-sm font-medium text-rose-800 hover:text-rose-900"
                   @click="removeTeam(team.id)"
                 >
                   {{ isIndividuals ? "Entfernen" : "Mannschaft löschen" }}
