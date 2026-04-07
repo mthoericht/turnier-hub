@@ -1,16 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../config.js";
-
-export type AuthPayload = { sub: string };
-
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string;
-    }
-  }
-}
+import type { AuthPayload } from "../auth/token.js";
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
@@ -27,8 +18,4 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   } catch {
     res.status(401).json({ error: "Ungültiges Token" });
   }
-}
-
-export function signToken(userId: string): string {
-  return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: "7d" });
 }

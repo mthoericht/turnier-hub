@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 import {
   parseListScope,
   playerApiInclude,
@@ -22,7 +23,7 @@ const updateSchema = z.object({
   schoolClassId: z.string().optional().nullable(),
 });
 
-router.get("/", async (req, res) => {
+router.get("/", asyncHandler(async (req, res) => {
   const scope = parseListScope(req.query.scope);
   const where = scope === "own" ? { userId: req.userId! } : {};
   const rows = await prisma.player.findMany({
@@ -31,9 +32,9 @@ router.get("/", async (req, res) => {
     include: playerApiInclude,
   });
   res.json(rows.map((row) => playerToApi(row)));
-});
+}));
 
-router.post("/", async (req, res) => {
+router.post("/", asyncHandler(async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Ungültige Eingaben" });
@@ -61,16 +62,17 @@ router.post("/", async (req, res) => {
   });
   notifyCatalogChanged(["players", "classes"]);
   res.status(201).json(playerToApi(row));
-});
+}));
 
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", asyncHandler(async (req, res) => {
+  const playerId = String(req.params.id);
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Ungültige Eingaben" });
     return;
   }
   const existing = await prisma.player.findFirst({
-    where: { id: req.params.id },
+    where: { id: playerId },
   });
   if (!existing) {
     res.status(404).json({ error: "Spieler nicht gefunden" });
@@ -91,7 +93,7 @@ router.patch("/:id", async (req, res) => {
     }
   }
   const row = await prisma.player.update({
-    where: { id: req.params.id },
+    where: { id: playerId },
     data: {
       ...(parsed.data.name != null ? { name: parsed.data.name } : {}),
       ...(parsed.data.schoolClassId !== undefined
@@ -102,19 +104,20 @@ router.patch("/:id", async (req, res) => {
   });
   notifyCatalogChanged(["players", "classes"]);
   res.json(playerToApi(row));
-});
+}));
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", asyncHandler(async (req, res) => {
+  const playerId = String(req.params.id);
   const existing = await prisma.player.findFirst({
-    where: { id: req.params.id },
+    where: { id: playerId },
   });
   if (!existing) {
     res.status(404).json({ error: "Spieler nicht gefunden" });
     return;
   }
-  await prisma.player.delete({ where: { id: req.params.id } });
+  await prisma.player.delete({ where: { id: playerId } });
   notifyCatalogChanged(["players", "classes"]);
   res.status(204).send();
-});
+}));
 
 export default router;

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "../../../server/src/app.js";
 import { RealtimeHub } from "../../../server/src/realtime/hub.js";
-import { signToken } from "../../../server/src/middleware/auth.js";
+import { signToken } from "../../../server/src/auth/token.js";
 
 type Push =
   | { type: "tournamentChanged"; tournamentId: string }

@@ -50,7 +50,7 @@ export const TeilnehmerModus: Story = {
   }),
 };
 
-export const KaderModusMitGruppen: Story = {
+export const TeamModusMitGruppen: Story = {
   args: {
     mode: "member",
     hasGroups: true,

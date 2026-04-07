@@ -108,6 +108,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - **English** for `README.md` and this file; product UI strings may stay **German** unless the project moves to i18n.
 - If you add new env vars, update `server/.env.example` and [README.md](README.md) when relevant.
 - After substantive client edits, run **`npm run lint -w client`** (and `vue-tsc --build --noEmit` in `client/` if types are touched).
+- For server routes, prefer `asyncHandler` (`server/src/middleware/asyncHandler.ts`) and let unknown errors bubble to the global `errorMiddleware` (`server/src/middleware/error.ts`) instead of repeating local `500` handlers.
 
 ## Accessibility (client)
 
@@ -125,9 +126,10 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | API routes | `server/src/routes/` |
 | WebSocket + push notify | `server/src/realtime/hub.ts`, `server/src/realtime/notify.ts` (`notifyCatalogChanged`, `notifyTournamentsListChanged` = broadcast; `notifyTournamentChanged` = per-tournament subscribers) |
 | Tournament route modules | `server/src/routes/tournaments/` |
-| Auth middleware | `server/src/middleware/auth.ts` |
+| Auth middleware + token helpers | `server/src/middleware/auth.ts`, `server/src/auth/token.ts`, `server/src/types/express.d.ts` |
+| Error handling middleware | `server/src/middleware/asyncHandler.ts`, `server/src/middleware/error.ts` |
 | Tournament logic (pure) | `server/src/services/` (`advancePhase`, `standings`, `matchTimer`, `roundRobinSchedule`, `knockoutBracket`) |
-| Tournament services (orchestration) | `server/src/services/tournamentRosterService.ts` (teams, members, kader transfer), `server/src/services/tournamentMatchService.ts` (group/KO generation, scores, timer, delete-all); `ServiceError.ts` for typed errors |
+| Tournament services (orchestration) | `server/src/services/tournamentRosterService.ts` (teams, members, team transfer), `server/src/services/tournamentMatchService.ts` (group/KO generation, scores, timer, delete-all); `ServiceError.ts` for typed errors |
 | DB seed | `server/scripts/seed.ts` |
 | DB clear (keep User) | `server/scripts/clearDbExceptUsers.ts` |
 | Client views | `client/src/views/` |

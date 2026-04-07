@@ -1,6 +1,9 @@
 import type { SchoolClass } from "@prisma/client";
 import type { CreatedBy, Player, SchoolClass as SchoolClassApi } from "@turnier-hub/shared";
 
+/**
+ * Reusable Prisma select for the user fields exposed as `createdBy`.
+ */
 export const createdBySelect = {
   id: true,
   username: true,
@@ -13,6 +16,9 @@ export type CreatedByUser = {
   email: string;
 };
 
+/**
+ * Maps a database user shape to the shared API `CreatedBy` DTO.
+ */
 export function toCreatedBy(user: CreatedByUser): CreatedBy {
   return {
     id: user.id,
@@ -21,7 +27,10 @@ export function toCreatedBy(user: CreatedByUser): CreatedBy {
   };
 }
 
-/** Include für API-Antworten mit Spieler + Ersteller + optionaler Klasse */
+/**
+ * Prisma include used for player list/detail API responses
+ * with creator data and optional class data.
+ */
 export const playerApiInclude = {
   user: { select: createdBySelect },
   schoolClass: { select: { id: true, name: true } },
@@ -34,6 +43,9 @@ export type PlayerApiRow = {
   schoolClass: { id: string; name: string } | null;
 };
 
+/**
+ * Converts a Prisma player row (including relations) to the shared API `Player` DTO.
+ */
 export function playerToApi(p: PlayerApiRow): Player {
   return {
     id: p.id,
@@ -45,6 +57,9 @@ export function playerToApi(p: PlayerApiRow): Player {
 
 export type SchoolClassWithUser = SchoolClass & { user: CreatedByUser };
 
+/**
+ * Converts a Prisma school class row to the shared API `SchoolClass` DTO.
+ */
 export function schoolClassToApi(row: SchoolClassWithUser): SchoolClassApi {
   const { user, userId, ...rest } = row;
   return {
@@ -54,6 +69,10 @@ export function schoolClassToApi(row: SchoolClassWithUser): SchoolClassApi {
   };
 }
 
+/**
+ * Parses the catalog list scope query parameter.
+ * Defaults to `"all"` for unknown values.
+ */
 export function parseListScope(q: unknown): "own" | "all" {
   return q === "own" ? "own" : "all";
 }

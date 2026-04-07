@@ -32,7 +32,7 @@ const {
   removeMember,
   fieldClass,
   cardClass,
-  transferKaderFromTournament,
+  transferTeamFromTournament,
   confirmAction,
   promptText,
 } = ctx;
@@ -61,7 +61,7 @@ const {
   transferFromSource,
 } = useTournamentRosterTransfer({
   tournament,
-  transferKaderFromTournament,
+  transferTeamFromTournament,
   confirmAction,
 });
 

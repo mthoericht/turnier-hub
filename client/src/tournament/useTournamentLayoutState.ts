@@ -80,8 +80,8 @@ export function useTournamentLayoutState(
     addMember: () => store.addMember(),
     removeMember: (teamId: string, playerId: string) =>
       store.removeMember(teamId, playerId),
-    transferKaderFromTournament: (sourceTournamentId: string) =>
-      store.transferKaderFromTournament(sourceTournamentId),
+    transferTeamFromTournament: (sourceTournamentId: string) =>
+      store.transferTeamFromTournament(sourceTournamentId),
     saveGroupCount: () => store.saveGroupCount(),
     saveAdvances: () => store.saveAdvances(),
     generateGroup: () => store.generateGroup(),

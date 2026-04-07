@@ -10,6 +10,7 @@ import {
 } from "../../lib/createdBy.js";
 import { computeElapsedMs } from "../../services/matchTimer.js";
 
+/** Stable sort order used to present matches in UI/API responses. */
 const phaseOrder: Record<MatchPhase, number> = {
   GROUP: 0,
   ROUND_OF_16: 1,
@@ -18,6 +19,7 @@ const phaseOrder: Record<MatchPhase, number> = {
   FINAL: 4,
 };
 
+/** Sorts matches by phase, then round order, then slot index. */
 export function sortMatches<T extends { phase: MatchPhase; roundOrder: number; slotIndex: number }>(
   matches: T[]
 ): T[]
@@ -36,6 +38,7 @@ export type MatchWithTeams = Match & {
   awayTeam: { id: string; name: string } | null;
 };
 
+/** Include object for match updates that need team name/id on both sides. */
 export const matchUpdateInclude = {
   homeTeam: { select: { id: true, name: true } },
   awayTeam: { select: { id: true, name: true } },
@@ -46,6 +49,7 @@ function dateToIso(d: Date | null): string | null
   return d ? d.toISOString() : null;
 }
 
+/** Serializes a Prisma match row to shared API shape with computed elapsed time. */
 export function serializeMatch(m: MatchWithTeams): MatchRow
 {
   const now = new Date();
@@ -60,6 +64,7 @@ export function serializeMatch(m: MatchWithTeams): MatchRow
   };
 }
 
+/** Loads one tournament with all nested data required for detail responses. */
 export async function loadTournamentById(id: string)
 {
   return prisma.tournament.findFirst({
@@ -87,6 +92,7 @@ export async function loadTournamentById(id: string)
   });
 }
 
+/** Serializes a loaded tournament row to the shared tournament detail DTO. */
 export function serializeTournamentDetail(
   t: NonNullable<Awaited<ReturnType<typeof loadTournamentById>>>
 ): TournamentDetail
@@ -114,6 +120,7 @@ export function serializeTournamentDetail(
   };
 }
 
+/** Marks a tournament as completed once all final matches are finished. */
 export async function completeTournamentIfFinalFinished(tournamentId: string): Promise<void>
 {
   const finalCount = await prisma.match.count({

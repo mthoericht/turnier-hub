@@ -239,7 +239,7 @@ describe("tournaments API integration (via client API)", () =>
     expect((advanced.notices ?? []).some((n) => n.includes("Zufallsprinzip"))).toBe(true);
   });
 
-  it("turnier-ersteller kann fremden Spieler in den Kader aufnehmen", async () =>
+  it("turnier-ersteller kann fremden Spieler in ein Team aufnehmen", async () =>
   {
     const auth = await postAuthLogin(SEED_EMAIL, SEED_PASSWORD);
     setToken(auth.token);

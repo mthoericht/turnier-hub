@@ -3,7 +3,7 @@ import type { IncomingMessage } from "node:http";
 import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from "ws";
 import { JWT_SECRET } from "../config.js";
-import type { AuthPayload } from "../middleware/auth.js";
+import type { AuthPayload } from "../auth/token.js";
 
 const WS_PATH = "/api/ws";
 

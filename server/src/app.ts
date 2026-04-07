@@ -1,4 +1,4 @@
-import express, { type ErrorRequestHandler } from "express";
+import express from "express";
 import cors from "cors";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +6,7 @@ import authRouter from "./routes/auth.js";
 import classesRouter from "./routes/classes.js";
 import playersRouter from "./routes/players.js";
 import tournamentsRouter from "./routes/tournaments/index.js";
+import { errorMiddleware } from "./middleware/error.js";
 
 export function createApp()
 {
@@ -42,12 +43,7 @@ export function createApp()
     res.status(404).json({ error: "Nicht gefunden" });
   });
 
-  const errorHandler: ErrorRequestHandler = (err, _req, res, _next) =>
-  {
-    console.error(err);
-    res.status(500).json({ error: "Interner Serverfehler" });
-  };
-  app.use(errorHandler);
+  app.use(errorMiddleware);
 
   return app;
 }

@@ -85,6 +85,14 @@ For a detailed German-language explanation of the tournament logic, see **[TURNI
 
 The SQLite file lives under `data/` (for example `data/dev.db`). Database files are not committed to the repository.
 
+Server error handling is centralized: route handlers should use `server/src/middleware/asyncHandler.ts`, and uncaught/domain errors are mapped in `server/src/middleware/error.ts` (for example `ServiceError` and Prisma conflict handling).
+
+Server architecture (quick reference):
+- **Routes:** API modules live in `server/src/routes/`; tournament endpoints are split in `server/src/routes/tournaments/` (`core`, `teams`, `matches`, `standings-advance`) and mounted under `/api/tournaments`.
+- **Validation / parser:** request payloads are validated with **Zod** in route modules; invalid input returns `400`.
+- **Middleware:** auth guard is `server/src/middleware/auth.ts`; async error forwarding uses `server/src/middleware/asyncHandler.ts`; centralized error mapping/logging is in `server/src/middleware/error.ts`.
+- **Services:** business/domain logic lives in `server/src/services/` (pure logic + orchestration); route handlers stay thin and call services.
+
 ## Prerequisites
 
 - **Node.js** (current LTS recommended)

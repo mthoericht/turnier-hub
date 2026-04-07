@@ -135,19 +135,19 @@ export async function patchTournamentGroupLabel(
   );
 }
 
-export type TransferKaderResult = {
+export type TransferTeamResult = {
   createdTeams: number;
   addedMembers: number;
 };
 
-export async function transferTournamentKader(
+export async function transferTournamentTeam(
   tournamentId: string,
   sourceTournamentId: string,
   body?: { overwriteExistingMembers?: boolean }
-): Promise<TransferKaderResult> 
+): Promise<TransferTeamResult> 
 {
-  return api<TransferKaderResult>(
-    `/api/tournaments/${tournamentId}/transfer-kader-from/${sourceTournamentId}`,
+  return api<TransferTeamResult>(
+    `/api/tournaments/${tournamentId}/transfer-team-from/${sourceTournamentId}`,
     {
       method: "POST",
       body: JSON.stringify(body ?? {}),

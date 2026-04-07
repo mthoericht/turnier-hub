@@ -1,5 +1,5 @@
 /**
- * Roster-scoped tournament layout actions: teams, members, group labels, and kader transfer from another tournament.
+ * Roster-scoped tournament layout actions: teams, members, group labels, and team transfer from another tournament.
  */
 import type { Ref } from "vue";
 import type { TournamentDetail, ConfirmDialogActionOptions } from "@/tournament/tournamentContext";
@@ -10,7 +10,7 @@ import {
   patchTournamentGroupLabel,
   patchTournamentTeam,
   removeTeamMember,
-  transferTournamentKader,
+  transferTournamentTeam,
 } from "@/api/tournamentsApi";
 
 /** Dependencies injected from `tournamentLayout` for roster CRUD and related UI refs. */
@@ -176,7 +176,7 @@ export function createRosterActions(ctx: RosterActionsContext)
   }
 
   /** Copies roster from another tournament into the active one; no-op when source equals target. */
-  async function transferKaderFromTournament(
+  async function transferTeamFromTournament(
     sourceTournamentId: string
   ): Promise<void>
   {
@@ -185,9 +185,9 @@ export function createRosterActions(ctx: RosterActionsContext)
     if (sourceTournamentId === targetId) return;
     try
     {
-      await transferTournamentKader(targetId, sourceTournamentId);
+      await transferTournamentTeam(targetId, sourceTournamentId);
       await load();
-      toast.showSuccess("Kader aus Turnier übertragen.");
+      toast.showSuccess("Team aus Turnier übertragen.");
     }
     catch (e)
     {
@@ -202,6 +202,6 @@ export function createRosterActions(ctx: RosterActionsContext)
     renameGroupLabel,
     addMember,
     removeMember,
-    transferKaderFromTournament,
+    transferTeamFromTournament,
   };
 }

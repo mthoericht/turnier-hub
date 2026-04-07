@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 import {
   createdBySelect,
   parseListScope,
@@ -21,7 +22,7 @@ const updateSchema = z.object({
   name: z.string().min(1),
 });
 
-router.get("/", async (req, res) => {
+router.get("/", asyncHandler(async (req, res) => {
   const scope = parseListScope(req.query.scope);
   const where = scope === "own" ? { userId: req.userId! } : {};
   const rows = await prisma.schoolClass.findMany({
@@ -30,9 +31,9 @@ router.get("/", async (req, res) => {
     include: { user: { select: createdBySelect } },
   });
   res.json(rows.map((row) => schoolClassToApi(row)));
-});
+}));
 
-router.post("/", async (req, res) => {
+router.post("/", asyncHandler(async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Ungültige Eingaben" });
@@ -60,16 +61,17 @@ router.post("/", async (req, res) => {
     }
     throw e;
   }
-});
+}));
 
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", asyncHandler(async (req, res) => {
+  const classId = String(req.params.id);
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Ungültige Eingaben" });
     return;
   }
   const existing = await prisma.schoolClass.findFirst({
-    where: { id: req.params.id },
+    where: { id: classId },
   });
   if (!existing) {
     res.status(404).json({ error: "Klasse nicht gefunden" });
@@ -79,7 +81,7 @@ router.patch("/:id", async (req, res) => {
   try 
   {
     const row = await prisma.schoolClass.update({
-      where: { id: req.params.id },
+      where: { id: classId },
       data: { name },
       include: { user: { select: createdBySelect } },
     });
@@ -98,19 +100,20 @@ router.patch("/:id", async (req, res) => {
     }
     throw e;
   }
-});
+}));
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", asyncHandler(async (req, res) => {
+  const classId = String(req.params.id);
   const existing = await prisma.schoolClass.findFirst({
-    where: { id: req.params.id },
+    where: { id: classId },
   });
   if (!existing) {
     res.status(404).json({ error: "Klasse nicht gefunden" });
     return;
   }
-  await prisma.schoolClass.delete({ where: { id: req.params.id } });
+  await prisma.schoolClass.delete({ where: { id: classId } });
   notifyCatalogChanged(["classes", "players"]);
   res.status(204).send();
-});
+}));
 
 export default router;

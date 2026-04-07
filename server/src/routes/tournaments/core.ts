@@ -1,4 +1,4 @@
-import type { NextFunction, Router } from "express";
+import type { NextFunction, Request, Response, Router } from "express";
 import type { TournamentMode, TournamentPhase } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db.js";
@@ -13,6 +13,7 @@ import {
   notifyTournamentsListChanged,
 } from "../../realtime/notify.js";
 
+/** Request body schema for creating a tournament. */
 const createTournamentSchema = z.object({
   name: z.string().min(1),
   sport: z.string().min(1),
@@ -22,6 +23,7 @@ const createTournamentSchema = z.object({
   teamsAreIndividuals: z.boolean().optional(),
 });
 
+/** Request body schema for patching editable tournament fields. */
 const patchTournamentSchema = z.object({
   name: z.string().min(1).optional(),
   sport: z.string().min(1).optional(),
@@ -29,110 +31,128 @@ const patchTournamentSchema = z.object({
   advancesPerGroup: z.number().int().min(1).max(8).optional(),
 });
 
-export function registerTournamentCoreRoutes(router: Router): void
+/** GET / - lists tournaments (all or own scope). */
+async function listTournamentsHandler(req: Request, res: Response): Promise<void>
 {
-  router.get("/", async (req, res) =>
+  const scope = parseListScope(req.query.scope);
+  const where = scope === "own" ? { userId: req.userId! } : {};
+  const list = await prisma.tournament.findMany({
+    where,
+    orderBy: { updatedAt: "desc" },
+    include: {
+      user: { select: createdBySelect },
+      _count: { select: { teams: true, matches: true } },
+    },
+  });
+  res.json(
+    list.map(({ user, ...row }) => ({
+      ...row,
+      createdBy: toCreatedBy(user),
+    }))
+  );
+}
+
+/** POST / - creates a tournament and returns the created row with metadata. */
+async function createTournamentHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void>
+{
+  const parsed = createTournamentSchema.safeParse(req.body);
+  if (!parsed.success)
   {
-    const scope = parseListScope(req.query.scope);
-    const where = scope === "own" ? { userId: req.userId! } : {};
-    const list = await prisma.tournament.findMany({
-      where,
-      orderBy: { updatedAt: "desc" },
+    res.status(400).json({ error: "Ungültige Eingaben" });
+    return;
+  }
+  const mode: TournamentMode = parsed.data.mode ?? "GROUP_KO";
+  const defaultPhase: TournamentPhase = mode === "DIRECT_KO"
+    ? "QUARTER"
+    : "GROUP";
+  try
+  {
+    const t = await prisma.tournament.create({
+      data: {
+        name: parsed.data.name,
+        sport: parsed.data.sport,
+        mode,
+        phase: defaultPhase,
+        groupCount: parsed.data.groupCount ?? 1,
+        userId: req.userId!,
+        advancesPerGroup: parsed.data.advancesPerGroup ?? 2,
+        teamsAreIndividuals: parsed.data.teamsAreIndividuals ?? false,
+      },
       include: {
         user: { select: createdBySelect },
         _count: { select: { teams: true, matches: true } },
       },
     });
-    res.json(
-      list.map(({ user, ...row }) => ({
-        ...row,
-        createdBy: toCreatedBy(user),
-      }))
-    );
-  });
-
-  router.post("/", async (req, res, next: NextFunction) =>
-  {
-    const parsed = createTournamentSchema.safeParse(req.body);
-    if (!parsed.success)
-    {
-      res.status(400).json({ error: "Ungültige Eingaben" });
-      return;
-    }
-    const mode: TournamentMode = parsed.data.mode ?? "GROUP_KO";
-    const defaultPhase: TournamentPhase = mode === "DIRECT_KO"
-      ? "QUARTER"
-      : "GROUP";
-    try
-    {
-      const t = await prisma.tournament.create({
-        data: {
-          name: parsed.data.name,
-          sport: parsed.data.sport,
-          mode,
-          phase: defaultPhase,
-          groupCount: parsed.data.groupCount ?? 1,
-          userId: req.userId!,
-          advancesPerGroup: parsed.data.advancesPerGroup ?? 2,
-          teamsAreIndividuals: parsed.data.teamsAreIndividuals ?? false,
-        },
-        include: {
-          user: { select: createdBySelect },
-          _count: { select: { teams: true, matches: true } },
-        },
-      });
-      const { user, ...row } = t;
-      notifyTournamentsListChanged();
-      res.status(201).json({
-        ...row,
-        createdBy: toCreatedBy(user),
-      });
-    }
-    catch (err)
-    {
-      next(err);
-    }
-  });
-
-  router.get("/:id", async (req, res) =>
-  {
-    const t = await loadTournamentById(req.params.id);
-    if (!t)
-    {
-      res.status(404).json({ error: "Turnier nicht gefunden" });
-      return;
-    }
-    res.json(serializeTournamentDetail(t));
-  });
-
-  router.patch("/:id", async (req, res) =>
-  {
-    const parsed = patchTournamentSchema.safeParse(req.body);
-    if (!parsed.success)
-    {
-      res.status(400).json({ error: "Ungültige Eingaben" });
-      return;
-    }
-    const exists = await requireTournamentExists(res, req.params.id);
-    if (!exists) return;
-    await prisma.tournament.update({
-      where: { id: req.params.id },
-      data: parsed.data,
+    const { user, ...row } = t;
+    notifyTournamentsListChanged();
+    res.status(201).json({
+      ...row,
+      createdBy: toCreatedBy(user),
     });
-    const full = await loadTournamentById(req.params.id);
-    notifyTournamentChanged(req.params.id);
-    notifyTournamentsListChanged();
-    res.json(serializeTournamentDetail(full!));
-  });
-
-  router.delete("/:id", async (req, res) =>
+  }
+  catch (err)
   {
-    const exists = await requireTournamentExists(res, req.params.id);
-    if (!exists) return;
-    const tid = req.params.id;
-    await prisma.tournament.delete({ where: { id: tid } });
-    notifyTournamentChanged(tid);
-    notifyTournamentsListChanged();
-    res.status(204).send();
+    next(err);
+  }
+}
+
+/** GET /:id - returns one tournament detail payload. */
+async function getTournamentDetailHandler(req: Request, res: Response): Promise<void>
+{
+  const tournamentId = String(req.params.id);
+  const t = await loadTournamentById(tournamentId);
+  if (!t)
+  {
+    res.status(404).json({ error: "Turnier nicht gefunden" });
+    return;
+  }
+  res.json(serializeTournamentDetail(t));
+}
+
+/** PATCH /:id - updates editable tournament fields and returns detail payload. */
+async function patchTournamentHandler(req: Request, res: Response): Promise<void>
+{
+  const tournamentId = String(req.params.id);
+  const parsed = patchTournamentSchema.safeParse(req.body);
+  if (!parsed.success)
+  {
+    res.status(400).json({ error: "Ungültige Eingaben" });
+    return;
+  }
+  const exists = await requireTournamentExists(res, tournamentId);
+  if (!exists) return;
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: parsed.data,
   });
+  const full = await loadTournamentById(tournamentId);
+  notifyTournamentChanged(tournamentId);
+  notifyTournamentsListChanged();
+  res.json(serializeTournamentDetail(full!));
+}
+
+/** DELETE /:id - deletes a tournament and broadcasts realtime updates. */
+async function deleteTournamentHandler(req: Request, res: Response): Promise<void>
+{
+  const tournamentId = String(req.params.id);
+  const exists = await requireTournamentExists(res, tournamentId);
+  if (!exists) return;
+  await prisma.tournament.delete({ where: { id: tournamentId } });
+  notifyTournamentChanged(tournamentId);
+  notifyTournamentsListChanged();
+  res.status(204).send();
+}
+
+/** Registers core tournament CRUD routes. */
+export function registerTournamentCoreRoutes(router: Router): void
+{
+  router.get("/", listTournamentsHandler);
+  router.post("/", createTournamentHandler);
+  router.get("/:id", getTournamentDetailHandler);
+  router.patch("/:id", patchTournamentHandler);
+  router.delete("/:id", deleteTournamentHandler);
 }

@@ -118,7 +118,7 @@ export async function deleteTeam(
     if (!teamsAreIndividuals)
     {
       throw new ServiceError(
-        "Mannschaft ist noch belegt (Kader). Entferne zuerst Spieler aus der Mannschaft.",
+        "Mannschaft ist noch belegt (Team). Entferne zuerst Spieler aus der Mannschaft.",
       );
     }
     await prisma.tournamentTeamMember.deleteMany({
@@ -228,7 +228,7 @@ export async function addMember(
   catch
   {
     throw new ServiceError(
-      "Spieler ist bereits einem Kader in diesem Turnier zugeordnet",
+      "Spieler ist bereits einem Team in diesem Turnier zugeordnet",
       409,
     );
   }
@@ -249,7 +249,7 @@ export async function removeMember(
   });
 }
 
-export async function transferKader(
+export async function transferTeam(
   targetTournamentId: string,
   sourceTournamentId: string,
   overwriteExistingMembers: boolean,
