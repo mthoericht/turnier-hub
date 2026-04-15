@@ -38,7 +38,8 @@ export const playerApiInclude = {
 
 export type PlayerApiRow = {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   user: CreatedByUser;
   schoolClass: { id: string; name: string } | null;
 };
@@ -49,7 +50,8 @@ export type PlayerApiRow = {
 export function playerToApi(p: PlayerApiRow): Player {
   return {
     id: p.id,
-    name: p.name,
+    firstName: p.firstName,
+    lastName: p.lastName,
     schoolClass: p.schoolClass,
     createdBy: toCreatedBy(p.user),
   };

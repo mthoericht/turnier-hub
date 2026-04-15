@@ -1,4 +1,5 @@
 import type { TournamentLayoutContext } from "@/tournament/tournamentContext";
+import { formatPlayerName } from "@turnier-hub/shared";
 
 type RosterAddIndividualDeps = Pick<
   TournamentLayoutContext,
@@ -21,12 +22,13 @@ export function useTournamentRosterAddIndividual(
     const player = deps.availablePlayers.value.find((p) => p.id === deps.addPlayerId.value);
     if (!player || !deps.tournament.value) return;
 
-    deps.newTeamName.value = player.name;
+    const playerName = formatPlayerName(player);
+    deps.newTeamName.value = playerName;
     await deps.createTeam();
 
     const t = deps.tournament.value;
     if (!t) return;
-    const team = t.teams.find((tm) => tm.name === player.name);
+    const team = t.teams.find((tm) => tm.name === playerName);
     if (team)
     {
       deps.addMemberTeamId.value = team.id;

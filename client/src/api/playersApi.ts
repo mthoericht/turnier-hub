@@ -2,6 +2,7 @@ import { api } from "./http";
 import type { Player } from "@turnier-hub/shared";
 
 export type PlayersScope = "all" | "own";
+export type PlayerImportMode = "reset_all" | "append" | "replace_players";
 
 export async function fetchPlayers(
   scope: PlayersScope
@@ -17,7 +18,8 @@ export async function fetchPlayersAll(): Promise<Player[]>
 }
 
 export async function postPlayer(body: {
-  name: string;
+  firstName: string;
+  lastName: string;
   schoolClassId: string | null;
 }): Promise<Player> 
 {
@@ -29,7 +31,7 @@ export async function postPlayer(body: {
 
 export async function patchPlayer(
   id: string,
-  body: { name: string; schoolClassId: string | null }
+  body: { firstName: string; lastName: string; schoolClassId: string | null }
 ): Promise<void> 
 {
   await api(`/api/players/${id}`, {
@@ -41,4 +43,15 @@ export async function patchPlayer(
 export async function deletePlayer(id: string): Promise<void> 
 {
   await api(`/api/players/${id}`, { method: "DELETE" });
+}
+
+export async function importPlayersFromRows(
+  rows: Array<{ firstName: string; lastName: string; className: string }>,
+  mode: PlayerImportMode
+): Promise<{ imported: number }>
+{
+  return api<{ imported: number }>("/api/players/import", {
+    method: "POST",
+    body: JSON.stringify({ rows, mode }),
+  });
 }

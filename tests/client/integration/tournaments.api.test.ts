@@ -65,7 +65,8 @@ async function seedMinimalAuthAndPlayers(): Promise<void>
   });
   await prisma.player.createMany({
     data: Array.from({ length: 16 }, (_, i) => ({
-      name: `Test Player ${i + 1}`,
+      firstName: "Test",
+      lastName: `Player ${i + 1}`,
       userId: user.id,
       schoolClassId: null,
     })),
@@ -253,7 +254,8 @@ describe("tournaments API integration (via client API)", () =>
     });
     const otherPlayer = await prisma.player.create({
       data: {
-        name: "Spieler anderer Nutzer",
+        firstName: "Spieler",
+        lastName: "anderer Nutzer",
         userId: otherUser.id,
         schoolClassId: null,
       },

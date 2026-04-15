@@ -31,12 +31,6 @@ const inputClass =
 <template>
   <div>
     <CatalogPageHeader title="Klassen">
-      <template #description>
-        <p class="text-sm text-slate-600">
-          Schulklassen im gemeinsamen Katalog. Beim Anlegen oder Bearbeiten von
-          Spielern kann jede Klasse zugewiesen werden — oder keine.
-        </p>
-      </template>
       <template #actions>
         <ScopeToggle v-model="scope" />
 
@@ -49,6 +43,11 @@ const inputClass =
         </button>
       </template>
     </CatalogPageHeader>
+
+    <p class="mb-6 text-sm text-slate-600">
+      Schulklassen im gemeinsamen Katalog. Beim Anlegen oder Bearbeiten von
+      Spielern kann jede Klasse zugewiesen werden — oder keine.
+    </p>
 
     <p
       v-if="error"

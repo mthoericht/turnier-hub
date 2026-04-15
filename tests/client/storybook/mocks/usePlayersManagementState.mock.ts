@@ -4,6 +4,9 @@ export function usePlayersManagementState()
 {
   const scope = ref<"all" | "own">("all");
   const classFilter = ref("");
+  const searchQuery = ref("");
+  const sortKey = ref<"firstName" | "lastName" | "schoolClass">("lastName");
+  const sortDirection = ref<"asc" | "desc">("asc");
 
   const players = ref<unknown[]>([]);
   const schoolClassOptions = ref<unknown[]>([]);
@@ -14,8 +17,11 @@ export function usePlayersManagementState()
 
   const dialogOpen = ref(false);
   const editingId = ref<string | null>(null);
-  const dialogName = ref("");
+  const dialogFirstName = ref("");
+  const dialogLastName = ref("");
   const dialogClassId = ref("");
+  const importDialogOpen = ref(false);
+  const importMode = ref<"reset_all" | "append" | "replace_players">("append");
 
   const filteredPlayers = computed(() => []);
 
@@ -32,7 +38,8 @@ export function usePlayersManagementState()
   function openCreate(): void
   {
     editingId.value = null;
-    dialogName.value = "";
+    dialogFirstName.value = "";
+    dialogLastName.value = "";
     dialogClassId.value = "";
     dialogOpen.value = true;
   }
@@ -47,6 +54,17 @@ export function usePlayersManagementState()
   async function submitDialog(): Promise<void> {}
 
   async function remove(): Promise<void> {}
+  function toggleSort(): void {}
+  function openImportDialog(): void
+  {
+    importDialogOpen.value = true;
+  }
+  function closeImportDialog(): void
+  {
+    importDialogOpen.value = false;
+  }
+  async function importFromFile(): Promise<void> {}
+  async function exportCurrentPlayers(): Promise<void> {}
 
   async function loadPlayers(): Promise<void> {}
   async function loadClasses(): Promise<void> {}
@@ -56,13 +74,19 @@ export function usePlayersManagementState()
     players,
     schoolClassOptions,
     classFilter,
+    searchQuery,
+    sortKey,
+    sortDirection,
     loading,
     classesLoading,
     error,
     dialogOpen,
     editingId,
-    dialogName,
+    dialogFirstName,
+    dialogLastName,
     dialogClassId,
+    importDialogOpen,
+    importMode,
     filteredPlayers,
     canAddPlayer,
     distinctClassOptions,
@@ -72,6 +96,11 @@ export function usePlayersManagementState()
     closeDialog,
     submitDialog,
     remove,
+    toggleSort,
+    openImportDialog,
+    closeImportDialog,
+    importFromFile,
+    exportCurrentPlayers,
     getClassName,
     loadPlayers,
     loadClasses,

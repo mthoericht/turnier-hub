@@ -33,7 +33,8 @@ model SchoolClass {
 
 model Player {
   id                    String                 @id @default(cuid())
-  name                  String
+  firstName             String
+  lastName              String
   schoolClassId         String?
   schoolClass           SchoolClass?           @relation(fields: [schoolClassId], references: [id], onDelete: SetNull)
   userId                String

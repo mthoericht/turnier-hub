@@ -8,7 +8,7 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - **Users:** Each account has a **username** (unique, normalized) and email. All signed-in users share one **catalog** (see **Shared catalog**).
 - **Shared catalog:** **School classes**, **players**, and **tournaments** are visible and **fully editable** (create / update / delete) by **any authenticated user**. Database rows still store the **original creator** (`userId` on create); the API exposes this as **`createdBy`** for display only (“Von …” / “Erstellt von …”). List filters **Alle** vs. **Eigene** only narrow what you see, not who may edit. **Players** can be assigned to **any** class in the catalog. **Roster transfer** can use any tournament as the source.
 - **Classes:** CRUD for **school classes** (names unique **per creator** in the DB — two users can each have a class named `10a`). Routes `/classes` (API `/api/classes`).
-- **Players:** CRUD for players; optional class is chosen from **all** classes in the catalog. Scoped list views (all vs. own) like tournaments.
+- **Players:** CRUD for players with separate **`firstName`** and **`lastName`**; optional class is chosen from **all** classes in the catalog. Scoped list views (all vs. own) like tournaments. The players page provides text search (first name, last name, full name, class), sortable table columns (**Vorname**, **Name**, **Klasse**, asc/desc toggle), and an **Import/Export** dialog. Import accepts **XLS/XLSX** with columns **`Vorname`**, **`Name`** (last name), **`Klasse`** and offers modes to append, reset all data, or replace players by matching existing rows on **Vorname + Name + Klasse** (only missing rows are removed). Export writes current players to XLSX using the same column schema. For better mobile landscape fit, creator attribution is shown as compact text below each row's action buttons.
 - **Tournaments:** Create tournaments with one of three **modes**: **Group → K.O.** (classic group stage feeding knockout rounds), **Direct K.O.** (knockout only, supports arbitrary team counts with byes), or **Round-Robin** (everyone vs everyone, no knockout). Optionally mark **teams as individuals** (e.g. badminton — players become teams directly). In the **Operations** tab (`Spielbetrieb`), Group → K.O. lets you set **group count** directly next to "Generate group matches" and save **advancers per group** separately via "Save settings". Add **teams**, assign **any** catalog players to **team rosters** (optionally transfer rosters from **another** tournament in the **Teams** tab), generate **group / round-robin matches** (organized in parallel rounds), view **standings** (per group when applicable), then advance through **round of 16 → quarter → semi → final** with pairings computed on the server. K.O. pairings are randomized when generated. Group generation ignores teams without members and regenerating group matches removes existing knockout matches. Group and team names are editable in the roster UI. All matches can be **deleted at once** via "Delete all matches and groups" in the operations view. The tournament UI uses top tabs **Teams** (`Mannschaften`), **Matches** (`Spiele`), and **Operations** (`Spielbetrieb`).
 - **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. When the final is finished, the tournament phase is automatically set to **Ende** (`COMPLETED`). Matches with a **Freilos** are created directly as **beendet** (`FINISHED`). **Live updates** use a **WebSocket** (`/api/ws`): the server pushes **`tournamentChanged`** to clients subscribed to that tournament; **`catalogChanged`** (players/classes) and **`tournamentsChanged`** are **broadcast to every connected client**. The client refetches affected tournament detail and **merges** the score draft so unsaved typing is not wiped. **Stopwatch display:** while a match is **LIVE**, elapsed time is derived **locally** from server timestamps (`matchStartedAt`, `totalPausedMs`, …) on a one-second **UI** tick — no per-second HTTP or WebSocket traffic; timer **state** still updates only from the API/WebSocket when you use the controls or another client changes the match. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
 - **Feedback:** **Toasts** (global, bottom of the screen) surface validation hints and API errors for tournament actions (for example advance rules or save issues).
@@ -34,7 +34,9 @@ For a detailed German-language explanation of the tournament logic, see **[TURNI
 
 2. **Prepare master data**
    - In **Classes**, create school classes (optional but recommended). Any user can use classes created by others when assigning players.
-   - In **Players**, create participants and optionally link each player to a class from the shared catalog.
+   - In **Players**, create participants (`firstName` + `lastName`) and optionally link each player to a class from the shared catalog.
+   - In the **Players** list, use class filter + search field together and sort by **Vorname**, **Name**, or **Klasse** directly from the table header.
+   - Optional: use **Import/Export** on the players page. Import expects **XLS/XLSX** with **`Vorname`**, **`Name`**, **`Klasse`**; export writes the current list with the same schema.
 
 3. **Create a tournament**
    - Choose mode:
@@ -78,7 +80,7 @@ For a detailed German-language explanation of the tournament logic, see **[TURNI
 | -------- | ---------- |
 | Client   | Vite, Vue 3, TypeScript, Pinia, Vue Router, Tailwind CSS |
 | Server   | Express, TypeScript, **`ws`** (WebSocket on `/api/ws`, same HTTP server as the API) |
-| Shared   | **`@turnier-hub/shared`** workspace: TypeScript types for catalog and tournament API payloads (e.g. `Player`, `CreatedBy`, `AuthUser`) plus `formatCreator`; consumed by client and server |
+| Shared   | **`@turnier-hub/shared`** workspace: TypeScript types for catalog and tournament API payloads (e.g. `Player`, `CreatedBy`, `AuthUser`) plus helpers like `formatCreator` and `formatPlayerName`; consumed by client and server |
 | Database | SQLite via Prisma ORM |
 | Auth     | JWT, bcryptjs |
 | Lint     | ESLint 9 (flat config), `typescript-eslint`, `eslint-plugin-vue` (client) |
@@ -256,7 +258,7 @@ turnier-hub/
 ├── tests/                     # Shared root test tree (server + client Vitest tests)
 │   ├── server/
 │   └── client/
-├── shared/                    # @turnier-hub/shared: catalog + tournament TypeScript types, formatCreator (client + server depend on this)
+├── shared/                    # @turnier-hub/shared: catalog + tournament TypeScript types and formatting helpers (client + server depend on this)
 ├── client/                    # Vue SPA (Vite)
 │   ├── eslint.config.js       # ESLint flat config
 │   ├── src/

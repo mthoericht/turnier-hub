@@ -13,12 +13,18 @@ export function usePlayersManagementState()
   });
   return {
     ...storeToRefs(store),
+    formatPlayerName: store.formatPlayerName,
+    toggleSort: store.toggleSort,
     getClassName: store.getClassName,
     openCreate: store.openCreate,
     openEdit: store.openEdit,
     closeDialog: store.closeDialog,
     submitDialog: store.submitDialog,
     remove: store.remove,
+    openImportDialog: store.openImportDialog,
+    closeImportDialog: store.closeImportDialog,
+    importFromFile: store.importFromFile,
+    exportCurrentPlayers: store.exportCurrentPlayers,
     loadPlayers: store.loadPlayers,
     loadClasses: store.loadClasses,
   };

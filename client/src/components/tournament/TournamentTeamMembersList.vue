@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatCreator } from "@turnier-hub/shared";
+import { formatCreator, formatPlayerName } from "@turnier-hub/shared";
 import type { TournamentTeam } from "@/tournament/tournamentContext";
 
 withDefaults(
@@ -26,7 +26,7 @@ const emit = defineEmits<{
       class="flex flex-wrap items-center justify-between gap-2"
     >
       <span class="text-slate-800">
-        {{ mem.player.name
+        {{ formatPlayerName(mem.player)
         }}<span
           v-if="mem.player.schoolClass"
           class="text-slate-500"

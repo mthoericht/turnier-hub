@@ -10,19 +10,19 @@ export const SEED_EMAIL = "seed@turnier-hub.local";
 export const SEED_USERNAME = "seeduser";
 export const SEED_PASSWORD = "seedseed12";
 
-export const SEED_PLAYERS: { name: string; className: string }[] = [
-  { name: "Lina Müller", className: "10a" },
-  { name: "Tom Schneider", className: "10a" },
-  { name: "Aylin Yilmaz", className: "10b" },
-  { name: "Felix Braun", className: "10b" },
-  { name: "Mia Hoffmann", className: "9a" },
-  { name: "Jonas Fischer", className: "9a" },
-  { name: "Emma Wagner", className: "9b" },
-  { name: "Noah Becker", className: "9b" },
-  { name: "Sophie Klein", className: "10a" },
-  { name: "Lukas Weber", className: "10b" },
-  { name: "Hanna Richter", className: "9a" },
-  { name: "Max Schwarz", className: "9b" },
+export const SEED_PLAYERS: { firstName: string; lastName: string; className: string }[] = [
+  { firstName: "Lina", lastName: "Müller", className: "10a" },
+  { firstName: "Tom", lastName: "Schneider", className: "10a" },
+  { firstName: "Aylin", lastName: "Yilmaz", className: "10b" },
+  { firstName: "Felix", lastName: "Braun", className: "10b" },
+  { firstName: "Mia", lastName: "Hoffmann", className: "9a" },
+  { firstName: "Jonas", lastName: "Fischer", className: "9a" },
+  { firstName: "Emma", lastName: "Wagner", className: "9b" },
+  { firstName: "Noah", lastName: "Becker", className: "9b" },
+  { firstName: "Sophie", lastName: "Klein", className: "10a" },
+  { firstName: "Lukas", lastName: "Weber", className: "10b" },
+  { firstName: "Hanna", lastName: "Richter", className: "9a" },
+  { firstName: "Max", lastName: "Schwarz", className: "9b" },
 ];
 
 export async function seedDemoData(prisma: PrismaClient): Promise<void>
@@ -60,7 +60,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
     SEED_PLAYERS.map((p) =>
       prisma.player.create({
         data: {
-          name: p.name,
+          firstName: p.firstName,
+          lastName: p.lastName,
           schoolClassId: classIdByName[p.className]!,
           userId: user.id,
         },
@@ -211,7 +212,11 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
   const rrTeams = await Promise.all(
     rrPlayerSubset.map((p, i) =>
       prisma.tournamentTeam.create({
-        data: { tournamentId: tRoundRobin.id, name: p.name, sortOrder: i },
+        data: {
+          tournamentId: tRoundRobin.id,
+          name: `${p.firstName} ${p.lastName}`.trim(),
+          sortOrder: i,
+        },
       })
     )
   );

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, useId } from "vue";
-import type { Player } from "@turnier-hub/shared";
+import { formatPlayerName, type Player } from "@turnier-hub/shared";
 import type { TournamentTeam } from "@/tournament/tournamentContext";
 
 const props = withDefaults(defineProps<{
@@ -67,7 +67,7 @@ const addDisabled = computed(() =>
 
 function playerLabel(p: Player): string
 {
-  return `${p.name}${p.schoolClass ? ` (${p.schoolClass.name})` : ""}`;
+  return `${formatPlayerName(p)}${p.schoolClass ? ` (${p.schoolClass.name})` : ""}`;
 }
 
 function onClassChange(value: string): void

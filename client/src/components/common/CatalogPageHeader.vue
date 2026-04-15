@@ -38,7 +38,7 @@ const titleClass = computed(() =>
     </div>
     <div
       v-if="$slots.actions"
-      class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
+      class="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-3"
     >
       <slot name="actions" />
     </div>

@@ -17,7 +17,8 @@ export type PlayerSchoolClass = {
 /** Player as returned by the HTTP API. */
 export type Player = {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   schoolClass: PlayerSchoolClass | null;
   createdBy: CreatedBy;
 };
@@ -33,4 +34,9 @@ export function formatCreator(c: CreatedBy): string
 {
   if (c.username) return `@${c.username}`;
   return c.email;
+}
+
+export function formatPlayerName(player: Pick<Player, "firstName" | "lastName">): string
+{
+  return `${player.firstName} ${player.lastName}`.trim();
 }
