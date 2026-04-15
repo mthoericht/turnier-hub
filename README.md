@@ -2,6 +2,21 @@
 
 Turnier-Hub is a small full-stack web application for managing school sports tournaments (for example volleyball, football, or two-field ball). It covers user registration with an invite code, a **shared catalog** of **school classes**, **players**, and **tournaments** (any signed-in user can edit; creator is shown for attribution), player rosters, tournament setup with **teams** (or individuals), three **tournament modes** (group stage → knockout, direct knockout, round-robin), multiple **groups**, knockout phases (round of 16 / quarter / semi / final), manual score entry, and a per-match stopwatch.
 
+## Table of Contents
+
+- [Features](#features)
+- [How To Use (Typical Workflow)](#how-to-use-typical-workflow)
+- [Tech Stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [NPM Scripts (repository root)](#npm-scripts-repository-root)
+- [Database Profiles (dev / test / production)](#database-profiles-dev--test--production)
+- [Production](#production)
+- [Security Notes](#security-notes)
+- [Project Layout](#project-layout)
+- [Accessibility (front end)](#accessibility-front-end)
+- [Test Environment](#test-environment)
+
 ## Features
 
 - **Authentication:** Sign-up requires a shared **invite code** (configurable). Login uses email and password. Sessions use **JWT** in the `Authorization: Bearer` header; the token is stored in the browser under the localStorage key `turnier_hub_token`.
@@ -121,6 +136,10 @@ Server architecture (quick reference):
    - `INVITE_CODE` — required for new sign-ups (default in the example: `ballspiele2026`).
    - `DEFAULT_SCHOOL_NAME` — school name auto-created at startup (default: `defaultSchool`; may contain spaces, e.g. `"BBS Hannover"`).
    - `PORT` — API port (default `3001`).
+   - `AUTH_RATE_LIMIT_WINDOW_MS` / `AUTH_LOGIN_MAX_REQUESTS` / `AUTH_SIGNUP_MAX_REQUESTS` / `AUTH_IDENTIFIER_MAX_REQUESTS` — in-memory abuse protection for login/signup (window + max requests per IP and identifier).
+   - `CORS_ALLOWED_ORIGINS` — comma-separated allowlist of browser origins that may call the API with credentials.
+   - `TRUST_PROXY` — set to `1` (or the correct hop count) when running behind a reverse proxy so IP-based protections use the real client IP.
+   - `JSON_BODY_LIMIT` — max JSON request payload size for `express.json` (default `100kb`).
 
 3. **Apply the database schema** and optionally **seed** demo data:
 
@@ -220,7 +239,7 @@ Realtime test coverage (current baseline):
 
 For Ansible-based production automation (bootstrap, restart, update + deploy), see [`ansible/README.md`](ansible/README.md).
 
-1. Set environment variables on the host (`DATABASE_URL`, `JWT_SECRET`, `INVITE_CODE`, `PORT`, etc.) — do not rely on committing `.env`.
+1. Set environment variables on the host (`DATABASE_URL`, `JWT_SECRET`, `INVITE_CODE`, `PORT`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, etc.) — do not rely on committing `.env`.
 
 2. Install dependencies and prepare the build:
 
@@ -246,10 +265,25 @@ For Ansible-based production automation (bootstrap, restart, update + deploy), s
 Notes:
 - `db:seed` / `db:clear` are for development/test workflows. On production, use `db:deploy` only (and seed manually only if you explicitly want demo data).
 - **Reverse proxy (e.g. Nginx):** if TLS or a proxy sits in front of Node, enable **WebSocket pass-through** for paths that hit the API (at least **`/api/ws`**), e.g. `proxy_http_version 1.1`, `Upgrade`, and `Connection "upgrade"`, so realtime push keeps working.
+- **Auth abuse protection:** login/signup are rate-limited per IP and per identifier (`email` / `username`) and return `429` + `Retry-After` when limits are exceeded.
 
    Or use `npm run prod` to run steps 2–4's build/start in one go after `npm ci` (run `db:deploy` separately when the database is ready).
 
    Equivalent from the server workspace after a root build: `npm run start:prod -w server`.
+
+## Security Notes
+
+- **Security backlog:** see [`SECURITY_TODO.md`](SECURITY_TODO.md) for prioritized hardening tasks and rollout checks.
+- **Auth endpoint throttling:** `POST /api/auth/login` and `POST /api/auth/signup` are protected by in-memory request limits.
+- **Security headers:** API responses include baseline HTTP security headers via `helmet`.
+- **CORS allowlist:** browser calls are accepted only from origins in `CORS_ALLOWED_ORIGINS` (comma-separated).
+- **Rate-limit env vars:** `AUTH_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_MAX_REQUESTS`, `AUTH_SIGNUP_MAX_REQUESTS`, `AUTH_IDENTIFIER_MAX_REQUESTS`.
+- **Proxy/IP env var:** `TRUST_PROXY` (for example `1` behind Nginx) so `req.ip` is correct for rate limits and auditing.
+- **Payload-size env var:** `JSON_BODY_LIMIT` limits JSON request size globally (default `100kb`).
+- **How limits are applied:** both per-IP and per-identifier counters run in parallel; if either threshold is exceeded in the active window, the request is blocked (`429`).
+- **Current scope:** limits are process-local (single Node.js instance). For multi-instance deployments, add a shared store (e.g. Redis) and/or edge rate limits at the reverse proxy/load balancer.
+- **Proxy setup:** if your app runs behind a reverse proxy, configure trusted proxy hops so `req.ip` reflects the real client IP and keep your allowed browser origins aligned with the public frontend URL(s).
+- **Secrets:** always set strong production values for `JWT_SECRET` and `INVITE_CODE` through host environment variables.
 
 ## Project Layout
 

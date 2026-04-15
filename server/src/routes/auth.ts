@@ -3,13 +3,30 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../db.js";
-import { INVITE_CODE } from "../config.js";
+import {
+  AUTH_IDENTIFIER_MAX_REQUESTS,
+  AUTH_LOGIN_MAX_REQUESTS,
+  AUTH_RATE_LIMIT_WINDOW_MS,
+  AUTH_SIGNUP_MAX_REQUESTS,
+  INVITE_CODE,
+} from "../config.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { signToken } from "../auth/token.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { ensureDefaultSchool } from "../lib/schools.js";
+import { createAuthRateLimiter } from "../middleware/authRateLimit.js";
 
 const router = Router();
+const loginRateLimit = createAuthRateLimiter({
+  windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+  maxPerIp: AUTH_LOGIN_MAX_REQUESTS,
+  maxPerIdentifier: AUTH_IDENTIFIER_MAX_REQUESTS,
+});
+const signupRateLimit = createAuthRateLimiter({
+  windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+  maxPerIp: AUTH_SIGNUP_MAX_REQUESTS,
+  maxPerIdentifier: AUTH_IDENTIFIER_MAX_REQUESTS,
+});
 
 /** Username validation shared by signup and any future profile updates. */
 const usernameSchema = z
@@ -210,8 +227,8 @@ async function listSchoolsHandler(_req: Request, res: Response): Promise<void>
 }
 
 router.get("/schools", asyncHandler(listSchoolsHandler));
-router.post("/signup", asyncHandler(signupHandler));
-router.post("/login", asyncHandler(loginHandler));
+router.post("/signup", signupRateLimit, asyncHandler(signupHandler));
+router.post("/login", loginRateLimit, asyncHandler(loginHandler));
 router.get("/me", authMiddleware, asyncHandler(meHandler));
 
 export default router;

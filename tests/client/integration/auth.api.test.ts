@@ -1,7 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../../server/src/app.js";
 import { prisma } from "../../../server/src/db.js";
-import { INVITE_CODE } from "../../../server/src/config.js";
+import {
+  AUTH_IDENTIFIER_MAX_REQUESTS,
+  AUTH_LOGIN_MAX_REQUESTS,
+  AUTH_SIGNUP_MAX_REQUESTS,
+  INVITE_CODE,
+} from "../../../server/src/config.js";
+import { resetAuthRateLimitForTests } from "../../../server/src/middleware/authRateLimit.js";
 import {
   fetchAuthSchools,
   fetchAuthMe,
@@ -87,6 +93,7 @@ describe("auth API integration (via client API)", () =>
 
   beforeEach(async () =>
   {
+    resetAuthRateLimitForTests();
     await resetDatabase();
     setToken(null);
   });
@@ -194,6 +201,70 @@ describe("auth API integration (via client API)", () =>
   {
     setToken(null);
     await expect(fetchAuthMe()).rejects.toThrow("Nicht angemeldet");
+  });
+
+  it("rate-limits repeated login attempts", async () =>
+  {
+    const acceptedAttempts = Math.min(
+      AUTH_LOGIN_MAX_REQUESTS,
+      AUTH_IDENTIFIER_MAX_REQUESTS
+    );
+    for (let attempt = 0; attempt < acceptedAttempts; attempt += 1)
+    {
+      const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "unknown-rate-limit@example.com",
+          password: "invalid-password",
+        }),
+      });
+      expect(response.status).toBe(401);
+    }
+
+    const blocked = await fetch(`${apiBaseUrl}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "unknown-rate-limit@example.com",
+        password: "invalid-password",
+      }),
+    });
+    expect(blocked.status).toBe(429);
+  });
+
+  it("rate-limits repeated signup attempts", async () =>
+  {
+    const schoolId = await getFirstSchoolId();
+
+    for (let attempt = 0; attempt < AUTH_SIGNUP_MAX_REQUESTS; attempt += 1)
+    {
+      const response = await fetch(`${apiBaseUrl}/api/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "User_Ddos_Test",
+          email: `ddos-signup-${attempt}@example.com`,
+          password: "password123",
+          inviteCode: "wrong",
+          schoolId,
+        }),
+      });
+      expect(response.status).toBe(403);
+    }
+
+    const blocked = await fetch(`${apiBaseUrl}/api/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "User_Ddos_Test",
+        email: "ddos-signup-final@example.com",
+        password: "password123",
+        inviteCode: "wrong",
+        schoolId,
+      }),
+    });
+    expect(blocked.status).toBe(429);
   });
 });
 
