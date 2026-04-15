@@ -142,11 +142,6 @@ router.post("/import", asyncHandler(async (req, res) => {
       await tx.player.deleteMany({});
       await tx.schoolClass.deleteMany({});
     }
-    else if (mode === "replace_players")
-    {
-      await tx.player.deleteMany({});
-    }
-
     const classNameSet = new Set(
       parsed.data.rows.map((row) => row.className.trim()).filter(Boolean),
     );
