@@ -9,7 +9,7 @@ const auth = useAuthStore();
 const username = ref("");
 const email = ref("");
 const password = ref("");
-const inviteCode = ref("ballspiele2026");
+const inviteCode = ref("");
 const error = ref("");
 const loading = ref(false);
 
