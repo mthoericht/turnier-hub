@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import AuthFormField from "@/components/auth/AuthFormField.vue";
+import { fetchAuthSchools } from "@/api/authApi";
 
 const auth = useAuthStore();
 
@@ -10,15 +11,51 @@ const username = ref("");
 const email = ref("");
 const password = ref("");
 const inviteCode = ref("");
+const schoolId = ref("");
+const schools = ref<{ id: string; name: string }[]>([]);
 const error = ref("");
 const loading = ref(false);
+const schoolsLoading = ref(false);
 
 const inputClass =
   "ui-input-court";
 
+onMounted(() =>
+{
+  void loadSchools();
+});
+
+async function loadSchools(): Promise<void>
+{
+  schoolsLoading.value = true;
+  try
+  {
+    const options = await fetchAuthSchools();
+    const normalizedOptions = Array.isArray(options) ? options : [];
+    schools.value = normalizedOptions;
+    if (normalizedOptions.length > 0 && !schoolId.value)
+    {
+      schoolId.value = normalizedOptions[0]!.id;
+    }
+  }
+  catch (e)
+  {
+    error.value = e instanceof Error ? e.message : "Schulen konnten nicht geladen werden";
+  }
+  finally
+  {
+    schoolsLoading.value = false;
+  }
+}
+
 async function submit(): Promise<void> 
 {
   error.value = "";
+  if (!schoolId.value)
+  {
+    error.value = "Bitte eine Schule auswählen";
+    return;
+  }
   loading.value = true;
   try 
   {
@@ -27,6 +64,7 @@ async function submit(): Promise<void>
       email: email.value,
       password: password.value,
       inviteCode: inviteCode.value,
+      schoolId: schoolId.value,
     });
   }
   catch (e) 
@@ -52,6 +90,26 @@ async function submit(): Promise<void>
       zu deinem Konto.
     </p>
     <form class="space-y-4" @submit.prevent="submit">
+      <AuthFormField label="Schule" :input-class="inputClass">
+        <template #default="{ fieldId, describedBy }">
+          <select
+            :id="fieldId"
+            v-model="schoolId"
+            required
+            :class="inputClass"
+            :disabled="schoolsLoading || schools.length === 0"
+            :aria-describedby="describedBy"
+            :aria-invalid="error ? 'true' : undefined"
+          >
+            <option value="" disabled>
+              {{ schoolsLoading ? "Schulen werden geladen …" : "Schule wählen" }}
+            </option>
+            <option v-for="school in schools" :key="school.id" :value="school.id">
+              {{ school.name }}
+            </option>
+          </select>
+        </template>
+      </AuthFormField>
       <AuthFormField label="Einladungscode" :input-class="inputClass">
         <template #default="{ fieldId, describedBy }">
           <input

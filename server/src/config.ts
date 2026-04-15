@@ -20,3 +20,7 @@ if (isProd && !process.env.INVITE_CODE)
 export const JWT_SECRET = process.env.JWT_SECRET ?? "dev-only-change-me";
 export const INVITE_CODE = process.env.INVITE_CODE ?? "ballspiele2026";
 export const PORT = Number(process.env.PORT ?? 3001);
+
+/** Default school name for new users. */
+const defaultSchoolName = process.env.DEFAULT_SCHOOL_NAME?.trim();
+export const DEFAULT_SCHOOL_NAME = defaultSchoolName?.length ? defaultSchoolName : "defaultSchool";

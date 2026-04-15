@@ -22,9 +22,25 @@ const updateSchema = z.object({
   name: z.string().min(1),
 });
 
+async function getRequestUserSchoolId(userId: string): Promise<string | null>
+{
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { schoolId: true },
+  });
+  return user?.schoolId ?? null;
+}
+
 router.get("/", asyncHandler(async (req, res) => {
+  const schoolId = await getRequestUserSchoolId(req.userId!);
+  if (!schoolId) {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
   const scope = parseListScope(req.query.scope);
-  const where = scope === "own" ? { userId: req.userId! } : {};
+  const where = scope === "own"
+    ? { schoolId, userId: req.userId! }
+    : { schoolId };
   const rows = await prisma.schoolClass.findMany({
     where,
     orderBy: { name: "asc" },
@@ -40,10 +56,15 @@ router.post("/", asyncHandler(async (req, res) => {
     return;
   }
   const name = parsed.data.name.trim();
+  const schoolId = await getRequestUserSchoolId(req.userId!);
+  if (!schoolId) {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
   try 
   {
     const row = await prisma.schoolClass.create({
-      data: { name, userId: req.userId! },
+      data: { name, userId: req.userId!, schoolId },
       include: { user: { select: createdBySelect } },
     });
     notifyCatalogChanged(["classes", "players"]);
@@ -65,13 +86,18 @@ router.post("/", asyncHandler(async (req, res) => {
 
 router.patch("/:id", asyncHandler(async (req, res) => {
   const classId = String(req.params.id);
+  const schoolId = await getRequestUserSchoolId(req.userId!);
+  if (!schoolId) {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Ungültige Eingaben" });
     return;
   }
   const existing = await prisma.schoolClass.findFirst({
-    where: { id: classId },
+    where: { id: classId, schoolId },
   });
   if (!existing) {
     res.status(404).json({ error: "Klasse nicht gefunden" });
@@ -104,8 +130,13 @@ router.patch("/:id", asyncHandler(async (req, res) => {
 
 router.delete("/:id", asyncHandler(async (req, res) => {
   const classId = String(req.params.id);
+  const schoolId = await getRequestUserSchoolId(req.userId!);
+  if (!schoolId) {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
   const existing = await prisma.schoolClass.findFirst({
-    where: { id: classId },
+    where: { id: classId, schoolId },
   });
   if (!existing) {
     res.status(404).json({ error: "Klasse nicht gefunden" });

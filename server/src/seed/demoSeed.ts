@@ -28,6 +28,16 @@ export const SEED_PLAYERS: { firstName: string; lastName: string; className: str
 export async function seedDemoData(prisma: PrismaClient): Promise<void>
 {
   const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
+  const defaultSchool = await prisma.school.upsert({
+    where: { name: "defaultSchool" },
+    create: { name: "defaultSchool" },
+    update: {},
+  });
+  await prisma.school.upsert({
+    where: { name: "secondSchool" },
+    create: { name: "secondSchool" },
+    update: {},
+  });
 
   const user = await prisma.user.upsert({
     where: { email: SEED_EMAIL },
@@ -35,10 +45,12 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
       email: SEED_EMAIL,
       username: SEED_USERNAME,
       passwordHash,
+      schoolId: defaultSchool.id,
     },
     update: {
       username: SEED_USERNAME,
       passwordHash,
+      schoolId: defaultSchool.id,
     },
   });
 
@@ -49,7 +61,9 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
   const uniqueClassNames = [...new Set(SEED_PLAYERS.map((p) => p.className))];
   const schoolClasses = await Promise.all(
     uniqueClassNames.map((name) =>
-      prisma.schoolClass.create({ data: { name, userId: user.id } })
+      prisma.schoolClass.create({
+        data: { name, userId: user.id, schoolId: defaultSchool.id },
+      })
     )
   );
   const classIdByName = Object.fromEntries(
@@ -64,6 +78,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
           lastName: p.lastName,
           schoolClassId: classIdByName[p.className]!,
           userId: user.id,
+          schoolId: defaultSchool.id,
         },
       })
     )
@@ -79,6 +94,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
       advancesPerGroup: 2,
       teamsAreIndividuals: false,
       userId: user.id,
+      schoolId: defaultSchool.id,
     },
   });
 
@@ -160,6 +176,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
       advancesPerGroup: 2,
       teamsAreIndividuals: false,
       userId: user.id,
+      schoolId: defaultSchool.id,
     },
   });
 
@@ -205,6 +222,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
       advancesPerGroup: 1,
       teamsAreIndividuals: true,
       userId: user.id,
+      schoolId: defaultSchool.id,
     },
   });
 
@@ -257,6 +275,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
       advancesPerGroup: 1,
       teamsAreIndividuals: false,
       userId: user.id,
+      schoolId: defaultSchool.id,
     },
   });
 

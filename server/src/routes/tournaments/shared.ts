@@ -92,6 +92,33 @@ export async function loadTournamentById(id: string)
   });
 }
 
+export async function loadTournamentByIdForSchool(id: string, schoolId: string)
+{
+  return prisma.tournament.findFirst({
+    where: { id, schoolId },
+    include: {
+      user: { select: createdBySelect },
+      teams: {
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        include: {
+          members: {
+            include: {
+              player: { include: playerApiInclude },
+            },
+          },
+        },
+      },
+      matches: {
+        include: {
+          homeTeam: { select: { id: true, name: true } },
+          awayTeam: { select: { id: true, name: true } },
+        },
+        orderBy: [{ roundOrder: "asc" }, { slotIndex: "asc" }],
+      },
+    },
+  });
+}
+
 /** Serializes a loaded tournament row to the shared tournament detail DTO. */
 export function serializeTournamentDetail(
   t: NonNullable<Awaited<ReturnType<typeof loadTournamentById>>>
@@ -146,14 +173,26 @@ export async function completeTournamentIfFinalFinished(tournamentId: string): P
 /** Any authenticated user may mutate tournaments; `userId` on the row is the original creator (display only). */
 export async function requireTournamentExists(
   res: Response,
-  tournamentId: string
+  tournamentId: string,
+  schoolId?: string
 )
 {
-  const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  const t = await prisma.tournament.findFirst({
+    where: schoolId ? { id: tournamentId, schoolId } : { id: tournamentId },
+  });
   if (!t)
   {
     res.status(404).json({ error: "Turnier nicht gefunden" });
     return null;
   }
   return t;
+}
+
+export async function getUserSchoolId(userId: string): Promise<string | null>
+{
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { schoolId: true },
+  });
+  return user?.schoolId ?? null;
 }

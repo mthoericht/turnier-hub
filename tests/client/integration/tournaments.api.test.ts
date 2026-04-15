@@ -56,11 +56,17 @@ function installLocalStorageMock(): void
 async function seedMinimalAuthAndPlayers(): Promise<void>
 {
   const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
+  const school = await prisma.school.upsert({
+    where: { name: "defaultSchool" },
+    create: { name: "defaultSchool" },
+    update: {},
+  });
   const user = await prisma.user.create({
     data: {
       email: SEED_EMAIL,
       username: "seeduser",
       passwordHash,
+      schoolId: school.id,
     },
   });
   await prisma.player.createMany({
@@ -68,6 +74,7 @@ async function seedMinimalAuthAndPlayers(): Promise<void>
       firstName: "Test",
       lastName: `Player ${i + 1}`,
       userId: user.id,
+      schoolId: school.id,
       schoolClassId: null,
     })),
   });
@@ -250,6 +257,10 @@ describe("tournaments API integration (via client API)", () =>
         email: "other@turnier-hub.test",
         username: "othercoach",
         passwordHash: await bcrypt.hash("x", 10),
+        schoolId: (await prisma.user.findUniqueOrThrow({
+          where: { id: auth.user.id },
+          select: { schoolId: true },
+        })).schoolId,
       },
     });
     const otherPlayer = await prisma.player.create({
@@ -257,6 +268,7 @@ describe("tournaments API integration (via client API)", () =>
         firstName: "Spieler",
         lastName: "anderer Nutzer",
         userId: otherUser.id,
+        schoolId: otherUser.schoolId,
         schoolClassId: null,
       },
     });

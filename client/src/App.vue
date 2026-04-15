@@ -97,16 +97,24 @@ function navLinkClass(prefix: string): string
             </button>
             <div class="hidden items-center gap-2 md:flex">
               <template v-if="auth.user">
-                <span
-                  class="max-w-[10rem] truncate text-slate-600"
-                  :title="auth.user.email"
-                >
-                  {{
-                    auth.user.username
-                      ? `@${auth.user.username}`
-                      : auth.user.email
-                  }}
-                </span>
+                <div class="max-w-[16rem] text-right leading-tight">
+                  <p
+                    class="truncate text-slate-700"
+                    :title="auth.user.email"
+                  >
+                    {{
+                      auth.user.username
+                        ? `@${auth.user.username}`
+                        : auth.user.email
+                    }}
+                  </p>
+                  <p
+                    class="truncate text-xs text-slate-500"
+                    :title="`Schule: ${auth.user.schoolName}`"
+                  >
+                    Schule: {{ auth.user.schoolName }}
+                  </p>
+                </div>
                 <button
                   type="button"
                   class="rounded-lg border border-rose-200 bg-white/60 px-3 py-2 text-rose-600 transition hover:border-rose-300 hover:bg-rose-50"
@@ -178,6 +186,12 @@ function navLinkClass(prefix: string): string
                   ? `@${auth.user.username}`
                   : auth.user.email
               }}
+            </p>
+            <p
+              class="truncate px-3 pb-2 text-xs text-slate-500"
+              :title="`Schule: ${auth.user.schoolName}`"
+            >
+              Schule: {{ auth.user.schoolName }}
             </p>
             <button
               type="button"

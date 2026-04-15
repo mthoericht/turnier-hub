@@ -36,9 +36,25 @@ const importSchema = z.object({
   ).min(1),
 });
 
+async function getRequestUserSchoolId(userId: string): Promise<string | null>
+{
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { schoolId: true },
+  });
+  return user?.schoolId ?? null;
+}
+
 router.get("/", asyncHandler(async (req, res) => {
+  const schoolId = await getRequestUserSchoolId(req.userId!);
+  if (!schoolId) {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
   const scope = parseListScope(req.query.scope);
-  const where = scope === "own" ? { userId: req.userId! } : {};
+  const where = scope === "own"
+    ? { schoolId, userId: req.userId! }
+    : { schoolId };
   const rows = await prisma.player.findMany({
     where,
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
@@ -53,11 +69,16 @@ router.post("/", asyncHandler(async (req, res) => {
     res.status(400).json({ error: "Ungültige Eingaben" });
     return;
   }
+  const schoolId = await getRequestUserSchoolId(req.userId!);
+  if (!schoolId) {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
   let schoolClassId: string | null = parsed.data.schoolClassId ?? null;
   if (schoolClassId) 
   {
     const sc = await prisma.schoolClass.findFirst({
-      where: { id: schoolClassId },
+      where: { id: schoolClassId, schoolId },
     });
     if (!sc) 
     {
@@ -71,6 +92,7 @@ router.post("/", asyncHandler(async (req, res) => {
       lastName: parsed.data.lastName.trim(),
       schoolClassId,
       userId: req.userId!,
+      schoolId,
     },
     include: playerApiInclude,
   });
@@ -80,13 +102,18 @@ router.post("/", asyncHandler(async (req, res) => {
 
 router.patch("/:id", asyncHandler(async (req, res) => {
   const playerId = String(req.params.id);
+  const schoolId = await getRequestUserSchoolId(req.userId!);
+  if (!schoolId) {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Ungültige Eingaben" });
     return;
   }
   const existing = await prisma.player.findFirst({
-    where: { id: playerId },
+    where: { id: playerId, schoolId },
   });
   if (!existing) {
     res.status(404).json({ error: "Spieler nicht gefunden" });
@@ -98,7 +125,7 @@ router.patch("/:id", asyncHandler(async (req, res) => {
   ) 
   {
     const sc = await prisma.schoolClass.findFirst({
-      where: { id: parsed.data.schoolClassId },
+      where: { id: parsed.data.schoolClassId, schoolId },
     });
     if (!sc) 
     {
@@ -130,6 +157,12 @@ router.post("/import", asyncHandler(async (req, res) => {
   }
 
   const mode = parsed.data.mode;
+  const schoolId = await getRequestUserSchoolId(req.userId!);
+  if (!schoolId)
+  {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
 
   await prisma.$transaction(async (tx) =>
   {
@@ -138,9 +171,9 @@ router.post("/import", asyncHandler(async (req, res) => {
 
     if (mode === "reset_all")
     {
-      await tx.tournament.deleteMany({});
-      await tx.player.deleteMany({});
-      await tx.schoolClass.deleteMany({});
+      await tx.tournament.deleteMany({ where: { schoolId } });
+      await tx.player.deleteMany({ where: { schoolId } });
+      await tx.schoolClass.deleteMany({ where: { schoolId } });
     }
     const classNameSet = new Set(
       parsed.data.rows.map((row) => row.className.trim()).filter(Boolean),
@@ -150,6 +183,7 @@ router.post("/import", asyncHandler(async (req, res) => {
     const existingClasses = await tx.schoolClass.findMany({
       where: {
         userId: req.userId!,
+        schoolId,
         name: { in: classNames },
       },
       select: { id: true, name: true },
@@ -162,7 +196,7 @@ router.post("/import", asyncHandler(async (req, res) => {
       const createdClasses = await Promise.all(
         missingClassNames.map((name) =>
           tx.schoolClass.create({
-            data: { name, userId: req.userId! },
+            data: { name, userId: req.userId!, schoolId },
             select: { id: true, name: true },
           })
         ),
@@ -179,7 +213,7 @@ router.post("/import", asyncHandler(async (req, res) => {
     if (mode === "replace_players")
     {
       const existingPlayers = await tx.player.findMany({
-        where: { userId: req.userId! },
+        where: { schoolId, userId: req.userId! },
         select: {
           id: true,
           firstName: true,
@@ -218,6 +252,7 @@ router.post("/import", asyncHandler(async (req, res) => {
             lastName: row.lastName,
             schoolClassId: row.schoolClassId,
             userId: req.userId!,
+            schoolId,
           })),
         });
       }
@@ -230,6 +265,7 @@ router.post("/import", asyncHandler(async (req, res) => {
         lastName: row.lastName,
         schoolClassId: row.schoolClassId,
         userId: req.userId!,
+        schoolId,
       })),
     });
   });
@@ -240,8 +276,13 @@ router.post("/import", asyncHandler(async (req, res) => {
 
 router.delete("/:id", asyncHandler(async (req, res) => {
   const playerId = String(req.params.id);
+  const schoolId = await getRequestUserSchoolId(req.userId!);
+  if (!schoolId) {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
   const existing = await prisma.player.findFirst({
-    where: { id: playerId },
+    where: { id: playerId, schoolId },
   });
   if (!existing) {
     res.status(404).json({ error: "Spieler nicht gefunden" });

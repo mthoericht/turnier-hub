@@ -4,7 +4,11 @@ import bcrypt from "bcryptjs";
 import { createApp } from "../../../server/src/app.js";
 import { prisma } from "../../../server/src/db.js";
 import { INVITE_CODE } from "../../../server/src/config.js";
-import { postAuthLogin, postAuthSignup } from "../../../client/src/api/authApi";
+import {
+  fetchAuthSchools,
+  postAuthLogin,
+  postAuthSignup,
+} from "../../../client/src/api/authApi";
 import { fetchPlayers, importPlayersFromRows } from "../../../client/src/api/playersApi";
 import { setToken } from "../../../client/src/api/http";
 import { resetDatabase } from "../../server/helpers/db.js";
@@ -33,6 +37,16 @@ function installLocalStorageMock(): void
 
 describe("players import/export API integration", () =>
 {
+  async function getFirstSchoolId(): Promise<string>
+  {
+    const schools = await fetchAuthSchools();
+    if (schools.length === 0)
+    {
+      throw new Error("Expected at least one school option");
+    }
+    return schools[0]!.id;
+  }
+
   const app = createApp();
   let server: Server | null = null;
   let apiBaseUrl = "";
@@ -89,17 +103,19 @@ describe("players import/export API integration", () =>
 
   it("replace_players keeps matching players (and memberships), removes missing ones", async () =>
   {
+    const schoolId = await getFirstSchoolId();
     const auth = await postAuthSignup({
       username: "ImportCoach",
       email: "import-coach@example.com",
       password: "password123",
       inviteCode: INVITE_CODE,
+      schoolId,
     });
     setToken(auth.token);
 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: auth.user.id } });
     const schoolClass = await prisma.schoolClass.create({
-      data: { name: "10a", userId: user.id },
+      data: { name: "10a", userId: user.id, schoolId: user.schoolId },
     });
     const keepPlayer = await prisma.player.create({
       data: {
@@ -107,6 +123,7 @@ describe("players import/export API integration", () =>
         lastName: "Muster",
         schoolClassId: schoolClass.id,
         userId: user.id,
+        schoolId: user.schoolId,
       },
     });
     await prisma.player.create({
@@ -115,6 +132,7 @@ describe("players import/export API integration", () =>
         lastName: "Legacy",
         schoolClassId: schoolClass.id,
         userId: user.id,
+        schoolId: user.schoolId,
       },
     });
     const tournament = await prisma.tournament.create({
@@ -122,6 +140,7 @@ describe("players import/export API integration", () =>
         name: "Roster Preserve",
         sport: "Fußball",
         userId: user.id,
+        schoolId: user.schoolId,
       },
     });
     const team = await prisma.tournamentTeam.create({
@@ -161,18 +180,20 @@ describe("players import/export API integration", () =>
 
   it("reset_all clears tournaments/classes/players and imports fresh rows", async () =>
   {
+    const schoolId = await getFirstSchoolId();
     await postAuthSignup({
       username: "ResetCoach",
       email: "reset-coach@example.com",
       password: "password123",
       inviteCode: INVITE_CODE,
+      schoolId,
     });
     const auth = await postAuthLogin("reset-coach@example.com", "password123");
     setToken(auth.token);
 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: auth.user.id } });
     const schoolClass = await prisma.schoolClass.create({
-      data: { name: "9b", userId: user.id },
+      data: { name: "9b", userId: user.id, schoolId: user.schoolId },
     });
     await prisma.player.create({
       data: {
@@ -180,6 +201,7 @@ describe("players import/export API integration", () =>
         lastName: "Player",
         schoolClassId: schoolClass.id,
         userId: user.id,
+        schoolId: user.schoolId,
       },
     });
     await prisma.tournament.create({
@@ -187,6 +209,7 @@ describe("players import/export API integration", () =>
         name: "Old Tournament",
         sport: "Volleyball",
         userId: user.id,
+        schoolId: user.schoolId,
       },
     });
 

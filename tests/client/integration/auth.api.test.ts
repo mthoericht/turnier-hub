@@ -3,6 +3,7 @@ import { createApp } from "../../../server/src/app.js";
 import { prisma } from "../../../server/src/db.js";
 import { INVITE_CODE } from "../../../server/src/config.js";
 import {
+  fetchAuthSchools,
   fetchAuthMe,
   postAuthLogin,
   postAuthSignup,
@@ -36,6 +37,16 @@ function installLocalStorageMock(): void
 
 describe("auth API integration (via client API)", () =>
 {
+  async function getFirstSchoolId(): Promise<string>
+  {
+    const schools = await fetchAuthSchools();
+    if (schools.length === 0)
+    {
+      throw new Error("Expected at least one school option");
+    }
+    return schools[0]!.id;
+  }
+
   const app = createApp();
   let server: Server | null = null;
   let apiBaseUrl = "";
@@ -95,23 +106,27 @@ describe("auth API integration (via client API)", () =>
 
   it("rejects signup with invalid invite code", async () =>
   {
+    const schoolId = await getFirstSchoolId();
     await expect(
       postAuthSignup({
         username: "User_InvalidInvite",
         email: "invalid-invite@example.com",
         password: "password123",
         inviteCode: "wrong",
+        schoolId,
       })
     ).rejects.toThrow("Ungültiger Einladungscode");
   });
 
   it("signups, returns a token and /me works", async () =>
   {
+    const schoolId = await getFirstSchoolId();
     const auth = await postAuthSignup({
       username: "User_One",
       email: "user.one.int@example.com",
       password: "password123",
       inviteCode: INVITE_CODE,
+      schoolId,
     });
 
     expect(typeof auth.token).toBe("string");
@@ -123,11 +138,13 @@ describe("auth API integration (via client API)", () =>
 
   it("rejects duplicate signup email", async () =>
   {
+    const schoolId = await getFirstSchoolId();
     await postAuthSignup({
       username: "User_Dup_1",
       email: "dup@example.com",
       password: "password123",
       inviteCode: INVITE_CODE,
+      schoolId,
     });
 
     await expect(
@@ -136,17 +153,20 @@ describe("auth API integration (via client API)", () =>
         email: "dup@example.com",
         password: "password123",
         inviteCode: INVITE_CODE,
+        schoolId,
       })
     ).rejects.toThrow("E-Mail ist bereits registriert");
   });
 
   it("logs in with correct credentials", async () =>
   {
+    const schoolId = await getFirstSchoolId();
     await postAuthSignup({
       username: "User_Login",
       email: "login@example.com",
       password: "password123",
       inviteCode: INVITE_CODE,
+      schoolId,
     });
 
     const auth = await postAuthLogin("login@example.com", "password123");
@@ -156,11 +176,13 @@ describe("auth API integration (via client API)", () =>
 
   it("rejects login with wrong password", async () =>
   {
+    const schoolId = await getFirstSchoolId();
     await postAuthSignup({
       username: "User_Login_Wrong",
       email: "wrongpw@example.com",
       password: "password123",
       inviteCode: INVITE_CODE,
+      schoolId,
     });
 
     await expect(

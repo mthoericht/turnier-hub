@@ -8,6 +8,12 @@ export type AuthSignupPayload = {
   email: string;
   password: string;
   inviteCode: string;
+  schoolId: string;
+};
+
+export type AuthSchoolOption = {
+  id: string;
+  name: string;
 };
 
 export async function fetchAuthMe(): Promise<AuthUser> 
@@ -34,6 +40,13 @@ export async function postAuthSignup(
   return api<AuthLoginResponse>("/api/auth/signup", {
     method: "POST",
     body: JSON.stringify(payload),
+    skipAuth: true,
+  });
+}
+
+export async function fetchAuthSchools(): Promise<AuthSchoolOption[]>
+{
+  return api<AuthSchoolOption[]>("/api/auth/schools", {
     skipAuth: true,
   });
 }

@@ -10,6 +10,7 @@ export async function resetDatabase(): Promise<void>
   await prisma.player.deleteMany();
   await prisma.schoolClass.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.school.deleteMany();
 }
 
 export async function seedTestDatabase(): Promise<void>

@@ -25,9 +25,6 @@
     "test:integration": "NODE_ENV=test dotenv -e .env.test -- vitest run ../tests/server/integration --passWithNoTests",
     "test:prepare": "dotenv -e .env.test -- prisma db push"
   },
-  "prisma": {
-    "seed": "tsx scripts/seed.ts"
-  },
   "dependencies": {
     "@turnier-hub/shared": "file:../shared",
     "@prisma/client": "^6.3.0",

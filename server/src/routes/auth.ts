@@ -7,6 +7,7 @@ import { INVITE_CODE } from "../config.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { signToken } from "../auth/token.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { ensureDefaultSchool } from "../lib/schools.js";
 
 const router = Router();
 
@@ -27,6 +28,7 @@ const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   inviteCode: z.string(),
+  schoolId: z.string().min(1, "Schule erforderlich"),
 });
 
 /** Request body schema for email/password login. */
@@ -35,12 +37,37 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
-/** Public user fields returned to the client. */
-const userPublicSelect = {
-  id: true,
-  username: true,
-  email: true,
+const userAuthInclude = {
+  school: {
+    select: {
+      name: true,
+    },
+  },
 } as const;
+
+type AuthUserRow = {
+  id: string;
+  username: string | null;
+  email: string;
+  school: {
+    name: string;
+  };
+};
+
+function toAuthUser(user: AuthUserRow): {
+  id: string;
+  username: string | null;
+  email: string;
+  schoolName: string;
+}
+{
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    schoolName: user.school.name,
+  };
+}
 
 /**
  * Returns the first user-facing signup validation error.
@@ -57,6 +84,7 @@ function getSignupValidationMessage(reqBody: unknown): string | null {
     first.username?.[0] ??
     first.email?.[0] ??
     first.password?.[0] ??
+    first.schoolId?.[0] ??
     "Ungültige Eingaben"
   );
 }
@@ -73,7 +101,7 @@ async function signupHandler(req: Request, res: Response): Promise<void> {
   }
 
   const parsed = signupSchema.parse(req.body);
-  const { email, password, inviteCode } = parsed;
+  const { email, password, inviteCode, schoolId } = parsed;
   const username = parsed.username.trim().toLowerCase();
 
   if (inviteCode !== INVITE_CODE) {
@@ -93,16 +121,25 @@ async function signupHandler(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  const school = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: { id: true },
+  });
+  if (!school) {
+    res.status(400).json({ error: "Schule nicht gefunden" });
+    return;
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
-    data: { username, email, passwordHash },
-    select: userPublicSelect,
+    data: { username, email, passwordHash, schoolId },
+    include: userAuthInclude,
   });
 
   const token = signToken(user.id);
   res.status(201).json({
     token,
-    user,
+    user: toAuthUser(user),
   });
 }
 
@@ -125,6 +162,11 @@ async function loginHandler(req: Request, res: Response): Promise<void> {
       username: true,
       email: true,
       passwordHash: true,
+      school: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 
@@ -137,7 +179,7 @@ async function loginHandler(req: Request, res: Response): Promise<void> {
   const { passwordHash: _pw, ...publicUser } = user;
   res.json({
     token,
-    user: publicUser,
+    user: toAuthUser(publicUser),
   });
 }
 
@@ -148,15 +190,26 @@ async function loginHandler(req: Request, res: Response): Promise<void> {
 async function meHandler(req: Request, res: Response): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: req.userId! },
-    select: userPublicSelect,
+    include: userAuthInclude,
   });
   if (!user) {
     res.status(404).json({ error: "Benutzer nicht gefunden" });
     return;
   }
-  res.json(user);
+  res.json(toAuthUser(user));
 }
 
+async function listSchoolsHandler(_req: Request, res: Response): Promise<void>
+{
+  await ensureDefaultSchool();
+  const schools = await prisma.school.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+  res.json(schools);
+}
+
+router.get("/schools", asyncHandler(listSchoolsHandler));
 router.post("/signup", asyncHandler(signupHandler));
 router.post("/login", asyncHandler(loginHandler));
 router.get("/me", authMiddleware, asyncHandler(meHandler));

@@ -6,7 +6,12 @@ export type CreatedBy = {
 };
 
 /** Logged-in user from `GET /api/auth/me` (same shape as {@link CreatedBy}). */
-export type AuthUser = CreatedBy;
+export type AuthUser = {
+  id: string;
+  username: string | null;
+  email: string;
+  schoolName: string;
+};
 
 /** Class shape nested under players in API responses. */
 export type PlayerSchoolClass = {

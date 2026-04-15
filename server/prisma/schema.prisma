@@ -12,37 +12,57 @@ model User {
   username      String?       @unique
   email         String        @unique
   passwordHash  String
+  schoolId      String
+  school        School        @relation(fields: [schoolId], references: [id], onDelete: Restrict)
   createdAt     DateTime      @default(now())
   players       Player[]
   schoolClasses SchoolClass[]
+  tournaments   Tournament[]
+
+  @@index([schoolId])
+}
+
+model School {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  createdAt     DateTime      @default(now())
+  users         User[]
+  schoolClasses SchoolClass[]
+  players       Player[]
   tournaments   Tournament[]
 }
 
 /// Eine Schulklasse (Name pro Benutzer eindeutig); Spieler verweisen optional darauf.
 model SchoolClass {
   id        String   @id @default(cuid())
-  name      String
   userId    String
+  schoolId  String
+  name      String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   players   Player[]
   createdAt DateTime @default(now())
 
-  @@unique([userId, name])
+  @@unique([schoolId, name])
   @@index([userId])
+  @@index([schoolId])
 }
 
 model Player {
   id                    String                 @id @default(cuid())
+  userId                String
+  schoolId              String
   firstName             String
   lastName              String
   schoolClassId         String?
   schoolClass           SchoolClass?           @relation(fields: [schoolClassId], references: [id], onDelete: SetNull)
-  userId                String
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school                School                 @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   tournamentMemberships TournamentTeamMember[]
   createdAt             DateTime               @default(now())
 
   @@index([userId])
+  @@index([schoolId])
   @@index([schoolClassId])
 }
 
@@ -54,6 +74,8 @@ enum TournamentMode {
 
 model Tournament {
   id                  String                 @id @default(cuid())
+  userId              String
+  schoolId            String
   name                String
   sport               String
   mode                TournamentMode         @default(GROUP_KO)
@@ -61,8 +83,8 @@ model Tournament {
   groupCount          Int                    @default(1)
   advancesPerGroup    Int                    @default(2)
   teamsAreIndividuals Boolean                @default(false)
-  userId              String
   user                User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school              School                 @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   teams               TournamentTeam[]
   teamMembers         TournamentTeamMember[]
   matches             Match[]
@@ -70,6 +92,7 @@ model Tournament {
   updatedAt           DateTime               @updatedAt
 
   @@index([userId])
+  @@index([schoolId])
 }
 
 /// Team vs team (not single-player sides).

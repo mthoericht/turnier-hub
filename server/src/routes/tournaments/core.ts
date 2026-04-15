@@ -4,7 +4,8 @@ import { z } from "zod";
 import { prisma } from "../../db.js";
 import { createdBySelect, parseListScope, toCreatedBy } from "../../lib/createdBy.js";
 import {
-  loadTournamentById,
+  getUserSchoolId,
+  loadTournamentByIdForSchool,
   requireTournamentExists,
   serializeTournamentDetail,
 } from "./shared.js";
@@ -34,8 +35,16 @@ const patchTournamentSchema = z.object({
 /** GET / - lists tournaments (all or own scope). */
 async function listTournamentsHandler(req: Request, res: Response): Promise<void>
 {
+  const schoolId = await getUserSchoolId(req.userId!);
+  if (!schoolId)
+  {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
   const scope = parseListScope(req.query.scope);
-  const where = scope === "own" ? { userId: req.userId! } : {};
+  const where = scope === "own"
+    ? { schoolId, userId: req.userId! }
+    : { schoolId };
   const list = await prisma.tournament.findMany({
     where,
     orderBy: { updatedAt: "desc" },
@@ -59,6 +68,12 @@ async function createTournamentHandler(
   next: NextFunction
 ): Promise<void>
 {
+  const schoolId = await getUserSchoolId(req.userId!);
+  if (!schoolId)
+  {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
   const parsed = createTournamentSchema.safeParse(req.body);
   if (!parsed.success)
   {
@@ -79,6 +94,7 @@ async function createTournamentHandler(
         phase: defaultPhase,
         groupCount: parsed.data.groupCount ?? 1,
         userId: req.userId!,
+        schoolId,
         advancesPerGroup: parsed.data.advancesPerGroup ?? 2,
         teamsAreIndividuals: parsed.data.teamsAreIndividuals ?? false,
       },
@@ -104,7 +120,13 @@ async function createTournamentHandler(
 async function getTournamentDetailHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const t = await loadTournamentById(tournamentId);
+  const schoolId = await getUserSchoolId(req.userId!);
+  if (!schoolId)
+  {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
+  const t = await loadTournamentByIdForSchool(tournamentId, schoolId);
   if (!t)
   {
     res.status(404).json({ error: "Turnier nicht gefunden" });
@@ -117,19 +139,25 @@ async function getTournamentDetailHandler(req: Request, res: Response): Promise<
 async function patchTournamentHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
+  const schoolId = await getUserSchoolId(req.userId!);
+  if (!schoolId)
+  {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
   const parsed = patchTournamentSchema.safeParse(req.body);
   if (!parsed.success)
   {
     res.status(400).json({ error: "Ungültige Eingaben" });
     return;
   }
-  const exists = await requireTournamentExists(res, tournamentId);
+  const exists = await requireTournamentExists(res, tournamentId, schoolId);
   if (!exists) return;
   await prisma.tournament.update({
     where: { id: tournamentId },
     data: parsed.data,
   });
-  const full = await loadTournamentById(tournamentId);
+  const full = await loadTournamentByIdForSchool(tournamentId, schoolId);
   notifyTournamentChanged(tournamentId);
   notifyTournamentsListChanged();
   res.json(serializeTournamentDetail(full!));
@@ -139,7 +167,13 @@ async function patchTournamentHandler(req: Request, res: Response): Promise<void
 async function deleteTournamentHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const exists = await requireTournamentExists(res, tournamentId);
+  const schoolId = await getUserSchoolId(req.userId!);
+  if (!schoolId)
+  {
+    res.status(404).json({ error: "Benutzer nicht gefunden" });
+    return;
+  }
+  const exists = await requireTournamentExists(res, tournamentId, schoolId);
   if (!exists) return;
   await prisma.tournament.delete({ where: { id: tournamentId } });
   notifyTournamentChanged(tournamentId);

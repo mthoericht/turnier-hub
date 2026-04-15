@@ -119,6 +119,7 @@ Server architecture (quick reference):
    - `DATABASE_URL` — SQLite path relative to `server/prisma` (default points to `data/dev.db`).
    - `JWT_SECRET` — use a strong secret in production.
    - `INVITE_CODE` — required for new sign-ups (default in the example: `ballspiele2026`).
+   - `DEFAULT_SCHOOL_NAME` — school name auto-created at startup (default: `defaultSchool`; may contain spaces, e.g. `"BBS Hannover"`).
    - `PORT` — API port (default `3001`).
 
 3. **Apply the database schema** and optionally **seed** demo data:

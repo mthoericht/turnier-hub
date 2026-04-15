@@ -23,3 +23,4 @@ turnier_hub_env:
   DATABASE_URL: "file:../../data/prod.db"
   JWT_SECRET: "REPLACE_WITH_STRONG_SECRET"
   INVITE_CODE: "REPLACE_WITH_INVITE_CODE"
+  DEFAULT_SCHOOL_NAME: "defaultSchool"
