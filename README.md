@@ -112,7 +112,7 @@ Server architecture (quick reference):
 
 ## Prerequisites
 
-- **Node.js** (current LTS recommended)
+- **Node.js** (>= 22)
 - **npm** (workspaces are used at the repo root)
 
 ## Quick Start
