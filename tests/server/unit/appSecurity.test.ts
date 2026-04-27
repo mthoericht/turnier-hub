@@ -18,6 +18,8 @@ describe("app security middleware", () =>
     expect(response.status).toBe(404);
     expect(response.headers["x-content-type-options"]).toBe("nosniff");
     expect(response.headers["x-frame-options"]).toBe("SAMEORIGIN");
+    expect(response.headers["x-dns-prefetch-control"]).toBe("off");
+    expect(response.headers["x-download-options"]).toBe("noopen");
   });
 
   it("allows configured CORS origins", async () =>
@@ -37,16 +39,13 @@ describe("app security middleware", () =>
 
   it("rejects disallowed CORS origins", async () =>
   {
-    // This test intentionally triggers CORS rejection; mute expected error log noise.
-    vi.spyOn(console, "error").mockImplementation(() => {});
     const app = createApp();
     const response = await request(app)
       .options("/api/auth/login")
       .set("Origin", "https://not-allowed.example")
       .set("Access-Control-Request-Method", "POST");
 
-    expect(response.status).toBe(500);
-    expect(response.body).toEqual({ error: "Interner Serverfehler" });
+    expect(response.status).toBe(403);
   });
 
   it("enforces JSON request body size limits", async () =>
@@ -62,6 +61,22 @@ describe("app security middleware", () =>
       .post("/api/auth/login")
       .send(tooLargePayload);
 
-    expect([413, 500]).toContain(response.status);
+    expect(response.status).toBe(413);
+  });
+
+  it("does not leak stack traces on internal errors", async () =>
+  {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const app = createApp();
+
+    // Trigger an internal error by sending a malformed content-type body.
+    const response = await request(app)
+      .post("/api/auth/login")
+      .set("Content-Type", "application/json")
+      .send("not-json{{{");
+
+    // The response should be a clean error without stack/details.
+    expect(response.body).not.toHaveProperty("stack");
+    expect(response.body).not.toHaveProperty("message");
   });
 });

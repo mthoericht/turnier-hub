@@ -164,6 +164,11 @@ export const WS_MAX_SUBSCRIPTIONS_PER_CLIENT = readPositiveInt(
   process.env.WS_MAX_SUBSCRIPTIONS_PER_CLIENT,
   50
 );
+/** Maximum websocket message payload in bytes. */
+export const WS_MAX_PAYLOAD_BYTES = readPositiveInt(
+  process.env.WS_MAX_PAYLOAD_BYTES,
+  16_384
+);
 /** Security telemetry window for HTTP status spike detection. */
 export const SECURITY_HTTP_STATUS_WINDOW_MS = readPositiveInt(
   process.env.SECURITY_HTTP_STATUS_WINDOW_MS,

@@ -9,11 +9,32 @@ Diese Datei kombiniert:
 
 ## Inhalt
 
+- [Vertrauensgrenze und Deployment-Modell](#vertrauensgrenze-und-deployment-modell)
 - [Sicherheits-Checkliste](#sicherheits-checkliste)
 - [Sicherheits-Runbook](#sicherheits-runbook)
 - [Automatisierte Abdeckung (Security-Tests)](#automatisierte-abdeckung-security-tests)
 - [Produktions-Verifikationsprotokoll](#produktions-verifikationsprotokoll)
 - [Abhaengigkeits-Risiko-Triage (Aktuell)](#abhaengigkeits-risiko-triage-aktuell)
+
+---
+
+## Vertrauensgrenze und Deployment-Modell
+
+`turnier-hub` ist fuer **Single-Instance-Deployments innerhalb einer vertrauenswuerdigen Gruppe** ausgelegt (typischerweise eine Schule oder eine kleine Gruppe von Schulen).
+
+### Kernannahmen
+
+- **Keine Multi-Tenant-Isolation.** Alle authentifizierten Benutzer teilen den gesamten Katalog (Klassen, Spieler, Turniere). Es gibt keine schul- oder benutzerbezogene Datenisolation ueber die Ersteller-Zuordnung hinaus.
+- **Einladungscode als Zugangstor.** Die Registrierung erfordert einen gemeinsamen Einladungscode. Falls der Code geleakt wird, kann sich jeder registrieren. Code stark waehlen, bei Aenderung der Gruppe rotieren und als Shared Secret behandeln.
+- **Gemeinsames Editieren.** Jeder authentifizierte Benutzer darf Katalogeintraege und Turnierdaten erstellen, lesen, aendern und loeschen. Das `createdBy`-Feld ist rein informativ.
+- **Admin-Rolle.** Admin-Only-Operationen (Schulverwaltung, Benutzerrolle/Schulzuweisung) sind durch die `ADMIN`-Rolle geschuetzt. Regulaere Benutzer koennen nicht auf `/api/admin`-Endpunkte zugreifen.
+
+### Deployment-Hinweise
+
+- Immer hinter **TLS** (HTTPS) deployen. Die App erzwingt HSTS nicht selbst; am Reverse-Proxy konfigurieren.
+- Als **einzelner Node.js-Prozess** mit SQLite betreiben. In-Memory-Rate-Limiting, Lockout-Counter und Monitoring-State werden nicht zwischen Prozessen geteilt.
+- Die App **nicht** direkt ohne Reverse-Proxy dem oeffentlichen Internet aussetzen.
+- Alle authentifizierten Benutzer als vertrauenswuerdige Mitarbeitende innerhalb des Deployment-Umfelds behandeln.
 
 ---
 
@@ -29,6 +50,9 @@ Praktische Checkliste zur Verbesserung der Sicherheitslage von `turnier-hub`.
 - [x] Konfigurierbares JSON-Request-Limit (`JSON_BODY_LIMIT`) hinzugefuegt.
 - [x] Explizites Proxy-Trust (`TRUST_PROXY`) eingefuehrt, damit `req.ip` hinter Reverse-Proxy verlaesslich ist.
 - [ ] Produktionswert fuer `TRUST_PROXY` mit echtem Deployment-Pfad verifizieren (in vielen Setups: `1` hinter Nginx).
+- [x] WebSocket-Upgrade validiert `tokenVersion` gegen DB (identisch zu HTTP-Auth).
+- [x] WebSocket-IP-Aufloesung nutzt Express-aequivalente `TRUST_PROXY`-Hop-Count-Semantik (verhindert XFF-Spoofing).
+- [x] WebSocket-Upgrade bricht bei unerwarteten DB-/Auth-Fehlern sauber mit `503` ab.
 
 ### P1 - Mittlere Prioritaet
 
@@ -40,6 +64,7 @@ Praktische Checkliste zur Verbesserung der Sicherheitslage von `turnier-hub`.
   - [x] Secret-Rotation-Prozess definiert.
   - [x] Invalidation-Strategie fuer kritische Ereignisse (z. B. Passwort-Reset) definiert.
 - [x] Strukturiertes Monitoring/Alerting fuer Spikes bei `401`, `403`, `429` und WebSocket-Verbindungen hinzugefuegt.
+- [x] WebSocket-Upgrade prueft Origin-Allowlist und erzwingt maximale Payload-Groesse.
 
 ### P2 - Laufende Haertung
 
@@ -115,6 +140,15 @@ Verwenden bei laufendem Missbrauch oder auffaelligem Auth-Verhalten.
 - Sessions nach Passwort-Reset oder bestaetigter Konto-Kompromittierung widerrufen.
 - Fuer erzwungene Re-Authentifizierung auf allen Geraeten das neu zurueckgegebene Token auf dem ausloesenden Geraet nicht weiterverwenden.
 
+#### WebSocket-Token-Transport
+
+- WebSocket-Verbindungen authentifizieren sich ueber ein JWT als Query-Parameter (`?token=<JWT>`).
+- **Hinweis:** Query-Strings koennen in Reverse-Proxy-Access-Logs, CDN-Logs und Browser-Verlauf erscheinen.
+- **Mitigation:**
+  - Reverse-Proxy so konfigurieren, dass **Query-Strings fuer den `/api/ws`-Pfad nicht geloggt** werden.
+  - TLS end-to-end sicherstellen, damit Tokens nicht im Transit exponiert werden.
+  - Die `tokenVersion`-Pruefung beim WebSocket-Upgrade stellt sicher, dass widerrufene Tokens abgelehnt werden (identisch zu HTTP-Auth).
+
 ### Secret-Rotation-Playbook
 
 #### JWT-Secret-Rotation
@@ -179,11 +213,16 @@ Vor Go-Live und nach jeder Proxy-Topologie-Aenderung ausfuehren.
 Aktuell vorhandene automatisierte Tests fuer zentrale Security-Controls:
 
 - `tests/server/unit/appSecurity.test.ts`
-  - prueft Basis-`helmet`-Header
-  - validiert CORS-Allowlist-Verhalten (erlaubte und blockierte Origins)
-  - prueft JSON-Body-Limit-Durchsetzung
+  - prueft Basis-`helmet`-Header (X-Content-Type-Options, X-Frame-Options, X-DNS-Prefetch-Control, X-Download-Options)
+  - validiert CORS-Allowlist-Verhalten (erlaubte Origins bekommen `204`; blockierte Origins bekommen `403`)
+  - prueft JSON-Body-Limit-Durchsetzung (`413`)
+  - prueft, dass keine Stack-Traces bei internen Fehlern geleakt werden
 - `tests/server/unit/realtimeHub.test.ts`
   - prueft WS-Missbrauchsschutz (Connect/Message) und maximale Subscriptions
+  - prueft WebSocket-tokenVersion- / Revoked-Session-Ablehnung beim Upgrade
+  - prueft Origin-Allowlist-Ablehnung beim WS-Upgrade (403)
+  - prueft Connect-Rate-Limit mit 429 und Retry-After
+  - prueft Verbindungsabbruch bei uebergroesser Payload (maxPayload)
 - `tests/server/unit/securityMonitoring.test.ts`
   - validiert Monitoring-Event-Emission fuer HTTP-Status-Spikes und WS-Signale
   - prueft WS-Window-Handling und nicht-negative Connection-Counter

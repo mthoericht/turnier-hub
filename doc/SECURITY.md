@@ -17,6 +17,26 @@ This file combines:
 
 ---
 
+## Trust Boundary and Deployment Model
+
+`turnier-hub` is designed for **single-instance deployment within a trusted cohort** (typically one school or a small group of schools).
+
+### Key assumptions
+
+- **Not multi-tenant isolated.** All authenticated users share the full catalog (classes, players, tournaments). There is no per-school or per-user data isolation beyond creator attribution.
+- **Invite-code gate.** Signup requires a shared invite code. If the code leaks, anyone can register. Keep it strong, rotate it when the cohort changes, and treat it as a shared secret.
+- **Shared editing.** Any authenticated user may create, read, update, and delete catalog entries and tournament data. The `createdBy` field is informational only.
+- **Admin role.** Admin-only operations (school management, user role/school assignment) are gated by the `ADMIN` role. Regular users cannot access `/api/admin` endpoints.
+
+### Deployment guidance
+
+- Deploy behind **TLS** (HTTPS) at all times. The app does not enforce HSTS itself; configure it at the reverse proxy.
+- Run as a **single Node.js process** with SQLite. In-memory rate limiting, lockout counters, and monitoring state are not shared across processes.
+- Do **not** expose the app directly to the public internet without a reverse proxy.
+- Treat all authenticated users as trusted collaborators within the deployment scope.
+
+---
+
 ## Security Checklist
 
 Practical checklist for improving security posture in `turnier-hub`.
@@ -29,6 +49,9 @@ Practical checklist for improving security posture in `turnier-hub`.
 - [x] Add configurable JSON request size limit (`JSON_BODY_LIMIT`).
 - [x] Make proxy trust explicit (`TRUST_PROXY`) so `req.ip` is reliable behind reverse proxies.
 - [ ] Verify production `TRUST_PROXY` value with real deployment path (for many setups: `1` behind Nginx).
+- [x] WebSocket upgrade validates `tokenVersion` against DB (same as HTTP auth).
+- [x] WebSocket IP resolution uses Express-equivalent `TRUST_PROXY` hop-count semantics (prevents XFF spoofing).
+- [x] WebSocket upgrade fails closed with `503` on unexpected DB/auth errors.
 
 ### P1 - Medium Priority
 
@@ -40,6 +63,7 @@ Practical checklist for improving security posture in `turnier-hub`.
   - [x] Define secret rotation process.
   - [x] Define invalidation strategy for critical events (e.g. password reset).
 - [x] Add structured monitoring/alerts for spikes in `401`, `403`, `429`, and websocket connection counts.
+- [x] WebSocket upgrade checks Origin allowlist and enforces max payload size.
 
 ### P2 - Ongoing Hardening
 
@@ -115,6 +139,15 @@ Use this when active abuse or suspicious auth behavior is ongoing.
 - Revoke sessions after password reset or confirmed account compromise.
 - To force full re-authentication on all devices, do not adopt the newly returned token on the initiating device.
 
+#### WebSocket token transport
+
+- WebSocket connections authenticate via a JWT passed as a query parameter (`?token=<JWT>`).
+- **Caveat:** query strings may appear in reverse proxy access logs, CDN logs, and browser history.
+- **Mitigation:**
+  - Configure the reverse proxy to **not log query strings** for the `/api/ws` path.
+  - Ensure TLS is enforced end-to-end so tokens are not exposed in transit.
+  - The `tokenVersion` check on WebSocket upgrade ensures revoked tokens are rejected (same as HTTP auth).
+
 ### Secret Rotation Playbook
 
 #### JWT secret rotation
@@ -179,11 +212,13 @@ Run this before go-live and after any proxy topology change.
 Current automated tests that cover core security controls:
 
 - `tests/server/unit/appSecurity.test.ts`
-  - verifies baseline `helmet` headers
-  - validates CORS allowlist behavior (allowed and blocked origins)
-  - checks JSON body-size limit enforcement
+  - verifies baseline `helmet` headers (X-Content-Type-Options, X-Frame-Options, X-DNS-Prefetch-Control, X-Download-Options)
+  - validates CORS allowlist behavior (allowed origins get `204`; blocked origins get `403`)
+  - checks JSON body-size limit enforcement (`413`)
+  - verifies no stack trace leakage on internal errors
 - `tests/server/unit/realtimeHub.test.ts`
   - verifies WS message/connect abuse protections and max subscriptions
+  - verifies WebSocket tokenVersion / revoked-session rejection on upgrade
 - `tests/server/unit/securityMonitoring.test.ts`
   - validates monitoring event emission for HTTP auth-status spikes and WS signals
   - verifies WS window handling and non-negative connection counters

@@ -22,6 +22,14 @@ export const errorMiddleware: ErrorRequestHandler = (err, _req, res, _next) =>
     return;
   }
 
+  // Express body-parser errors carry a numeric `status` (e.g. 413, 400).
+  if (typeof (err as { status?: unknown }).status === "number")
+  {
+    const status = (err as { status: number }).status;
+    res.status(status).json({ error: status === 413 ? "Anfrage zu groß" : "Ungültige Anfrage" });
+    return;
+  }
+
   console.error(err);
   res.status(500).json({ error: "Interner Serverfehler" });
 };

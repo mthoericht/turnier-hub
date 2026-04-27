@@ -2,16 +2,20 @@ import type { IncomingMessage, Server } from "node:http";
 import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from "ws";
 import {
+  CORS_ALLOWED_ORIGINS,
   JWT_SECRET,
   SECURITY_WS_CONNECTIONS_THRESHOLD,
   SECURITY_WS_CONNECTIONS_WINDOW_MS,
+  TRUST_PROXY,
   WS_CONNECT_MAX_PER_IP,
   WS_CONNECT_WINDOW_MS,
+  WS_MAX_PAYLOAD_BYTES,
   WS_MAX_SUBSCRIPTIONS_PER_CLIENT,
   WS_MESSAGE_MAX_PER_WINDOW,
   WS_MESSAGE_WINDOW_MS,
 } from "../config.js";
 import type { AuthPayload } from "../auth/token.js";
+import { prisma } from "../db.js";
 import {
   onWsConnectionClosed,
   onWsConnectionOpened,
@@ -53,9 +57,10 @@ type UpgradeSocket = {
 // --- Upgrade/auth and rate-limit helpers ---
 
 /**
- * Extracts and verifies the JWT from websocket upgrade query params.
+ * Extracts and verifies the JWT from websocket upgrade query params,
+ * then confirms the user still exists and tokenVersion matches.
  */
-function parseTokenUserId(req: IncomingMessage): string | null
+async function parseTokenUserId(req: IncomingMessage): Promise<string | null>
 {
   const host = req.headers.host ?? "127.0.0.1";
   const url = new URL(req.url ?? "", `http://${host}`);
@@ -64,6 +69,12 @@ function parseTokenUserId(req: IncomingMessage): string | null
   try
   {
     const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.sub },
+      select: { id: true, tokenVersion: true },
+    });
+    if (!user) return null;
+    if ((decoded.tv ?? 0) !== user.tokenVersion) return null;
     return decoded.sub;
   }
   catch
@@ -73,16 +84,47 @@ function parseTokenUserId(req: IncomingMessage): string | null
 }
 
 /**
- * Best-effort client IP resolution for websocket upgrades.
+ * Resolves the client IP from an upgrade request using the same trust
+ * semantics as Express `trust proxy`:
+ *
+ * - `false` / `0`:  ignore XFF entirely, use socket address.
+ * - `true`:         trust the entire chain, take the leftmost entry.
+ * - numeric N:      trust the rightmost N proxy hops; the client IP is
+ *                   the entry just before the trusted segment.
+ * - string/list:    not used for WS; falls back to rightmost-1 for safety.
  */
 function getClientIp(req: IncomingMessage): string
 {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.trim())
+  const socketIp = req.socket.remoteAddress ?? "unknown";
+
+  if (TRUST_PROXY === false || TRUST_PROXY === 0)
   {
-    return forwarded.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
+    return socketIp;
   }
-  return req.socket.remoteAddress ?? "unknown";
+
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded !== "string" || !forwarded.trim())
+  {
+    return socketIp;
+  }
+
+  const parts = forwarded.split(",").map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0)
+  {
+    return socketIp;
+  }
+
+  if (TRUST_PROXY === true)
+  {
+    // Trust the whole chain — leftmost entry is the original client.
+    return parts[0] ?? socketIp;
+  }
+
+  // Numeric hop count: pick the entry just before the trusted segment.
+  // E.g. TRUST_PROXY=1 with chain "spoofed, real, proxy" → "real".
+  const hops = typeof TRUST_PROXY === "number" ? TRUST_PROXY : 1;
+  const idx = parts.length - hops;
+  return (idx >= 0 ? parts[idx] : parts[0]) ?? socketIp;
 }
 
 /**
@@ -144,7 +186,7 @@ export class RealtimeHub
 
   constructor()
   {
-    this.wss = new WebSocketServer({ noServer: true });
+    this.wss = new WebSocketServer({ noServer: true, maxPayload: WS_MAX_PAYLOAD_BYTES });
     this.wss.on("connection", (ws: WebSocket) =>
     {
       this.onSocketOpen(ws);
@@ -169,25 +211,36 @@ export class RealtimeHub
         return;
       }
 
-      const userId = this.authenticateUpgrade(request, socket);
-      if (!userId)
+      if (!this.isOriginAllowed(request, socket))
       {
         return;
       }
-      this.wss.handleUpgrade(request, socket, head, (ws) =>
+
+      this.authenticateUpgrade(request, socket).then((userId) =>
       {
-        this.socketMeta.set(ws, {
-          userId,
-          tournamentIds: new Set(),
-          messageCount: 0,
-          messageWindowStartedAtMs: Date.now(),
-          closing: false,
+        if (!userId)
+        {
+          return;
+        }
+        this.wss.handleUpgrade(request, socket, head, (ws) =>
+        {
+          this.socketMeta.set(ws, {
+            userId,
+            tournamentIds: new Set(),
+            messageCount: 0,
+            messageWindowStartedAtMs: Date.now(),
+            closing: false,
+          });
+          onWsConnectionOpened({
+            windowMs: SECURITY_WS_CONNECTIONS_WINDOW_MS,
+            thresholdPeakConnections: SECURITY_WS_CONNECTIONS_THRESHOLD,
+          });
+          this.wss.emit("connection", ws, request);
         });
-        onWsConnectionOpened({
-          windowMs: SECURITY_WS_CONNECTIONS_WINDOW_MS,
-          thresholdPeakConnections: SECURITY_WS_CONNECTIONS_THRESHOLD,
-        });
-        this.wss.emit("connection", ws, request);
+      }).catch(() =>
+      {
+        socket.write("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
+        socket.destroy();
       });
     });
   }
@@ -230,14 +283,35 @@ export class RealtimeHub
   }
 
   /**
+   * Checks whether the upgrade request origin is in the allowlist.
+   * Non-browser clients without an Origin header are allowed through.
+   */
+  private isOriginAllowed(request: IncomingMessage, socket: UpgradeSocket): boolean
+  {
+    const origin = request.headers.origin;
+    if (!origin)
+    {
+      return true;
+    }
+    if (CORS_ALLOWED_ORIGINS.length === 0 || CORS_ALLOWED_ORIGINS.includes(origin))
+    {
+      return true;
+    }
+
+    socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+    socket.destroy();
+    return false;
+  }
+
+  /**
    * Verifies JWT auth during websocket upgrade.
    */
-  private authenticateUpgrade(
+  private async authenticateUpgrade(
     request: IncomingMessage,
     socket: UpgradeSocket
-  ): string | null
+  ): Promise<string | null>
   {
-    const userId = parseTokenUserId(request);
+    const userId = await parseTokenUserId(request);
     if (userId)
     {
       return userId;
@@ -269,6 +343,9 @@ export class RealtimeHub
 
       this.handleClientMessage(ws, meta, raw);
     });
+
+    // Absorb protocol-level errors (e.g. maxPayload exceeded); ws closes automatically.
+    ws.on("error", () => {});
 
     ws.on("close", () =>
     {

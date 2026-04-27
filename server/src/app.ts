@@ -45,24 +45,23 @@ export function createApp()
     cors({
       origin: (origin, callback) =>
       {
-        // Allow non-browser requests that have no Origin header.
-        if (!origin)
+        if (!origin || isOriginAllowed(origin))
         {
           callback(null, true);
           return;
         }
 
-        if (isOriginAllowed(origin))
-        {
-          callback(null, true);
-          return;
-        }
-
-        callback(new Error("Origin not allowed by CORS"));
+        callback(null, false);
       },
-      credentials: true,
     })
   );
+
+  // Explicitly reject preflight from disallowed origins.
+  app.options("/api/*", (req, res) =>
+  {
+    res.sendStatus(403);
+  });
+
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
   // Passive telemetry for auth-related HTTP status spikes.
