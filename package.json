@@ -32,6 +32,7 @@
     "test:client": "npm run test -w client",
     "test:unit": "npm run test:unit -w server",
     "test:integration": "npm run test:prepare -w server && npm run test:integration -w client",
+    "security:audit": "node ./scripts/security-audit.mjs",
     "storybook": "npm run storybook -w client",
     "build-storybook": "npm run build-storybook -w client"
   },

@@ -8,33 +8,38 @@ import {
   playerApiInclude,
   playerToApi,
 } from "../lib/createdBy.js";
+import {
+  classNameSchema,
+  idSchema,
+  mediumNameSchema,
+} from "../lib/validation.js";
 import { notifyCatalogChanged } from "../realtime/notify.js";
 
 const router = Router();
 router.use(authMiddleware);
 
 const createSchema = z.object({
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  schoolClassId: z.string().optional().nullable(),
-});
+  firstName: mediumNameSchema,
+  lastName: mediumNameSchema,
+  schoolClassId: idSchema.optional().nullable(),
+}).strict();
 
 const updateSchema = z.object({
-  firstName: z.string().min(1).optional(),
-  lastName: z.string().min(1).optional(),
-  schoolClassId: z.string().optional().nullable(),
-});
+  firstName: mediumNameSchema.optional(),
+  lastName: mediumNameSchema.optional(),
+  schoolClassId: idSchema.optional().nullable(),
+}).strict();
 
 const importSchema = z.object({
   mode: z.enum(["reset_all", "append", "replace_players"]).default("append"),
   rows: z.array(
     z.object({
-      firstName: z.string().min(1),
-      lastName: z.string().min(1),
-      className: z.string().min(1),
-    }),
+      firstName: mediumNameSchema,
+      lastName: mediumNameSchema,
+      className: classNameSchema,
+    }).strict(),
   ).min(1),
-});
+}).strict();
 
 async function getRequestUserSchoolId(userId: string): Promise<string | null>
 {

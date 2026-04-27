@@ -15,12 +15,12 @@ import {
 const scoresSchema = z.object({
   homeScore: z.number().int().min(0).optional(),
   awayScore: z.number().int().min(0).optional(),
-});
+}).strict();
 
 /** Request body schema for match timer actions. */
 const timerSchema = z.object({
   action: z.enum(["start", "pause", "resume", "end", "cancel"]),
-});
+}).strict();
 
 /** POST /:id/generate-group-matches - creates group-stage matches. */
 async function generateGroupMatchesHandler(req: Request, res: Response): Promise<void>

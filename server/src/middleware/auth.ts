@@ -17,9 +17,14 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
     const user = await prisma.user.findUnique({
       where: { id: decoded.sub },
-      select: { id: true, role: true },
+      select: { id: true, role: true, tokenVersion: true },
     });
     if (!user)
+    {
+      res.status(401).json({ error: "Ungültiges Token" });
+      return;
+    }
+    if ((decoded.tv ?? 0) !== user.tokenVersion)
     {
       res.status(401).json({ error: "Ungültiges Token" });
       return;

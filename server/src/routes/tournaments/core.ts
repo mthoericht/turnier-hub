@@ -1,8 +1,9 @@
 import type { NextFunction, Request, Response, Router } from "express";
-import type { TournamentMode, TournamentPhase } from "@prisma/client";
+import type { TournamentMode, TournamentPhase } from "@turnier-hub/shared";
 import { z } from "zod";
 import { prisma } from "../../db.js";
 import { createdBySelect, parseListScope, toCreatedBy } from "../../lib/createdBy.js";
+import { mediumNameSchema } from "../../lib/validation.js";
 import {
   getUserSchoolId,
   loadTournamentByIdForSchool,
@@ -16,21 +17,21 @@ import {
 
 /** Request body schema for creating a tournament. */
 const createTournamentSchema = z.object({
-  name: z.string().min(1),
-  sport: z.string().min(1),
+  name: mediumNameSchema,
+  sport: mediumNameSchema,
   mode: z.enum(["GROUP_KO", "DIRECT_KO", "ROUND_ROBIN"]).optional(),
   groupCount: z.number().int().min(1).max(16).optional(),
   advancesPerGroup: z.number().int().min(1).max(8).optional(),
   teamsAreIndividuals: z.boolean().optional(),
-});
+}).strict();
 
 /** Request body schema for patching editable tournament fields. */
 const patchTournamentSchema = z.object({
-  name: z.string().min(1).optional(),
-  sport: z.string().min(1).optional(),
+  name: mediumNameSchema.optional(),
+  sport: mediumNameSchema.optional(),
   groupCount: z.number().int().min(1).max(16).optional(),
   advancesPerGroup: z.number().int().min(1).max(8).optional(),
-});
+}).strict();
 
 /** GET / - lists tournaments (all or own scope). */
 async function listTournamentsHandler(req: Request, res: Response): Promise<void>
@@ -54,7 +55,7 @@ async function listTournamentsHandler(req: Request, res: Response): Promise<void
     },
   });
   res.json(
-    list.map(({ user, ...row }) => ({
+    list.map(({ user, ...row }: (typeof list)[number]) => ({
       ...row,
       createdBy: toCreatedBy(user),
     }))

@@ -1,9 +1,13 @@
 import http from "node:http";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "../../../server/src/app.js";
 import { RealtimeHub } from "../../../server/src/realtime/hub.js";
 import { signToken } from "../../../server/src/auth/token.js";
+import {
+  WS_MAX_SUBSCRIPTIONS_PER_CLIENT,
+  WS_MESSAGE_MAX_PER_WINDOW,
+} from "../../../server/src/config.js";
 
 type Push =
   | { type: "tournamentChanged"; tournamentId: string }
@@ -73,6 +77,11 @@ function waitForMessage<T>(ws: WebSocket): Promise<T>
 
 describe("RealtimeHub (WebSocket)", () =>
 {
+  afterEach(() =>
+  {
+    vi.restoreAllMocks();
+  });
+
   let server: http.Server;
   let hub: RealtimeHub;
   let baseUrl: string;
@@ -170,6 +179,42 @@ describe("RealtimeHub (WebSocket)", () =>
 
     ws.close();
     await waitForClose(ws);
+  });
+
+  it("closes socket when max subscriptions per client is exceeded", async () =>
+  {
+    // This test intentionally triggers security warn logs; mute expected console output.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const token = signToken("user-limit-subs");
+    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`);
+    await waitForOpen(ws);
+
+    for (let i = 0; i < WS_MAX_SUBSCRIPTIONS_PER_CLIENT; i += 1)
+    {
+      ws.send(JSON.stringify({ type: "subscribe", tournamentId: `t-${i}` }));
+    }
+    await sleep(10);
+
+    ws.send(JSON.stringify({ type: "subscribe", tournamentId: "t-overflow" }));
+    await waitForClose(ws);
+    expect(ws.readyState).toBe(WebSocket.CLOSED);
+  });
+
+  it("closes socket when message rate limit is exceeded", async () =>
+  {
+    // This test intentionally triggers security warn logs; mute expected console output.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const token = signToken("user-msg-limit");
+    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`);
+    await waitForOpen(ws);
+
+    for (let i = 0; i <= WS_MESSAGE_MAX_PER_WINDOW; i += 1)
+    {
+      ws.send(JSON.stringify({ type: "noop", idx: i }));
+    }
+
+    await waitForClose(ws);
+    expect(ws.readyState).toBe(WebSocket.CLOSED);
   });
 
   it("pushes catalogChanged to all connected clients", async () =>

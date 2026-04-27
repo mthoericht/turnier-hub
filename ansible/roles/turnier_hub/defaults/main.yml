@@ -32,3 +32,6 @@ turnier_hub_env:
   DATABASE_URL: "file:../../data/prod.db"
   JWT_SECRET: "CHANGE_ME"
   INVITE_CODE: "CHANGE_ME"
+  CORS_ALLOWED_ORIGINS: "https://turnier.example.com"
+  TRUST_PROXY: "1"
+  JSON_BODY_LIMIT: "100kb"

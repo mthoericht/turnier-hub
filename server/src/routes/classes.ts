@@ -9,18 +9,19 @@ import {
   parseListScope,
   schoolClassToApi,
 } from "../lib/createdBy.js";
+import { classNameSchema } from "../lib/validation.js";
 import { notifyCatalogChanged } from "../realtime/notify.js";
 
 const router = Router();
 router.use(authMiddleware);
 
 const createSchema = z.object({
-  name: z.string().min(1),
-});
+  name: classNameSchema,
+}).strict();
 
 const updateSchema = z.object({
-  name: z.string().min(1),
-});
+  name: classNameSchema,
+}).strict();
 
 async function getRequestUserSchoolId(userId: string): Promise<string | null>
 {

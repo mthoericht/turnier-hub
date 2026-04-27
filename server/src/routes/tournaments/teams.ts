@@ -4,6 +4,11 @@ import { getUserSchoolId, requireTournamentExists } from "./shared.js";
 import { notifyTournamentChanged } from "../../realtime/notify.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import {
+  classNameSchema,
+  idSchema,
+  shortNameSchema,
+} from "../../lib/validation.js";
+import {
   createTeam,
   patchTeam,
   deleteTeam,
@@ -15,31 +20,31 @@ import {
 
 /** Request body schema for creating a tournament team. */
 const createTeamSchema = z.object({
-  name: z.string().min(1).max(60),
+  name: shortNameSchema,
   sortOrder: z.number().int().optional(),
-});
+}).strict();
 
 /** Request body schema for patching team properties. */
 const patchTeamSchema = z.object({
-  name: z.string().min(1).max(60).optional(),
+  name: shortNameSchema.optional(),
   sortOrder: z.number().int().optional(),
-});
+}).strict();
 
 /** Request body schema for renaming a group label. */
 const renameGroupSchema = z.object({
-  oldLabel: z.string().trim().min(1).max(40),
-  newLabel: z.string().trim().min(1).max(40),
-});
+  oldLabel: classNameSchema,
+  newLabel: classNameSchema,
+}).strict();
 
 /** Request body schema for adding one player to a team roster. */
 const addMemberSchema = z.object({
-  playerId: z.string(),
-});
+  playerId: idSchema,
+}).strict();
 
 /** Request body schema for roster transfer options. */
 const transferTeamBodySchema = z.object({
   overwriteExistingMembers: z.boolean().optional(),
-});
+}).strict();
 
 /** POST /:id/teams - creates a new team in the tournament. */
 async function createTeamHandler(req: Request, res: Response): Promise<void>

@@ -13,6 +13,8 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - [Database Profiles (dev / test / production)](#database-profiles-dev--test--production)
 - [Production](#production)
 - [Security Notes](#security-notes)
+- [Security Runbook](#security-runbook)
+- [Additional Documentation](#additional-documentation)
 - [Project Layout](#project-layout)
 - [Accessibility (front end)](#accessibility-front-end)
 - [Test Environment](#test-environment)
@@ -43,7 +45,7 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - **Tie-breaking in qualifiers:** When multiple teams share the same point total at the cutoff boundary, a deterministic pseudo-random selection (seeded by tournament ID + group label) picks the advancing teams and emits a user-visible notice.
 - **Winner determination:** KO winners are determined exclusively from persisted `homeScore`/`awayScore`. Draws are not allowed in knockout — the user must enter a decisive result (e.g. after extra time or penalties).
 
-For a detailed German-language explanation of the tournament logic, see **[TURNIERLOGIK.md](TURNIERLOGIK.md)**.
+For a detailed German-language explanation of the tournament logic, see **[`doc/TURNIERLOGIK.md`](doc/TURNIERLOGIK.md)**.
 
 ## How To Use (Typical Workflow)
 
@@ -147,9 +149,11 @@ Server architecture (quick reference):
    - `DEFAULT_SCHOOL_NAME` — school name auto-created at startup (default: `defaultSchool`; may contain spaces, e.g. `"BBS Hannover"`).
    - `PORT` — API port (default `3001`).
    - `AUTH_RATE_LIMIT_WINDOW_MS` / `AUTH_LOGIN_MAX_REQUESTS` / `AUTH_SIGNUP_MAX_REQUESTS` / `AUTH_IDENTIFIER_MAX_REQUESTS` — in-memory abuse protection for login/signup (window + max requests per IP and identifier).
+   - `LOGIN_LOCKOUT_START_AFTER_FAILURES` / `LOGIN_LOCKOUT_BASE_MS` / `LOGIN_LOCKOUT_MAX_MS` — progressive temporary lockout for repeated failed logins per email/identifier.
    - `CORS_ALLOWED_ORIGINS` — comma-separated allowlist of browser origins that may call the API with credentials.
    - `TRUST_PROXY` — set to `1` (or the correct hop count) when running behind a reverse proxy so IP-based protections use the real client IP.
    - `JSON_BODY_LIMIT` — max JSON request payload size for `express.json` (default `100kb`).
+   - `WS_CONNECT_WINDOW_MS` / `WS_CONNECT_MAX_PER_IP` / `WS_MESSAGE_WINDOW_MS` / `WS_MESSAGE_MAX_PER_WINDOW` / `WS_MAX_SUBSCRIPTIONS_PER_CLIENT` — websocket abuse protection (upgrade/message rates + per-client subscription cap).
 
 3. **Apply the database schema** and optionally **seed** demo data:
 
@@ -211,6 +215,7 @@ npm run db:clear:test -- --yes
 | `npm run test:client` | Runs all client tests (unit + client-API integration). |
 | `npm run test:unit` | Runs server unit tests only (Vitest). |
 | `npm run test:integration` | Pushes test schema and runs client-API integration tests (Vitest, against test DB/API). |
+| `npm run security:audit` | Runs a policy-based audit wrapper across workspaces (fails on non-allowlisted high/critical vulnerabilities). |
 | `npm run clean` | Removes `node_modules` and `dist` folders in the monorepo. |
 | `npm run clean:install` | Runs `clean` then `npm install`. |
 | `npm run storybook` | Starts Storybook for the client (port `6006`; config in `tests/client/storybook/`). See **[tests/client/storybook/README.md](tests/client/storybook/README.md)** for fixtures, mocks, and routed stories. |
@@ -283,17 +288,31 @@ Notes:
 
 ## Security Notes
 
-- **Security backlog:** see [`SECURITY_TODO.md`](SECURITY_TODO.md) for prioritized hardening tasks and rollout checks.
+- **Security backlog + runbook:** see [`doc/SECURITY.md`](doc/SECURITY.md) for prioritized hardening tasks, production checks, and incident procedures.
 - **Auth endpoint throttling:** `POST /api/auth/login` and `POST /api/auth/signup` are protected by in-memory request limits.
 - **Security headers:** API responses include baseline HTTP security headers via `helmet`.
 - **CORS allowlist:** browser calls are accepted only from origins in `CORS_ALLOWED_ORIGINS` (comma-separated).
 - **Rate-limit env vars:** `AUTH_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_MAX_REQUESTS`, `AUTH_SIGNUP_MAX_REQUESTS`, `AUTH_IDENTIFIER_MAX_REQUESTS`.
+- **Progressive login lockout:** repeated failed logins per identifier trigger temporary backoff (`LOGIN_LOCKOUT_*`) and return `429` with `Retry-After`.
+- **Session invalidation:** JWTs carry per-user token version (`tv`). `POST /api/auth/revoke-sessions` rotates the caller's token version and invalidates all previously issued tokens for that account.
 - **Proxy/IP env var:** `TRUST_PROXY` (for example `1` behind Nginx) so `req.ip` is correct for rate limits and auditing.
 - **Payload-size env var:** `JSON_BODY_LIMIT` limits JSON request size globally (default `100kb`).
+- **WebSocket abuse controls:** configurable connection/message windows and a per-socket subscription cap (`WS_*` env vars).
+- **Structured security signals:** when thresholds are reached, the server emits JSON warning logs for `401/403/429` spikes and websocket connection/rate-limit spikes (`SECURITY_*` env vars).
 - **How limits are applied:** both per-IP and per-identifier counters run in parallel; if either threshold is exceeded in the active window, the request is blocked (`429`).
 - **Current scope:** limits are process-local (single Node.js instance). For multi-instance deployments, add a shared store (e.g. Redis) and/or edge rate limits at the reverse proxy/load balancer.
 - **Proxy setup:** if your app runs behind a reverse proxy, configure trusted proxy hops so `req.ip` reflects the real client IP and keep your allowed browser origins aligned with the public frontend URL(s).
 - **Secrets:** always set strong production values for `JWT_SECRET` and `INVITE_CODE` through host environment variables.
+
+## Security Runbook
+
+For operational procedures and the security checklist in one place, see [`doc/SECURITY.md`](doc/SECURITY.md).
+
+## Additional Documentation
+
+- [`doc/TURNIERLOGIK.md`](doc/TURNIERLOGIK.md) - detailed German-language tournament logic documentation.
+- [`doc/SECURITY.md`](doc/SECURITY.md) - consolidated security checklist and incident runbook.
+- [`doc/TODO.md`](doc/TODO.md) - historical tournament refactoring checklist.
 
 ## Project Layout
 

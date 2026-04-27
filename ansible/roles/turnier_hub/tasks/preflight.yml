@@ -13,11 +13,13 @@
       - turnier_hub_env.DATABASE_URL is defined
       - turnier_hub_env.JWT_SECRET is defined
       - turnier_hub_env.INVITE_CODE is defined
-    fail_msg: "turnier_hub_env must define NODE_ENV, DATABASE_URL, JWT_SECRET and INVITE_CODE"
+      - turnier_hub_env.CORS_ALLOWED_ORIGINS is defined
+    fail_msg: "turnier_hub_env must define NODE_ENV, DATABASE_URL, JWT_SECRET, INVITE_CODE and CORS_ALLOWED_ORIGINS"
 
 - name: Prevent placeholder secrets in production config
   ansible.builtin.assert:
     that:
       - turnier_hub_env.JWT_SECRET not in ["CHANGE_ME", "REPLACE_WITH_STRONG_SECRET", ""]
       - turnier_hub_env.INVITE_CODE not in ["CHANGE_ME", "REPLACE_WITH_INVITE_CODE", ""]
+      - turnier_hub_env.CORS_ALLOWED_ORIGINS not in ["", "*"]
     fail_msg: "Replace placeholder secrets in turnier_hub_env before running bootstrap/deploy"

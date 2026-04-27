@@ -8,6 +8,9 @@ import {
   AUTH_LOGIN_MAX_REQUESTS,
   AUTH_RATE_LIMIT_WINDOW_MS,
   AUTH_SIGNUP_MAX_REQUESTS,
+  LOGIN_LOCKOUT_BASE_MS,
+  LOGIN_LOCKOUT_START_AFTER_FAILURES,
+  LOGIN_LOCKOUT_MAX_MS,
   INVITE_CODE,
 } from "../config.js";
 import { authMiddleware } from "../middleware/auth.js";
@@ -28,6 +31,76 @@ const signupRateLimit = createAuthRateLimiter({
   maxPerIdentifier: AUTH_IDENTIFIER_MAX_REQUESTS,
 });
 
+type LoginFailureEntry = {
+  failures: number;
+  lockedUntilMs: number;
+};
+
+const loginFailures = new Map<string, LoginFailureEntry>();
+
+function normalizeLoginIdentifier(email: string): string
+{
+  return email.trim().toLowerCase();
+}
+
+function getLockoutMs(failures: number): number
+{
+  if (failures <= LOGIN_LOCKOUT_START_AFTER_FAILURES)
+  {
+    return 0;
+  }
+
+  const exponent = failures - LOGIN_LOCKOUT_START_AFTER_FAILURES - 1;
+  const lockMs = LOGIN_LOCKOUT_BASE_MS * (2 ** exponent);
+  return Math.min(LOGIN_LOCKOUT_MAX_MS, lockMs);
+}
+
+function getRemainingSeconds(untilMs: number): number
+{
+  return Math.max(1, Math.ceil((untilMs - Date.now()) / 1000));
+}
+
+function rejectLockedLogin(res: Response, lockedUntilMs: number): void
+{
+  res.setHeader("Retry-After", String(getRemainingSeconds(lockedUntilMs)));
+  res.status(429).json({
+    error: "Zu viele Fehlversuche. Bitte kurz warten und erneut versuchen.",
+  });
+}
+
+function getLoginLockout(identifier: string): LoginFailureEntry | null
+{
+  const current = loginFailures.get(identifier);
+  if (!current)
+  {
+    return null;
+  }
+
+  if (current.lockedUntilMs <= Date.now())
+  {
+    return null;
+  }
+  return current;
+}
+
+function registerLoginFailure(identifier: string): LoginFailureEntry
+{
+  const previous = loginFailures.get(identifier);
+  const failures = (previous?.failures ?? 0) + 1;
+  const lockoutMs = getLockoutMs(failures);
+  const next = {
+    failures,
+    lockedUntilMs: lockoutMs > 0 ? Date.now() + lockoutMs : 0,
+  };
+  loginFailures.set(identifier, next);
+  return next;
+}
+
+function resetLoginFailures(identifier: string): void
+{
+  loginFailures.delete(identifier);
+}
+
 /** Username validation shared by signup and any future profile updates. */
 const usernameSchema = z
   .string()
@@ -42,17 +115,17 @@ const usernameSchema = z
 /** Request body schema for account creation. */
 const signupSchema = z.object({
   username: usernameSchema,
-  email: z.string().email(),
+  email: z.string().trim().email().max(254),
   password: z.string().min(8),
   inviteCode: z.string(),
   schoolId: z.string().min(1, "Schule erforderlich"),
-});
+}).strict();
 
 /** Request body schema for email/password login. */
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email().max(254),
   password: z.string(),
-});
+}).strict();
 
 const userAuthInclude = {
   school: {
@@ -156,7 +229,7 @@ async function signupHandler(req: Request, res: Response): Promise<void> {
     include: userAuthInclude,
   });
 
-  const token = signToken(user.id);
+  const token = signToken(user.id, user.tokenVersion);
   res.status(201).json({
     token,
     user: toAuthUser(user),
@@ -175,13 +248,22 @@ async function loginHandler(req: Request, res: Response): Promise<void> {
   }
 
   const { email, password } = parsed.data;
+  const loginIdentifier = normalizeLoginIdentifier(email);
+  const lockout = getLoginLockout(loginIdentifier);
+  if (lockout)
+  {
+    rejectLockedLogin(res, lockout.lockedUntilMs);
+    return;
+  }
+
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: { email: loginIdentifier },
     select: {
       id: true,
       username: true,
       email: true,
       role: true,
+      tokenVersion: true,
       passwordHash: true,
       school: {
         select: {
@@ -192,11 +274,18 @@ async function loginHandler(req: Request, res: Response): Promise<void> {
   });
 
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    const nextLockout = registerLoginFailure(loginIdentifier);
+    if (nextLockout.lockedUntilMs > Date.now())
+    {
+      rejectLockedLogin(res, nextLockout.lockedUntilMs);
+      return;
+    }
     res.status(401).json({ error: "E-Mail oder Passwort falsch" });
     return;
   }
 
-  const token = signToken(user.id);
+  resetLoginFailures(loginIdentifier);
+  const token = signToken(user.id, user.tokenVersion);
   const { passwordHash: _pw, ...publicUser } = user;
   res.json({
     token,
@@ -220,6 +309,29 @@ async function meHandler(req: Request, res: Response): Promise<void> {
   res.json(toAuthUser(user));
 }
 
+/**
+ * POST /api/auth/revoke-sessions
+ * Increments token version and returns a fresh token for the current user.
+ */
+async function revokeSessionsHandler(req: Request, res: Response): Promise<void>
+{
+  const updated = await prisma.user.update({
+    where: { id: req.userId! },
+    data: {
+      tokenVersion: {
+        increment: 1,
+      },
+    },
+    include: userAuthInclude,
+  });
+
+  const token = signToken(updated.id, updated.tokenVersion);
+  res.json({
+    token,
+    user: toAuthUser(updated),
+  });
+}
+
 async function listSchoolsHandler(_req: Request, res: Response): Promise<void>
 {
   await ensureDefaultSchool();
@@ -234,5 +346,6 @@ router.get("/schools", asyncHandler(listSchoolsHandler));
 router.post("/signup", signupRateLimit, asyncHandler(signupHandler));
 router.post("/login", loginRateLimit, asyncHandler(loginHandler));
 router.get("/me", authMiddleware, asyncHandler(meHandler));
+router.post("/revoke-sessions", authMiddleware, asyncHandler(revokeSessionsHandler));
 
 export default router;

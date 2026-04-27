@@ -62,6 +62,7 @@ You must set:
 - `turnier_hub_env.DATABASE_URL`
 - `turnier_hub_env.JWT_SECRET`
 - `turnier_hub_env.INVITE_CODE`
+- `turnier_hub_env.CORS_ALLOWED_ORIGINS`
 
 Optional but recommended:
 
@@ -70,6 +71,10 @@ Optional but recommended:
 - `turnier_hub_healthcheck_enabled` (default `true`)
 - `turnier_hub_healthcheck_url` (default `http://127.0.0.1:3001/api/health`)
 - `turnier_hub_healthcheck_status` (default `200`)
+- `turnier_hub_env.TRUST_PROXY` (typical: `1` behind Nginx)
+- `turnier_hub_env.JSON_BODY_LIMIT`
+- auth/lockout tuning (`AUTH_*`, `LOGIN_LOCKOUT_*`)
+- websocket/security telemetry tuning (`WS_*`, `SECURITY_*`)
 
 Optional Prisma Studio (systemd):
 

@@ -12,6 +12,7 @@ model User {
   username      String?       @unique
   email         String        @unique
   passwordHash  String
+  tokenVersion  Int           @default(0)
   role          UserRole      @default(USER)
   schoolId      String
   school        School        @relation(fields: [schoolId], references: [id], onDelete: Restrict)

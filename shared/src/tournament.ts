@@ -2,6 +2,14 @@ import type { CreatedBy, Player } from "./catalog.js";
 
 export type TournamentMode = "GROUP_KO" | "DIRECT_KO" | "ROUND_ROBIN";
 
+export type TournamentPhase =
+  | "GROUP"
+  | "ROUND_OF_16"
+  | "QUARTER"
+  | "SEMI"
+  | "FINAL"
+  | "COMPLETED";
+
 export type MatchPhase =
   | "GROUP"
   | "ROUND_OF_16"

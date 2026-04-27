@@ -30,6 +30,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Vitest (client tests: unit + integration) | `npm run test:client` |
 | Vitest unit only (server) | `npm run test:unit` |
 | Vitest integration (client-API flow + test DB push) | `npm run test:integration` |
+| Security audit (policy wrapper) | `npm run security:audit` |
 | Clean install | `npm run clean:install` |
 
 - **Server** entry: `server/src/index.ts` creates an **HTTP** server from the Express app and attaches the **WebSocket** server on **`/api/ws`** (JWT via query `token=`). Production: `node server/dist/index.js` (`start` / `start:prod` in server workspace).

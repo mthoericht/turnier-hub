@@ -5,22 +5,23 @@ import { prisma } from "../db.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
+import { idSchema, mediumNameSchema } from "../lib/validation.js";
 
 const router = Router();
 router.use(authMiddleware);
 router.use(requireAdmin);
 
 const schoolSchema = z.object({
-  name: z.string().trim().min(1, "Name erforderlich"),
-});
+  name: mediumNameSchema,
+}).strict();
 
 const userRoleSchema = z.object({
   role: z.enum(["admin", "user"]),
-});
+}).strict();
 
 const userSchoolSchema = z.object({
-  schoolId: z.string().min(1, "Schule erforderlich"),
-});
+  schoolId: idSchema,
+}).strict();
 
 async function logAdminAudit(payload: {
   actorUserId: string;

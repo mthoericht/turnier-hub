@@ -14,7 +14,7 @@ import { notifyTournamentChanged } from "../../realtime/notify.js";
 /** Request body schema for explicit phase advancement targets. */
 const advanceSchema = z.object({
   target: z.enum(["ROUND_OF_16", "QUARTER", "SEMI", "FINAL", "COMPLETED"]),
-});
+}).strict();
 
 /** GET /:id/standings - computes current standings grouped by tournament setup. */
 async function getStandingsHandler(req: Request, res: Response): Promise<void>

@@ -6,6 +6,7 @@ import {
   AUTH_LOGIN_MAX_REQUESTS,
   AUTH_SIGNUP_MAX_REQUESTS,
   INVITE_CODE,
+  LOGIN_LOCKOUT_START_AFTER_FAILURES,
 } from "../../../server/src/config.js";
 import { resetAuthRateLimitForTests } from "../../../server/src/middleware/authRateLimit.js";
 import {
@@ -203,11 +204,48 @@ describe("auth API integration (via client API)", () =>
     await expect(fetchAuthMe()).rejects.toThrow("Nicht angemeldet");
   });
 
+  it("revokes previous sessions via token version bump", async () =>
+  {
+    const schoolId = await getFirstSchoolId();
+    const auth = await postAuthSignup({
+      username: "User_Revoke",
+      email: "revoke@example.com",
+      password: "password123",
+      inviteCode: INVITE_CODE,
+      schoolId,
+    });
+
+    const oldToken = auth.token;
+    setToken(oldToken);
+
+    const revokeResponse = await fetch(`${apiBaseUrl}/api/auth/revoke-sessions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${oldToken}`,
+      },
+    });
+    expect(revokeResponse.status).toBe(200);
+    const revokeData = await revokeResponse.json() as { token: string };
+    expect(typeof revokeData.token).toBe("string");
+    expect(revokeData.token).not.toBe(oldToken);
+
+    const staleTokenMe = await fetch(`${apiBaseUrl}/api/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${oldToken}`,
+      },
+    });
+    expect(staleTokenMe.status).toBe(401);
+  });
+
   it("rate-limits repeated login attempts", async () =>
   {
-    const acceptedAttempts = Math.min(
+    const acceptedByRequestLimit = Math.min(
       AUTH_LOGIN_MAX_REQUESTS,
       AUTH_IDENTIFIER_MAX_REQUESTS
+    );
+    const acceptedAttempts = Math.min(
+      acceptedByRequestLimit,
+      LOGIN_LOCKOUT_START_AFTER_FAILURES
     );
     for (let attempt = 0; attempt < acceptedAttempts; attempt += 1)
     {
@@ -231,6 +269,37 @@ describe("auth API integration (via client API)", () =>
       }),
     });
     expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("retry-after")).toBeTruthy();
+  });
+
+  it("applies temporary login lockout after repeated failed attempts", async () =>
+  {
+    const attemptsBeforeLockout = LOGIN_LOCKOUT_START_AFTER_FAILURES;
+    for (let attempt = 0; attempt < attemptsBeforeLockout; attempt += 1)
+    {
+      const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "unknown-lockout@example.com",
+          password: "invalid-password",
+        }),
+      });
+      expect(response.status).toBe(401);
+    }
+
+    const locked = await fetch(`${apiBaseUrl}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "unknown-lockout@example.com",
+        password: "invalid-password",
+      }),
+    });
+    expect(locked.status).toBe(429);
+    const retryAfter = Number(locked.headers.get("retry-after"));
+    expect(Number.isInteger(retryAfter)).toBe(true);
+    expect(retryAfter).toBeGreaterThan(0);
   });
 
   it("rate-limits repeated signup attempts", async () =>
