@@ -19,6 +19,7 @@ export const useAuthStore = defineStore("auth", () =>
   const ready = ref(false);
 
   const isAuthenticated = computed(() => !!user.value);
+  const isAdmin = computed(() => user.value?.role === "admin");
 
   async function hydrate(): Promise<void> 
   {
@@ -58,6 +59,7 @@ export const useAuthStore = defineStore("auth", () =>
     email: string;
     password: string;
     inviteCode: string;
+    schoolId: string;
   }): Promise<void> 
   {
     const res = await postAuthSignup(payload);
@@ -75,5 +77,5 @@ export const useAuthStore = defineStore("auth", () =>
     void router.push("/login");
   }
 
-  return { user, ready, isAuthenticated, hydrate, login, signup, logout };
+  return { user, ready, isAuthenticated, isAdmin, hydrate, login, signup, logout };
 });

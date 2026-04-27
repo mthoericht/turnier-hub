@@ -66,6 +66,7 @@ type AuthUserRow = {
   id: string;
   username: string | null;
   email: string;
+  role: "ADMIN" | "USER";
   school: {
     name: string;
   };
@@ -76,6 +77,7 @@ function toAuthUser(user: AuthUserRow): {
   username: string | null;
   email: string;
   schoolName: string;
+  role: "admin" | "user";
 }
 {
   return {
@@ -83,6 +85,7 @@ function toAuthUser(user: AuthUserRow): {
     username: user.username,
     email: user.email,
     schoolName: user.school.name,
+    role: user.role === "ADMIN" ? "admin" : "user",
   };
 }
 
@@ -178,6 +181,7 @@ async function loginHandler(req: Request, res: Response): Promise<void> {
       id: true,
       username: true,
       email: true,
+      role: true,
       passwordHash: true,
       school: {
         select: {

@@ -11,7 +11,10 @@ export type AuthUser = {
   username: string | null;
   email: string;
   schoolName: string;
+  role: "admin" | "user";
 };
+
+export type UserRole = AuthUser["role"];
 
 /** Class shape nested under players in API responses. */
 export type PlayerSchoolClass = {

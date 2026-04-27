@@ -52,6 +52,10 @@ const composableMockReplacements: Alias[] = [
     replacement: path.resolve(__dirname, "./mocks/useClassesManagementState.mock.ts"),
   },
   {
+    find: "@/composables/admin/useAdminManagementState",
+    replacement: path.resolve(__dirname, "./mocks/useAdminManagementState.mock.ts"),
+  },
+  {
     find: "@/tournament/useTournamentLayoutState",
     replacement: path.resolve(__dirname, "./mocks/useTournamentLayoutState.mock.ts"),
   },

@@ -18,6 +18,10 @@ export default defineConfig({
     {
       const baseProjects: TestProjectConfiguration[] = [
         {
+          plugins: clientPlugins(),
+          resolve: {
+            alias: clientAlias,
+          },
           test: {
             environment: "node",
             include: ["../tests/client/**/*.test.ts"],

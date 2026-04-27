@@ -19,8 +19,29 @@ const titleId = useId();
 const descriptionId = useId();
 
 const dialogRootRef = ref<HTMLElement | null>(null);
+const backdropPressStarted = ref(false);
 
 useDialogFocusTrap(toRef(props, "open"), dialogRootRef, () => emit("close"));
+
+function onBackdropMouseDown(): void
+{
+  backdropPressStarted.value = true;
+}
+
+function onBackdropMouseUp(): void
+{
+  if (!backdropPressStarted.value)
+  {
+    return;
+  }
+  backdropPressStarted.value = false;
+  emit("close");
+}
+
+function onDialogCardMouseDown(): void
+{
+  backdropPressStarted.value = false;
+}
 </script>
 
 <template>
@@ -32,10 +53,12 @@ useDialogFocusTrap(toRef(props, "open"), dialogRootRef, () => emit("close"));
     aria-modal="true"
     :aria-labelledby="titleId"
     :aria-describedby="description ? descriptionId : undefined"
-    @click.self="emit('close')"
+    @mousedown.self="onBackdropMouseDown"
+    @mouseup.self="onBackdropMouseUp"
   >
     <div
       class="ui-card w-full max-w-md bg-white p-6 shadow-lg"
+      @mousedown="onDialogCardMouseDown"
     >
       <div class="mb-4">
         <h2

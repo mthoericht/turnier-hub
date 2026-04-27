@@ -1,5 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import ClassesViewPreset from "@/views/ClassesViewPreset.vue";
+import {
+  resetClassesStoryState,
+  setClassesStoryState,
+} from "@/composables/classes/useClassesManagementState";
+import type { SchoolClass } from "@turnier-hub/shared";
 
 const meta: Meta<typeof ClassesViewPreset> = {
   title: "Views/ClassesViewPreset",
@@ -10,9 +15,46 @@ export default meta;
 
 type Story = StoryObj<typeof ClassesViewPreset>;
 
-export const Default: Story = {
-  parameters: {
-    route: "/classes",
+const populatedClasses: SchoolClass[] = [
+  {
+    id: "class-1",
+    name: "10a",
+    createdBy: {
+      id: "user-1",
+      username: "coach",
+      email: "coach@example.com",
+    },
   },
-};
+  {
+    id: "class-2",
+    name: "9b",
+    createdBy: {
+      id: "user-2",
+      username: "teacher",
+      email: "teacher@example.com",
+    },
+  },
+];
+
+function buildStory(classes: SchoolClass[]): Story
+{
+  return {
+    parameters: {
+      route: "/classes",
+    },
+    render: () =>
+    {
+      resetClassesStoryState();
+      setClassesStoryState({ classes });
+      return {
+        components: { ClassesViewPreset },
+        template: `<ClassesViewPreset />`,
+      };
+    },
+  };
+}
+
+export const Default: Story = buildStory(populatedClasses);
+
+export const Empty: Story = buildStory([]);
 

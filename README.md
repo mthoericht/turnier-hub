@@ -20,7 +20,11 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 ## Features
 
 - **Authentication:** Sign-up requires a shared **invite code** (configurable). Login uses email and password. Sessions use **JWT** in the `Authorization: Bearer` header; the token is stored in the browser under the localStorage key `turnier_hub_token`.
-- **Users:** Each account has a **username** (unique, normalized) and email. All signed-in users share one **catalog** (see **Shared catalog**).
+- **Users and roles:** Each account has a **username** (unique, normalized), email, and a role: **`user`** or **`admin`**. New accounts default to `user`. Admin-only actions are available in the **Admin** view.
+- **Admin area:** Admins can open `/admin` from the top navigation (next to tournaments) and manage:
+  - **Schools:** create, rename, delete (deletion only when no users are assigned).
+  - **User administration:** list users, change role (`user`/`admin`), and reassign users to a different school.
+  - **Safety rule:** the backend prevents demoting the last remaining admin account.
 - **Shared catalog:** **School classes**, **players**, and **tournaments** are visible and **fully editable** (create / update / delete) by **any authenticated user**. Database rows still store the **original creator** (`userId` on create); the API exposes this as **`createdBy`** for display only (“Von …” / “Erstellt von …”). List filters **Alle** vs. **Eigene** only narrow what you see, not who may edit. **Players** can be assigned to **any** class in the catalog. **Roster transfer** can use any tournament as the source.
 - **Classes:** CRUD for **school classes** (names unique **per creator** in the DB — two users can each have a class named `10a`). Routes `/classes` (API `/api/classes`).
 - **Players:** CRUD for players with separate **`firstName`** and **`lastName`**; optional class is chosen from **all** classes in the catalog. Scoped list views (all vs. own) like tournaments. The players page provides text search (first name, last name, full name, class), sortable table columns (**Vorname**, **Name**, **Klasse**, asc/desc toggle), and an **Import/Export** dialog. Import accepts **XLS/XLSX** with columns **`Vorname`**, **`Name`** (last name), **`Klasse`** and offers modes to append, reset all data, or replace players by matching existing rows on **Vorname + Name + Klasse** (only missing rows are removed). Export writes current players to XLSX using the same column schema. For better mobile landscape fit, creator attribution is shown as compact text below each row's action buttons.
@@ -47,26 +51,32 @@ For a detailed German-language explanation of the tournament logic, see **[TURNI
    - Use the invite code configured on the server.
    - After login, your JWT is stored in `localStorage` and sent to `/api/*` routes.
 
-2. **Prepare master data**
+2. **(Admin) Maintain schools and permissions**
+   - Open **Admin** (`/admin`) to create/rename/delete schools.
+   - Assign users to schools via select fields.
+   - Change user roles (`user` / `admin`).
+   - The API blocks role changes that would remove the last admin.
+
+3. **Prepare master data**
    - In **Classes**, create school classes (optional but recommended). Any user can use classes created by others when assigning players.
    - In **Players**, create participants (`firstName` + `lastName`) and optionally link each player to a class from the shared catalog.
    - In the **Players** list, use class filter + search field together and sort by **Vorname**, **Name**, or **Klasse** directly from the table header.
    - Optional: use **Import/Export** on the players page. Import expects **XLS/XLSX** with **`Vorname`**, **`Name`**, **`Klasse`**; export writes the current list with the same schema.
 
-3. **Create a tournament**
+4. **Create a tournament**
    - Choose mode:
      - **Group -> K.O.** for group stage + playoffs,
      - **Direct K.O.** for immediate bracket play,
      - **Round-Robin** for everyone vs everyone.
    - Optional: enable **teams as individuals** when each player should act as a team.
 
-4. **Set up teams in `Mannschaften`**
+5. **Set up teams in `Mannschaften`**
    - Add teams (or participants in individual mode).
    - Add/remove roster members per team.
    - Rename team names and group labels directly in the roster UI.
    - Optional: transfer roster structure from another tournament.
 
-5. **Run match generation in `Spielbetrieb`**
+6. **Run match generation in `Spielbetrieb`**
    - **Group -> K.O.:** set `groupCount` next to "Gruppenspiele erzeugen", then generate groups.
    - Save `advancesPerGroup` separately with "Einstellungen speichern".
    - **Direct K.O.:** generate the initial knockout round.
@@ -76,17 +86,17 @@ For a detailed German-language explanation of the tournament logic, see **[TURNI
      - teams without members are excluded from group generation,
      - byes are created as already `FINISHED`.
 
-6. **Operate matches in `Spiele`**
+7. **Operate matches in `Spiele`**
    - Use timer controls: start, pause, resume, end, cancel.
    - Enter and save **both** scores (`homeScore` + `awayScore`) to persist valid results.
    - Standings update from persisted match data; unsaved score drafts are preserved during refreshes.
 
-7. **Advance phases**
+8. **Advance phases**
    - Trigger next phase from Spielbetrieb (as allowed by current state).
    - KO pairings are randomized by server logic.
    - If final match(es) are finished, tournament phase auto-switches to `COMPLETED`.
 
-8. **Reset when needed**
+9. **Reset when needed**
    - Use "Delete all matches and groups" in the danger zone to remove all matches and reset phase context.
 
 ## Tech Stack
@@ -105,7 +115,7 @@ The SQLite file lives under `data/` (for example `data/dev.db`). Database files 
 Server error handling is centralized: route handlers should use `server/src/middleware/asyncHandler.ts`, and uncaught/domain errors are mapped in `server/src/middleware/error.ts` (for example `ServiceError` and Prisma conflict handling).
 
 Server architecture (quick reference):
-- **Routes:** API modules live in `server/src/routes/`; tournament endpoints are split in `server/src/routes/tournaments/` (`core`, `teams`, `matches`, `standings-advance`) and mounted under `/api/tournaments`.
+- **Routes:** API modules live in `server/src/routes/`; admin endpoints are mounted under `/api/admin`; tournament endpoints are split in `server/src/routes/tournaments/` (`core`, `teams`, `matches`, `standings-advance`) and mounted under `/api/tournaments`.
 - **Validation / parser:** request payloads are validated with **Zod** in route modules; invalid input returns `400`.
 - **Middleware:** auth guard is `server/src/middleware/auth.ts`; async error forwarding uses `server/src/middleware/asyncHandler.ts`; centralized error mapping/logging is in `server/src/middleware/error.ts`.
 - **Services:** business/domain logic lives in `server/src/services/` (pure logic + orchestration); route handlers stay thin and call services.
@@ -150,7 +160,7 @@ Server architecture (quick reference):
 
    If `db:push` fails because of existing rows (e.g. after a breaking schema change), reset the **local** SQLite file (this deletes all data), then push and seed again — for example delete `data/dev.db` or use `npx prisma db push --force-reset` from `server/` (development only).
 
-  The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`), twelve players, shared demo **school classes**, and four demo tournaments: **"Demo: Football School Cup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), **"Demo: Direct K.O. with 15 Teams"** (Direct K.O., 15 teams), and **"Demo: Badminton Round Robin"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
+  The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`) with role **`admin`**, twelve players, shared demo **school classes**, and four demo tournaments: **"Demo: Football School Cup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), **"Demo: Direct K.O. with 15 Teams"** (Direct K.O., 15 teams), and **"Demo: Badminton Round Robin"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
 
 3.1. **Wipe demo data (dev/test) without deleting users**
 
@@ -297,9 +307,9 @@ turnier-hub/
 ├── client/                    # Vue SPA (Vite)
 │   ├── eslint.config.js       # ESLint flat config
 │   ├── src/
-│   │   ├── api/               # authApi, classesApi, playersApi, tournamentsApi, http (fetch + token)
+│   │   ├── api/               # authApi, adminApi, classesApi, playersApi, tournamentsApi, http (fetch + token)
 │   │   ├── components/        # Shared UI (e.g. CatalogPageHeader, EntityDialog, ScopeToggle); Storybook stories in tests/client/storybook/
-│   │   ├── composables/       # Thin views over Pinia (dashboard, classes, players, tournaments)
+│   │   ├── composables/       # Feature composables (dashboard, admin, classes, players, tournaments)
 │   │   ├── realtime/          # WebSocket client (connect, tournament subscribe, dispatch to stores)
 │   │   ├── stores/            # Pinia: auth, theme, toast + domain (tournamentLayout/ with rosterActions, matchActions, phaseActions; players/classes/tournaments list, dashboard)
 │   │   ├── theme/             # centralized design tokens and font import

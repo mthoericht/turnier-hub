@@ -12,14 +12,36 @@ model User {
   username      String?       @unique
   email         String        @unique
   passwordHash  String
+  role          UserRole      @default(USER)
   schoolId      String
   school        School        @relation(fields: [schoolId], references: [id], onDelete: Restrict)
   createdAt     DateTime      @default(now())
   players       Player[]
   schoolClasses SchoolClass[]
   tournaments   Tournament[]
+  adminAuditLogs AdminAuditLog[] @relation("AdminAuditActor")
 
   @@index([schoolId])
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  action      String
+  targetType  String
+  targetId    String
+  beforeJson  String?
+  afterJson   String?
+  createdAt   DateTime @default(now())
+  actorUser   User     @relation("AdminAuditActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([actorUserId])
 }
 
 model School {

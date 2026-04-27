@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { ref, watch, onMounted } from "vue";
+import { computed, ref, watch, onMounted } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 import ToastHost from "./components/ToastHost.vue";
 import AppIcon from "./components/common/AppIcon.vue";
@@ -35,15 +35,23 @@ const linkClass =
 type MainNavItem = {
   to: string;
   label: string;
-  icon: "trophy" | "classes" | "players" | "calendar";
+  icon: "trophy" | "classes" | "players" | "calendar" | "admin";
 };
 
-const mainNavItems: MainNavItem[] = [
-  { to: "/", label: "Dashboard", icon: "trophy" },
-  { to: "/classes", label: "Klassen", icon: "classes" },
-  { to: "/players", label: "Spieler", icon: "players" },
-  { to: "/tournaments", label: "Turniere", icon: "calendar" },
-];
+const mainNavItems = computed<MainNavItem[]>(() =>
+{
+  const baseItems: MainNavItem[] = [
+    { to: "/", label: "Dashboard", icon: "trophy" },
+    { to: "/classes", label: "Klassen", icon: "classes" },
+    { to: "/players", label: "Spieler", icon: "players" },
+    { to: "/tournaments", label: "Turniere", icon: "calendar" },
+  ];
+  if (auth.user?.role === "admin")
+  {
+    baseItems.push({ to: "/admin", label: "Admin", icon: "admin" });
+  }
+  return baseItems;
+});
 
 function isNavActive(prefix: string): boolean 
 {

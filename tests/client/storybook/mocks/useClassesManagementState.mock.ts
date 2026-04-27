@@ -1,18 +1,61 @@
 import { computed, ref } from "vue";
+import type { SchoolClass } from "@turnier-hub/shared";
+
+const defaultClasses: SchoolClass[] = [
+  {
+    id: "class-1",
+    name: "10a",
+    createdBy: {
+      id: "user-1",
+      username: "coach",
+      email: "coach@example.com",
+    },
+  },
+  {
+    id: "class-2",
+    name: "9b",
+    createdBy: {
+      id: "user-2",
+      username: "teacher",
+      email: "teacher@example.com",
+    },
+  },
+];
+
+const classes = ref<SchoolClass[]>(structuredClone(defaultClasses));
+const loading = ref(false);
+const error = ref("");
+
+export function resetClassesStoryState(): void
+{
+  classes.value = structuredClone(defaultClasses);
+  loading.value = false;
+  error.value = "";
+}
+
+export function setClassesStoryState(state: {
+  classes?: SchoolClass[];
+  loading?: boolean;
+  error?: string;
+}): void
+{
+  if (state.classes !== undefined) classes.value = structuredClone(state.classes);
+  if (state.loading !== undefined) loading.value = state.loading;
+  if (state.error !== undefined) error.value = state.error;
+}
 
 export function useClassesManagementState()
 {
   const scope = ref<"all" | "own">("all");
-  const classes = ref<unknown[]>([]);
-  const loading = ref(false);
-  const error = ref("");
 
   const dialogOpen = ref(false);
   const editingId = ref<string | null>(null);
   const dialogName = ref("");
 
-  function getPlayerCount(): number
+  function getPlayerCount(classId: string): number
   {
+    if (classId === "class-1") return 18;
+    if (classId === "class-2") return 14;
     return 0;
   }
 
@@ -23,7 +66,12 @@ export function useClassesManagementState()
     dialogOpen.value = true;
   }
 
-  function openEdit(): void {}
+  function openEdit(schoolClass: SchoolClass): void
+  {
+    editingId.value = schoolClass.id;
+    dialogName.value = schoolClass.name;
+    dialogOpen.value = true;
+  }
 
   function closeDialog(): void
   {

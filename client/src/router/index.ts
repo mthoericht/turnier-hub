@@ -41,6 +41,12 @@ const router = createRouter({
       meta: { auth: true },
     },
     {
+      path: "/admin",
+      name: "admin",
+      component: () => import("@/views/AdminView.vue"),
+      meta: { auth: true },
+    },
+    {
       path: "/tournaments/:id",
       component: () => import("@/views/tournament/TournamentLayout.vue"),
       meta: { auth: true },

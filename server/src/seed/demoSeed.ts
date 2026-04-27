@@ -45,11 +45,13 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
       email: SEED_EMAIL,
       username: SEED_USERNAME,
       passwordHash,
+      role: "ADMIN",
       schoolId: defaultSchool.id,
     },
     update: {
       username: SEED_USERNAME,
       passwordHash,
+      role: "ADMIN",
       schoolId: defaultSchool.id,
     },
   });

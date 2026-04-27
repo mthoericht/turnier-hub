@@ -12,6 +12,7 @@ import authRouter from "./routes/auth.js";
 import classesRouter from "./routes/classes.js";
 import playersRouter from "./routes/players.js";
 import tournamentsRouter from "./routes/tournaments/index.js";
+import adminRouter from "./routes/admin.js";
 import { errorMiddleware } from "./middleware/error.js";
 
 function isOriginAllowed(origin: string): boolean
@@ -55,6 +56,7 @@ export function createApp()
   app.use("/api/classes", classesRouter);
   app.use("/api/players", playersRouter);
   app.use("/api/tournaments", tournamentsRouter);
+  app.use("/api/admin", adminRouter);
 
   app.use(express.static(clientDist));
   app.get("*", (req, res, next) =>
