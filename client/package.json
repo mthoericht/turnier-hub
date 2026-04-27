@@ -36,7 +36,7 @@
     "@vue/test-utils": "^2.4.8",
     "autoprefixer": "^10.4.20",
     "dotenv-cli": "^8.0.0",
-    "eslint": "^9.39.4",
+    "eslint": "^10.2.1",
     "eslint-plugin-vue": "^10.8.0",
     "globals": "^17.4.0",
     "jsdom": "^29.1.0",
