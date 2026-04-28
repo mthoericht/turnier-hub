@@ -51,14 +51,6 @@
     mode: "0600"
   register: turnier_hub_env_result
 
-- name: Ensure SQLite data directory exists (repo root data/)
-  ansible.builtin.file:
-    path: "{{ turnier_hub_app_dir }}/data"
-    state: directory
-    owner: "{{ turnier_hub_app_user }}"
-    group: "{{ turnier_hub_app_group }}"
-    mode: "0750"
-
 - name: Apply production database schema
   ansible.builtin.command: npm run db:deploy
   args:

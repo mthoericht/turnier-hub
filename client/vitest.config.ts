@@ -11,8 +11,8 @@ export default defineConfig({
     alias: clientAlias,
   },
   test: {
-    // Integration tests share one SQLite file (server/.env.test); parallel files
-    // would race on resetDatabase() and invalidate JWT user rows (P2003 / hangs).
+    // Integration tests share one Postgres test database (`server/.env.test`);
+    // parallel files would race on resetDatabase() and invalidate JWT user rows.
     fileParallelism: false,
     projects: (() =>
     {

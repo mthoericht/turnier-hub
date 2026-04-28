@@ -31,7 +31,7 @@ This file combines:
 ### Deployment guidance
 
 - Deploy behind **TLS** (HTTPS) at all times. The app does not enforce HSTS itself; configure it at the reverse proxy.
-- Run as a **single Node.js process** with SQLite. In-memory rate limiting, lockout counters, and monitoring state are not shared across processes.
+- Run as a **single Node.js process** (or switch to shared state backends in distributed setups). In-memory rate limiting, lockout counters, and monitoring state are not shared across processes.
 - Do **not** expose the app directly to the public internet without a reverse proxy.
 - Treat all authenticated users as trusted collaborators within the deployment scope.
 

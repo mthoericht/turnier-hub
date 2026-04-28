@@ -1,4 +1,35 @@
 export const TOKEN_KEY = "turnier_hub_token";
+const apiBaseFromEnv = import.meta.env.VITE_API_BASE_URL?.trim() ?? "";
+
+function normalizeApiBase(raw: string): string
+{
+  if (!raw)
+  {
+    return "";
+  }
+  const trimmed = raw.replace(/\/+$/, "");
+  return trimmed;
+}
+
+const API_BASE_URL = normalizeApiBase(apiBaseFromEnv);
+
+export function getApiBaseUrl(): string
+{
+  return API_BASE_URL;
+}
+
+export function buildApiUrl(path: string): string
+{
+  if (/^https?:\/\//i.test(path))
+  {
+    return path;
+  }
+  if (!path.startsWith("/"))
+  {
+    return API_BASE_URL ? `${API_BASE_URL}/${path}` : `/${path}`;
+  }
+  return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
+}
 
 export function getToken(): string | null 
 {
@@ -40,7 +71,7 @@ export async function api<T>(
   {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  const res = await fetch(path, { ...init, headers });
+  const res = await fetch(buildApiUrl(path), { ...init, headers });
   if (res.status === 401 && !init?.skipAuth) 
   {
     setToken(null);

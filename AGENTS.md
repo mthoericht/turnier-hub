@@ -4,7 +4,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 ## Repository shape
 
-- **npm workspaces** at the repo root: `client/` (Vue 3 + Vite + Tailwind), `server/` (Express + Prisma + **PostgreSQL**), **`shared/`** (`@turnier-hub/shared` — TypeScript types and small helpers shared by client and server: catalog API shapes such as `Player`, `SchoolClass`, `CreatedBy`, `AuthUser`, `formatCreator`, `formatPlayerName` in `shared/src/catalog.ts`; tournament DTOs in `shared/src/tournament.ts`). Import from **`@turnier-hub/shared`** in app code (no client-only `types.ts` barrel).
+- **npm workspaces** at the repo root: `client/` (Vue 3 + Vite + Tailwind), `server/` (Express + Prisma + local **PostgreSQL** for dev/test), **`shared/`** (`@turnier-hub/shared` — TypeScript types and small helpers shared by client and server: catalog API shapes such as `Player`, `SchoolClass`, `CreatedBy`, `AuthUser`, `formatCreator`, `formatPlayerName` in `shared/src/catalog.ts`; tournament DTOs in `shared/src/tournament.ts`). Import from **`@turnier-hub/shared`** in app code (no client-only `types.ts` barrel).
 - Run **install and most scripts from the repository root**, not only inside `client` or `server`, unless you have a reason.
 - **AWS migration in flight:** the codebase is being moved to a fully serverless AWS stack (Lambda Function URLs + CloudFront + RDS PostgreSQL + DynamoDB). Status, decisions, and phase-by-phase plan live in [`MIGRATION_AWS.md`](MIGRATION_AWS.md). Phase 1 (Postgres) and Phase 2 (state adapters + WS→SSE) are merged; Phase 3+ is in progress.
 
@@ -13,9 +13,6 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Goal | Command |
 | ---- | ------- |
 | Dev (API + Vite) | `npm run dev` |
-| Start local Postgres + DynamoDB-Local (Docker Compose) | `npm run docker:up` |
-| Stop containers (keep volumes) | `npm run docker:down` |
-| Stop containers + drop volumes | `npm run docker:reset` |
 | CDK synth (all infra stacks) | `npm run cdk:synth` |
 | CDK diff (all infra stacks) | `npm run cdk:diff` |
 | CDK deploy (all infra stacks) | `npm run cdk:deploy` |
@@ -24,15 +21,13 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Prod: generate Prisma client + build | `npm run prod:prepare` |
 | Prod: start API + static SPA (`NODE_ENV=production`) | `npm run prod:start` |
 | Prod: prepare + start in one step | `npm run prod` |
-| Apply Prisma migrations (dev `.env`) | `npm run db:push` (= `prisma migrate deploy`) |
-| Generate a new dev migration | `npm run db:migrate -- --name <slug>` |
-| Apply schema (production naming; uses current `DATABASE_URL`) | `npm run db:deploy` (= `prisma migrate deploy`) |
+| Apply Prisma schema (dev `.env`) | `npm run db:push` (= `prisma db push`) |
+| Apply schema (production naming; uses current `DATABASE_URL`) | `npm run db:deploy` (= `prisma db push`) |
 | Prisma Studio | `npm run db:studio` |
 | Regenerate Prisma client | `npm run db:generate` |
 | Seed demo data (dev) | `npm run db:seed` |
 | Clear DB (dev, keep `User`) | `npm run db:clear -- --yes` |
 | Test DB schema + seed | `npm run db:push:test` / `npm run db:seed:test` |
-| Generate a new test migration (rare) | `npm run db:migrate:test` |
 | Clear DB (test, keep `User`) | `npm run db:clear:test -- --yes` |
 | API only, test env (`PORT` 3002) | `npm run dev:test` |
 | Vitest (all: server + client) | `npm run test` |
@@ -53,16 +48,14 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 ## Environment and secrets
 
 - Copy `server/.env.example` → `server/.env` for local development. Do **not** commit `.env`.
-- `DATABASE_URL` in `.env` is a Postgres connection string; default points at the local Docker Compose Postgres (`postgresql://turnier:turnier@localhost:5432/turnier_dev`).
-- **Test** profile: `server/.env.test` (separate Postgres database, default `turnier_test` on the same Docker container; created by the init script in `docker/postgres/init/01-create-test-database.sql`). Seed respects an already-set `DATABASE_URL` so `dotenv-cli` can target the test DB.
+- `DATABASE_URL` in `.env` is a Postgres connection string; default points at `postgresql://turnier:turnier@localhost:5432/turnier_dev?schema=public`.
+- **Test** profile: `server/.env.test` (separate Postgres database, default `postgresql://turnier:turnier@localhost:5432/turnier_test?schema=public`). Seed respects an already-set `DATABASE_URL` so `dotenv-cli` can target the test DB.
 - Typical keys: `JWT_SECRET`, `INVITE_CODE`, `PORT`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`.
 
 ## Database and Prisma
 
 - Schema: `server/prisma/schema.prisma` (`provider = "postgresql"`).
-- Migration history lives at `server/prisma/migrations/`. Treat it as authoritative — both dev and prod apply migrations rather than the older `prisma db push` flow.
-- **`db:push` / `db:deploy`** both run **`prisma migrate deploy`** (apply existing migrations idempotently). **`db:migrate -- --name <slug>`** runs **`prisma migrate dev`** which creates a new migration from the current schema and applies it locally. **`db:generate`** regenerates the Prisma Client only (no DB writes). After changing `schema.prisma`, generate a migration with `db:migrate` and commit it.
-- **Local prerequisite:** start Postgres + DynamoDB-Local with `npm run docker:up` (defined in `docker-compose.yml` at the repo root). The compose file mounts `docker/postgres/init/` so the test database is created on first start.
+- **`db:push` / `db:deploy`** both run **`prisma db push`** (apply current schema). **`db:generate`** regenerates the Prisma Client only (no DB writes).
 - **Dev DB**: uses `server/.env` and the root scripts:
   - Apply migrations: `npm run db:push`
   - Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)
@@ -75,9 +68,9 @@ This document helps humans and coding agents work effectively in **turnier-hub**
     - Under the hood: same `tsx scripts/seed.ts`, but executed with `dotenv -e .env.test`.
   - Clear DB (keep `User`): `npm run db:clear:test -- --yes` (same script: `server/scripts/clearDbExceptUsers.ts`)
     - Under the hood: same `tsx scripts/clearDbExceptUsers.ts`, but executed with `dotenv -e .env.test`.
-- **Production (legacy single-VM)**: uses host environment variables (especially `DATABASE_URL`) and runs `npm run db:deploy` to apply migrations.
+- **Production (legacy single-VM)**: uses host environment variables (especially `DATABASE_URL`) and runs `npm run db:deploy` to apply schema.
 - **Production (AWS, in progress)**: a dedicated `migrate`-Lambda runs `prisma migrate deploy` against RDS Postgres on deploy (CDK custom resource — Phase 4).
-- **Schema iteration:** edit `schema.prisma`, run `npm run db:migrate -- --name <slug>` to generate a migration, run tests. Commit the new migration folder. For destructive iterations against an empty local DB, `npx prisma migrate reset --force` from `server/` is fine.
+- **Schema iteration:** edit `schema.prisma`, run `npm run db:push` (and `npm run db:push:test` for test profile), then run tests.
 
 ## API surface (high level)
 
@@ -163,7 +156,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Modal dialog + focus trap | `client/src/components/common/EntityDialog.vue`, `client/src/composables/useDialogFocusTrap.ts` |
 | Global confirm + text prompt | `client/src/stores/confirmDialog.ts`, `textPromptDialog.ts`, `GlobalTextPromptDialog.vue`, mounted in `App.vue`; Storybook under `tests/client/storybook/stories/components/common/` (`GlobalTextPromptDialog.stories.ts`) |
 | Catalog page header (lists + dashboard) | `client/src/components/common/CatalogPageHeader.vue`; Storybook `tests/client/storybook/stories/components/common/CatalogPageHeader.stories.ts` |
-| Local infra (Postgres + DynamoDB-Local) | `docker-compose.yml`, `docker/postgres/init/01-create-test-database.sql` |
+| Local DB (no Docker) | PostgreSQL on `localhost:5432` (`turnier_dev`, `turnier_test`) |
 | AWS CDK app + stacks | `infra/bin/infra.ts`, `infra/lib/network-stack.ts`, `infra/lib/data-stack.ts`, `infra/lib/lambda-stack.ts`, `infra/lib/edge-stack.ts`, `infra/lib/config.ts` |
 | AWS migration plan | [`MIGRATION_AWS.md`](MIGRATION_AWS.md) |
 | Legacy single-VM deployment | `ansible/README.md`, `ansible/playbooks/`, `ansible/roles/turnier_hub/` (will be retired in Phase 7) |

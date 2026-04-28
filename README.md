@@ -2,7 +2,7 @@
 
 Turnier-Hub is a small full-stack web application for managing school sports tournaments (for example volleyball, football, or two-field ball). It covers user registration with an invite code, a **shared catalog** of **school classes**, **players**, and **tournaments** (any signed-in user can edit; creator is shown for attribution), player rosters, tournament setup with **teams** (or individuals), three **tournament modes** (group stage → knockout, direct knockout, round-robin), multiple **groups**, knockout phases (round of 16 / quarter / semi / final), manual score entry, and a per-match stopwatch.
 
-> **AWS migration in flight.** The codebase is moving from the legacy single-VM deployment to a fully serverless AWS stack (Lambda Function URLs + CloudFront + RDS Postgres + DynamoDB). The phase plan and current status live in [`MIGRATION_AWS.md`](MIGRATION_AWS.md). At the time of writing, **Phase 1 (Postgres)** and **Phase 2 (state adapters + WS→SSE)** are merged; Phase 3+ is in progress. Local development now requires **Docker** (Postgres + DynamoDB-Local via Docker Compose).
+> **AWS migration in flight.** The codebase is moving from the legacy single-VM deployment to a fully serverless AWS stack (Lambda Function URLs + CloudFront + RDS Postgres + DynamoDB). The phase plan and current status live in [`MIGRATION_AWS.md`](MIGRATION_AWS.md). Local development in this repository runs without Docker using a local PostgreSQL server.
 
 ## Table of Contents
 
@@ -110,11 +110,11 @@ For a detailed German-language explanation of the tournament logic, see **[`doc/
 | Client   | Vite, Vue 3, TypeScript, Pinia, Vue Router, Tailwind CSS |
 | Server   | Express, TypeScript, **Server-Sent Events** on `GET /api/sse` (same HTTP server as the API) |
 | Shared   | **`@turnier-hub/shared`** workspace: TypeScript types for catalog and tournament API payloads (e.g. `Player`, `CreatedBy`, `AuthUser`) plus helpers like `formatCreator` and `formatPlayerName`; consumed by client and server |
-| Database | **PostgreSQL** via Prisma ORM (Docker Compose locally; RDS Postgres in the upcoming AWS deployment) |
+| Database | **PostgreSQL** via Prisma ORM (local without Docker), RDS Postgres in the AWS target architecture |
 | Auth     | JWT, bcryptjs |
 | Lint     | ESLint 9 (flat config), `typescript-eslint`, `eslint-plugin-vue` (client) |
 
-Local Postgres + DynamoDB-Local run in Docker (`docker-compose.yml` at the repo root); their data volumes live outside the repo. Prisma migrations are checked in under `server/prisma/migrations/`.
+Local development uses a local PostgreSQL server (for example via Homebrew or Postgres.app) with separate `turnier_dev` and `turnier_test` databases.
 
 Server error handling is centralized: route handlers should use `server/src/middleware/asyncHandler.ts`, and uncaught/domain errors are mapped in `server/src/middleware/error.ts` (for example `ServiceError` and Prisma conflict handling).
 
@@ -128,7 +128,6 @@ Server architecture (quick reference):
 
 - **Node.js** (>= 22)
 - **npm** (workspaces are used at the repo root)
-- **Docker** + **Docker Compose** (for local Postgres + DynamoDB-Local; matches the AWS-target stack)
 
 ## Quick Start
 
@@ -138,15 +137,7 @@ Server architecture (quick reference):
    npm install
    ```
 
-2. **Start local Postgres + DynamoDB-Local** (defined in `docker-compose.yml`):
-
-   ```bash
-   npm run docker:up
-   ```
-
-   This launches a Postgres 16 container on `localhost:5432` (database `turnier_dev` and `turnier_test`, user `turnier`, password `turnier`) and DynamoDB-Local on `localhost:8000`. Data persists in named Docker volumes; use `npm run docker:reset` to drop them.
-
-3. **Configure the server environment.** Copy the example file and adjust values if needed:
+2. **Configure the server environment.** Copy the example file and adjust values if needed:
 
    ```bash
    cp server/.env.example server/.env
@@ -154,7 +145,7 @@ Server architecture (quick reference):
 
    Important variables:
 
-   - `DATABASE_URL` — Postgres connection string (default: `postgresql://turnier:turnier@localhost:5432/turnier_dev?schema=public`, matching the Docker Compose container).
+   - `DATABASE_URL` — Postgres connection string (default: `postgresql://turnier:turnier@localhost:5432/turnier_dev?schema=public`).
    - `JWT_SECRET` — use a strong secret in production.
    - `INVITE_CODE` — required for new sign-ups (default in the example: `ballspiele2026`).
    - `DEFAULT_SCHOOL_NAME` — school name auto-created at startup (default: `defaultSchool`; may contain spaces, e.g. `"BBS Hannover"`).
@@ -165,20 +156,28 @@ Server architecture (quick reference):
    - `TRUST_PROXY` — set to `1` (or the correct hop count) when running behind a reverse proxy so IP-based protections use the real client IP.
    - `JSON_BODY_LIMIT` — max JSON request payload size for `express.json` (default `100kb`).
 
-4. **Apply Prisma migrations** to the dev DB and optionally **seed** demo data:
+2.1. **(Optional) Configure the client API base URL** for deployed frontends:
 
    ```bash
-   npm run db:push   # = prisma migrate deploy
+   cp client/.env.example client/.env
+   ```
+
+   - `VITE_API_BASE_URL` controls where frontend `fetch`/SSE requests are sent.
+   - Keep it empty in local dev (Vite proxy handles `/api`).
+   - Set it to your CloudFront/custom domain in deployed environments (for example `https://turnier.example.com`).
+
+3. **Apply Prisma schema** to the dev DB and optionally **seed** demo data:
+
+   ```bash
+   npm run db:push   # = prisma db push
    npm run db:seed
    ```
 
-   If you change `schema.prisma`, generate a new migration locally:
+   If you change `schema.prisma`, re-apply the schema locally:
 
    ```bash
-   npm run db:migrate -- --name <slug>
+   npm run db:push
    ```
-
-   Migration history lives at `server/prisma/migrations/` and is checked in. For destructive iteration against an empty local DB, `npx prisma migrate reset --force` (from `server/`) is fine.
 
    The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`) with role **`admin`**, twelve players, shared demo **school classes**, and four demo tournaments: **"Demo: Football School Cup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), **"Demo: Direct K.O. with 15 Teams"** (Direct K.O., 15 teams), and **"Demo: Badminton Round Robin"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
 
@@ -211,9 +210,6 @@ npm run db:clear:test -- --yes
 | Script | Description |
 | ------ | ----------- |
 | `npm run dev` | Starts Express (with API) and the Vite dev server concurrently. |
-| `npm run docker:up` | Starts local Postgres + DynamoDB-Local via `docker-compose.yml`. |
-| `npm run docker:down` | Stops the containers (keeps named volumes). |
-| `npm run docker:reset` | Stops containers **and** drops their data volumes. |
 | `npm run cdk:synth` | Synthesizes all CDK stacks in `infra/` to CloudFormation templates (`infra/cdk.out`). |
 | `npm run cdk:diff` | Shows infrastructure differences against the deployed stacks (all CDK stacks). |
 | `npm run cdk:deploy` | Deploys all CDK stacks in dependency order. |
@@ -223,15 +219,14 @@ npm run db:clear:test -- --yes
 | `npm run prod:prepare` | `db:generate` + full `build` (typical after `npm ci` on a server). |
 | `npm run prod:start` | Starts the server with `NODE_ENV=production` (serves API + built SPA from `client/dist`). |
 | `npm run prod` | `prod:prepare` then `prod:start` in one step. |
-| `npm run db:push` | Applies all pending Prisma migrations using `server/.env` (= `prisma migrate deploy`). |
-| `npm run db:migrate -- --name <slug>` | Generates a new dev migration and applies it locally (= `prisma migrate dev`). |
-| `npm run db:deploy` | Same as `db:push` — use on production hosts with the correct `DATABASE_URL` in the environment. |
+| `npm run db:push` | Applies the Prisma schema using `server/.env` (= `prisma db push`). |
+| `npm run db:deploy` | Same as `db:push` — use on hosts with the correct `DATABASE_URL` in the environment. |
 | `npm run db:studio` | Opens Prisma Studio against the database from `server/.env`. |
 | `npm run db:generate` | Generates the Prisma client. |
 | `npm run db:seed` | Runs the Prisma seed (dev database). |
+| `npm run perf:sse` | Runs the SSE capacity probe script (100 concurrent streams by default). |
 | `npm run db:clear` | Clears all tables except `User` (dev database). Pass `-- --yes` for confirmation. |
-| `npm run db:push:test` | Applies migrations against `server/.env.test` (test DB). |
-| `npm run db:migrate:test` | Applies pending migrations against the test DB (rare; mostly mirrors `db:push:test`). |
+| `npm run db:push:test` | Applies Prisma schema against `server/.env.test` (test DB). |
 | `npm run db:seed:test` | Seeds the test database. |
 | `npm run db:clear:test` | Clears all tables except `User` (test DB). Pass `-- --yes` for confirmation. |
 | `npm run dev:test` | Runs the server with `NODE_ENV=test` (loads `server/.env.test`, default port `3002`). |
@@ -245,7 +240,7 @@ npm run db:clear:test -- --yes
 | `npm run storybook` | Starts Storybook for the client (port `6006`; config in `tests/client/storybook/`). See **[tests/client/storybook/README.md](tests/client/storybook/README.md)** for fixtures, mocks, and routed stories. |
 | `npm run build-storybook` | Static Storybook build (output under `client/storybook-static/`). |
 
-**Prisma — `db:push` / `db:migrate` / `db:deploy` vs `db:generate`:** `db:push`, `db:migrate`, and `db:deploy` all apply **migrations to the database**. `db:migrate` (= `prisma migrate dev`) is the only one that creates a new migration file from your current `schema.prisma`; the other two just apply what is already on disk. `db:generate` only **rebuilds the Prisma Client** under `node_modules` (typed API for your code) and does **not** modify the database. After schema edits you usually run `db:migrate -- --name <slug>` and ensure the client is generated (`db:generate`, or rely on tooling that runs it — e.g. `prod:prepare` runs `db:generate` before the build).
+**Prisma — `db:push` / `db:deploy` vs `db:generate`:** `db:push` and `db:deploy` both apply the current `schema.prisma` to the configured database (`prisma db push`). `db:generate` only **rebuilds the Prisma Client** under `node_modules` (typed API for your code) and does **not** modify the database.
 
 Realtime test coverage (current baseline):
 - **Server bus + SSE handler:** `tests/server/unit/eventBus.test.ts` (subscription filtering, listener isolation) and `tests/server/unit/sseEndpoint.test.ts` (SSE handler over a real HTTP server: token auth, `tournamentChanged` routed only to subscribers, `catalogChanged` broadcast, listener cleanup on disconnect).
@@ -255,9 +250,8 @@ Realtime test coverage (current baseline):
 
 ### Dev DB
 - Environment file: `server/.env`
-- Underlying database: Postgres 16 from `docker-compose.yml` (database `turnier_dev`)
-- Apply migrations: `npm run db:push` (= `prisma migrate deploy`)
-- Generate a new migration after editing `schema.prisma`: `npm run db:migrate -- --name <slug>`
+- Underlying database: local PostgreSQL database `turnier_dev`
+- Apply schema: `npm run db:push` (= `prisma db push`)
 - Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)
 - Clear demo content (keep `User`): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
 - Internally, `db:seed` runs Prisma's configured seed script via `server/package.json` → `prisma.seed: "tsx scripts/seed.ts"`.
@@ -265,8 +259,8 @@ Realtime test coverage (current baseline):
 
 ### Test DB
 - Environment file: `server/.env.test`
-- Underlying database: same Postgres container, separate database `turnier_test` (created by `docker/postgres/init/01-create-test-database.sql` on first container start)
-- Apply migrations: `npm run db:push:test`
+- Underlying database: local PostgreSQL database `turnier_test`
+- Apply schema: `npm run db:push:test`
 - Seed demo data: `npm run db:seed:test` (same script: `server/scripts/seed.ts`)
 - Clear demo content (keep `User`): `npm run db:clear:test -- --yes` (same script: `server/scripts/clearDbExceptUsers.ts`)
 - Internally, `db:seed:test` reuses the same seed file (`server/scripts/seed.ts`) but executes under `server/.env.test`.
@@ -343,6 +337,7 @@ For operational procedures and the security checklist in one place, see [`doc/SE
 
 - [`MIGRATION_AWS.md`](MIGRATION_AWS.md) - phase-by-phase AWS migration plan and current status.
 - [`doc/AWS_PERF_CHECKLIST.md`](doc/AWS_PERF_CHECKLIST.md) - SSE + DynamoDB capacity probe checklist and on-demand vs provisioned decision guide.
+- [`.github/workflows/spa-deploy.yml`](.github/workflows/spa-deploy.yml) - manual GitHub Action to build `client` and sync SPA assets to S3 (with optional CloudFront invalidation).
 - [`doc/TURNIERLOGIK.md`](doc/TURNIERLOGIK.md) - detailed German-language tournament logic documentation.
 - [`doc/SECURITY.md`](doc/SECURITY.md) - consolidated security checklist and incident runbook.
 - [`doc/TODO.md`](doc/TODO.md) - historical tournament refactoring checklist.
@@ -352,8 +347,6 @@ For operational procedures and the security checklist in one place, see [`doc/SE
 ```
 turnier-hub/
 ├── ansible/                   # Legacy single-VM deployment (retiring in MIGRATION_AWS.md Phase 7)
-├── docker-compose.yml         # Local Postgres + DynamoDB-Local for dev/tests
-├── docker/postgres/init/      # First-run init SQL (creates the test database alongside dev)
 ├── infra/                     # AWS CDK app (Network/Data/Lambda/Edge stacks; see infra/bin/infra.ts)
 ├── tests/                     # Shared root test tree (server + client Vitest tests)
 │   ├── server/
@@ -372,7 +365,7 @@ turnier-hub/
 │   │   └── views/
 │   │       └── tournament/    # TournamentLayout, Matches (layout + overview + setup), Roster (thin; roster logic in composables)
 ├── server/                    # Express API, Prisma schema & scripts
-│   ├── prisma/                # schema.prisma + migrations/ (Postgres)
+│   ├── prisma/                # schema.prisma
 │   ├── scripts/
 │   └── src/
 │       ├── app.ts, index.ts   # Express app; plain HTTP server (no WebSocket upgrade — SSE handler is a regular GET route)
@@ -396,7 +389,7 @@ For a concise checklist, file paths, and how to reuse the focus trap in new dial
 
 ## Test Environment
 
-- `server/.env.test` points at the `turnier_test` Postgres database in the local Docker Compose container; the API runs on port `3002`.
+- `server/.env.test` points at the local `turnier_test` PostgreSQL database; the API runs on port `3002`.
 - Use `npm run db:push:test` and `npm run db:seed:test` against that database.
 - Use `npm run db:clear:test -- --yes` to wipe demo content while keeping `User`.
 - If you run only the test API, point the client proxy at port `3002` or call the API directly.

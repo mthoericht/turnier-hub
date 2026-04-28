@@ -74,7 +74,7 @@ Optional but recommended:
 - `turnier_hub_env.TRUST_PROXY` (typical: `1` behind Nginx)
 - `turnier_hub_env.JSON_BODY_LIMIT`
 - auth/lockout tuning (`AUTH_*`, `LOGIN_LOCKOUT_*`)
-- websocket/security telemetry tuning (`WS_*`, `SECURITY_*`)
+- runtime adapter tuning (`RATE_LIMIT_STORE`, `LOCKOUT_STORE`, `EVENT_BUS`) and related Dynamo table variables
 
 Optional Prisma Studio (systemd):
 
@@ -106,7 +106,7 @@ This will:
 9. restart app
 10. run health check
 
-**Database:** `npm run db:deploy` runs Prisma `db push` against `DATABASE_URL` from `server/.env`. For **SQLite**, this creates the database file on disk if it does not exist yet and applies the schema. The playbooks also ensure `{{ turnier_hub_app_dir }}/data/` exists so default `DATABASE_URL` paths like `file:../../data/prod.db` work. It does **not** run seed data — use `npm run db:seed` manually only if you explicitly want demo data (not recommended for production).
+**Database:** `npm run db:deploy` runs Prisma migrations (`prisma migrate deploy`) against `DATABASE_URL` from `server/.env` (PostgreSQL). It does **not** run seed data — use `npm run db:seed` manually only if you explicitly want demo data (not recommended for production).
 
 **Prisma Studio dependency:** the server installs the `prisma` CLI as a devDependency. These playbooks use `npm ci` (full install). If you later switch to `npm ci --omit=dev`, Prisma Studio will not be available unless you adjust dependencies or the install command.
 

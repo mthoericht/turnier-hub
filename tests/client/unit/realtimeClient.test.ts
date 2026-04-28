@@ -4,6 +4,13 @@ const getTokenMock = vi.fn<() => string | null>();
 
 vi.mock("../../../client/src/api/http", () => ({
   getToken: getTokenMock,
+  buildApiUrl: (path: string) =>
+  {
+    const w = globalThis.window as { location?: { protocol?: string; host?: string } };
+    const proto = w?.location?.protocol === "https:" ? "https" : "http";
+    const host = w?.location?.host ?? "localhost:5173";
+    return `${proto}://${host}${path}`;
+  },
 }));
 
 class MockEventSource

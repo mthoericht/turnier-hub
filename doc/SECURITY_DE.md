@@ -32,7 +32,7 @@ Diese Datei kombiniert:
 ### Deployment-Hinweise
 
 - Immer hinter **TLS** (HTTPS) deployen. Die App erzwingt HSTS nicht selbst; am Reverse-Proxy konfigurieren.
-- Als **einzelner Node.js-Prozess** mit SQLite betreiben. In-Memory-Rate-Limiting, Lockout-Counter und Monitoring-State werden nicht zwischen Prozessen geteilt.
+- Als **einzelner Node.js-Prozess** betreiben (oder bei verteiltem Setup auf Shared-State-Backends wechseln). In-Memory-Rate-Limiting, Lockout-Counter und Monitoring-State werden nicht zwischen Prozessen geteilt.
 - Die App **nicht** direkt ohne Reverse-Proxy dem oeffentlichen Internet aussetzen.
 - Alle authentifizierten Benutzer als vertrauenswuerdige Mitarbeitende innerhalb des Deployment-Umfelds behandeln.
 

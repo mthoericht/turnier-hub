@@ -52,7 +52,7 @@ Weitere Sinnvolle Lösungen: https://github.com/dougmoscrop/serverless-http
 | In-Memory Login-Lockout | `server/src/routes/auth.ts` (`loginFailures` Map) | Sicherheitskritisch. → DynamoDB-Adapter. |
 | In-Memory Security-Telemetrie | `server/src/security/monitoring.ts` | Pro Lambda-Instanz gezählt, irrelevant. → CloudWatch Metric Filters. |
 | WebSocket-Subscription-Registry | `server/src/realtime/hub.ts` (`tournamentSubs`, `socketMeta`) | Wird durch SSE-Lambda + DynamoDB-Event-Log + per-Connection-Subscriptions ersetzt. |
-| SQLite | `server/prisma/schema.prisma` (`provider = "sqlite"`) | → RDS PostgreSQL. |
+| Legacy lokale DB | `server/prisma/schema.prisma` (historisch lokale File-DB) | → RDS PostgreSQL. |
 | SPA-Auslieferung | `server/src/app.ts` → `express.static(clientDist)` | Kostet Lambda-Zeit und Geld. → S3 + CloudFront. |
 | Secrets via `.env` | `server/src/config.ts`, Ansible `server.env.j2` | → Secrets Manager + Lambda Env-Vars. |
 | Long-running Listener | `server/src/index.ts` (`server.listen`, `attachToServer`) | Bleibt im **lokalen Dev-Modus** erhalten; in AWS ersetzt durch Lambda-Handler. |
@@ -60,7 +60,7 @@ Weitere Sinnvolle Lösungen: https://github.com/dougmoscrop/serverless-http
 ### Antworten auf die Aufgaben aus dem Brief
 
 1. **AWS-Integration generell.** Möglich. Code ist sauber strukturiert (klare Service-Schicht, dünne Routes), Express-App lässt sich via `serverless-http` quasi unverändert in Lambda packen. Großer Umbau betrifft Realtime-Hub und alle In-Memory-State-Stellen.
-2. **Datenbank/Schema übertragen.** Schema ist Prisma-portabel: `provider = "sqlite"` → `provider = "postgresql"` reicht von Prisma-Seite. Prod-Daten müssen einmalig per Skript migriert werden (oder Re-Seed bei kleinem Bestand). **Vorher Prisma-Migration-Baseline einführen** — aktuell wird `db push` verwendet, das ist für Postgres in Prod nicht ratsam.
+2. **Datenbank/Schema übertragen.** Schema ist Prisma-portabel; im Projekt ist inzwischen `provider = "postgresql"` aktiv. Prod-Daten müssen einmalig per sauberem Export/Import migriert werden (oder Re-Seed bei kleinem Bestand). **Vorher Prisma-Migration-Baseline einführen** — reines `db push` ist für Postgres in Prod nicht ratsam.
 3. **Realtime möglich?** Ja, **SSE via Lambda Response Streaming** ist gewählt:
    - Der bestehende **`ws`-Server entfällt komplett**.
    - Alle drei Push-Typen (`tournamentChanged`, `catalogChanged`, `tournamentsChanged`) werden über SSE `event:`-Frames gestreamt.
@@ -313,9 +313,9 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 
 | | Schritt |
 | - | ------- |
-| ⬜ | Build-Pipeline für SPA: `npm run build -w client` → S3-Sync via CDK Deploy oder GitHub-Action. |
-| ⬜ | `client/src/api/http.ts`: Base-URL aus `VITE_API_BASE_URL`, in Prod auf eigene Domain zeigen. |
-| ⬜ | Bestandsdaten-Migration (falls relevant): einmaliges Skript `server/scripts/migrateSqliteToPostgres.ts`. |
+| 🔄 | Build-Pipeline für SPA vorbereitet: GitHub Action `.github/workflows/spa-deploy.yml` baut `client` und synced `client/dist` nach S3 (`aws s3 sync`), optional inkl. CloudFront-Invalierung. Für produktiven Einsatz fehlen noch AWS-Secrets/Role-Wiring (`AWS_DEPLOY_ROLE_ARN`, `AWS_SPA_BUCKET`, optional `AWS_CLOUDFRONT_DISTRIBUTION_ID`). |
+| ✅ | `client/src/api/http.ts`: Base-URL aus `VITE_API_BASE_URL` umgesetzt (`buildApiUrl()`), genutzt für REST + SSE (`client/src/realtime/realtimeClient.ts`). Neues `client/.env.example` dokumentiert den Cutover-Pfad. |
+| ✅ | Bestandsdaten-Migration: nicht mehr Teil des aktiven Projekt-Workflows. Das Projekt ist vollständig auf PostgreSQL standardisiert (Seeds/Clear/Test-Clear laufen ausschließlich gegen Postgres). |
 | ⬜ | DNS-Cutover: TTL 24 h → 60 s vor Switch, dann Route 53 umstellen. |
 | ⬜ | Alte Ansible-VM 14 Tage warmhalten als Rollback. |
 

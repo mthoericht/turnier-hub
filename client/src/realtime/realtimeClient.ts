@@ -1,4 +1,4 @@
-import { getToken } from "../api/http";
+import { buildApiUrl, getToken } from "../api/http";
 
 type ServerPushMessage =
   | { type: "tournamentChanged"; tournamentId: string }
@@ -21,8 +21,8 @@ function buildSseUrl(): string | null
   {
     params.set("tournaments", Array.from(tournamentSubs).join(","));
   }
-  const proto = window.location.protocol === "https:" ? "https" : "http";
-  return `${proto}://${window.location.host}/api/sse?${params.toString()}`;
+  const endpoint = buildApiUrl("/api/sse");
+  return `${endpoint}?${params.toString()}`;
 }
 
 async function dispatch(msg: ServerPushMessage): Promise<void>

@@ -4,7 +4,7 @@ Diese README beschreibt das Backend im `server/`-Workspace im Detail: Architektu
 
 ## Überblick
 
-Das Backend ist eine Express-API mit Prisma (SQLite), JWT-Auth und WebSocket-Push.
+Das Backend ist eine Express-API mit Prisma (PostgreSQL), JWT-Auth und SSE-Realtime.
 
 - REST-Basis: `/api/*`
 - Realtime: `/api/ws` (gleicher HTTP-Server wie die API)
