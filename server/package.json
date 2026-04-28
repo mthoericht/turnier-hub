@@ -19,6 +19,7 @@
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "db:seed:test": "dotenv -e .env.test -- prisma db seed",
+    "perf:sse": "tsx scripts/sseCapacityProbe.ts",
     "db:clear": "tsx scripts/clearDbExceptUsers.ts",
     "db:clear:test": "dotenv -e .env.test -- tsx scripts/clearDbExceptUsers.ts",
     "test": "NODE_ENV=test dotenv -e .env.test -- vitest run",

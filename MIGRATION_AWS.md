@@ -295,8 +295,19 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 | | Schritt |
 | - | ------- |
 | ✅ | **Runtime-Adapter live:** neue Dynamo-Implementierungen `DynamoRateLimitStore`, `DynamoLockoutStore`, `DynamoEventBus` eingebaut; Runtime-Umschaltung über Env (`RATE_LIMIT_STORE`, `LOCKOUT_STORE`, `EVENT_BUS`) in `server/src/runtime/runtimeAdapters.ts`. `createApp()` und `lambda/sseHandler.ts` nutzen jetzt denselben Resolver (`memory` default, `dynamo` für AWS). |
-| ⬜ | Performance-Test: 100 parallele SSE-Verbindungen, 1×/s Polling → DynamoDB Capacity (on-demand vs. provisioned) entscheiden. |
+| 🔄 | **Performance-Test vorbereitet:** `npm run perf:sse` (`server/scripts/sseCapacityProbe.ts`) öffnet standardmäßig 100 parallele `/api/sse`-Verbindungen und hält sie 120 s. Optionaler Publish-Tick pro Sekunde via `PERF_SSE_PUBLISH_URL` möglich. Auswertung über CloudWatch-Metriken `AWS/DynamoDB` (`ConsumedReadCapacityUnits`, `ConsumedWriteCapacityUnits`) zur Entscheidung on-demand vs. provisioned. |
 | ✅ | **CloudWatch-Alarms + Security-Metrik:** neuer `infra/lib/observability-stack.ts` erstellt. Enthält Alarme für Lambda Error-Rate (>1%/5m), Lambda Throttles (>0), RDS CPU (>80%), RDS Connections (>80), WAF `BlockedRequests` (CloudFront WebACL), plus `MetricFilter` auf API-Lambda-Logs für `$.category = \"security\"` (`TurnierHub/Security`, `SecuritySignals`) inkl. Alarm. SNS-Topic für Alarm-Fanout als Output. |
+
+> **Perf-Probe Quickstart (Phase 5):**
+> 1. API lokal starten (`npm run dev`) **oder** gegen deployed Stage testen (`PERF_BASE_URL=https://<domain>`).
+> 2. Sicherstellen, dass Login-Creds gültig sind (`PERF_LOGIN_EMAIL`, `PERF_LOGIN_PASSWORD`; Defaults sind Seed-User).
+> 3. Probe ausführen: `npm run perf:sse`.
+> 4. Optional 1/s Mutations-Last hinzufügen:
+>    - `PERF_SSE_PUBLISH_URL=/api/<dein-mutations-endpoint>`
+>    - `PERF_SSE_PUBLISH_METHOD=POST|PATCH`
+>    - `PERF_SSE_PUBLISH_BODY='{\"...\":...}'`
+> 5. Im CloudWatch/Console oder via CLI die DynamoDB-Tabellenmetriken prüfen (`ConsumedReadCapacityUnits`, `ConsumedWriteCapacityUnits`) und daraus das Zielprofil ableiten (on-demand vs provisioned).
+> 6. Entscheidung und Messwerte im Runbook dokumentieren: [`doc/AWS_PERF_CHECKLIST.md`](doc/AWS_PERF_CHECKLIST.md).
 
 ### Phase 6 — Frontend & Daten-Cutover
 

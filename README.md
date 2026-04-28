@@ -342,6 +342,7 @@ For operational procedures and the security checklist in one place, see [`doc/SE
 ## Additional Documentation
 
 - [`MIGRATION_AWS.md`](MIGRATION_AWS.md) - phase-by-phase AWS migration plan and current status.
+- [`doc/AWS_PERF_CHECKLIST.md`](doc/AWS_PERF_CHECKLIST.md) - SSE + DynamoDB capacity probe checklist and on-demand vs provisioned decision guide.
 - [`doc/TURNIERLOGIK.md`](doc/TURNIERLOGIK.md) - detailed German-language tournament logic documentation.
 - [`doc/SECURITY.md`](doc/SECURITY.md) - consolidated security checklist and incident runbook.
 - [`doc/TODO.md`](doc/TODO.md) - historical tournament refactoring checklist.
