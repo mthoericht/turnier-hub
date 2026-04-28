@@ -303,6 +303,7 @@ npm run dev
 | `npm run cdk:synth` | Synthesizes all CDK stacks in `infra/` to CloudFormation templates (`infra/cdk.out`). |
 | `npm run cdk:diff` | Shows infrastructure differences against the deployed stacks (all CDK stacks). |
 | `npm run cdk:deploy` | Deploys all CDK stacks in dependency order. |
+| `npm run cdk:check` | Runs AWS/CDK preflight checks (context, credentials, required env vars). |
 
 ### Build, Test, Quality
 
@@ -362,49 +363,42 @@ Realtime test coverage (current baseline):
 
 ### Production
 - Environment variables: `DATABASE_URL` and other secrets are provided by the host (no local `.env` reliance)
-- Apply migrations: `npm run db:deploy` (= `prisma migrate deploy`)
+- Apply schema: `npm run db:deploy` (= `prisma db push`)
 - Seed/clear: not part of the standard flow; avoid `npm run db:clear` on production.
 
 ## Production
 
-The repository currently contains two production paths, switching from the first to the second over the course of the AWS migration:
+Primary target is the AWS serverless stack (Lambda Function URLs + CloudFront + RDS Postgres + DynamoDB), provisioned via CDK.
 
-1. **Legacy single-VM (Ansible).** Documented in [`ansible/README.md`](ansible/README.md). To be retired in [`MIGRATION_AWS.md`](MIGRATION_AWS.md) Phase 7.
-2. **AWS serverless (in progress).** Lambda Function URLs (Express via `serverless-http`, plus a streaming SSE handler) behind CloudFront, with RDS Postgres and DynamoDB. CDK stacks land in Phase 4; see `MIGRATION_AWS.md` for status.
+### AWS serverless deploy (target path)
 
-Steps below describe the legacy single-VM path; both paths share the same Node.js entry points and Prisma migrations.
-
-1. Set environment variables on the host (`DATABASE_URL`, `JWT_SECRET`, `INVITE_CODE`, `PORT`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, etc.) — do not rely on committing `.env`.
-
-2. Install dependencies and prepare the build:
-
+1. Configure AWS credentials + stage environment:
+   - `TURNIER_HUB_STAGE` (for example `dev` or `prod`)
+   - account credentials/role with permissions for CDK deploy
+   - ensure account/region context is resolvable by CDK (`AWS_PROFILE` or `CDK_DEFAULT_ACCOUNT` + `CDK_DEFAULT_REGION`)
+   - optional custom domain settings:
+     - `TURNIER_HUB_DOMAIN_NAME` (for example `turnier.example.com`)
+     - `TURNIER_HUB_HOSTED_ZONE_DOMAIN` (for example `example.com`)
+     - optional existing cert: `TURNIER_HUB_ACM_CERTIFICATE_ARN`
+       - if omitted and domain+zone are set, CDK creates a DNS-validated ACM cert in `us-east-1`
+2. Deploy infrastructure:
    ```bash
-   npm ci
-   npm run prod:prepare
+   npm run cdk:check
+   npm run cdk:synth
+   npm run cdk:diff
+   npm run cdk:deploy
    ```
+3. Deploy SPA assets:
+   - use [`.github/workflows/spa-deploy.yml`](.github/workflows/spa-deploy.yml) with configured AWS role/bucket inputs
+   - or manually sync `client/dist` to the configured S3 bucket and invalidate CloudFront
+4. Validate runtime:
+   - API endpoints via CloudFront domain (`/api/*`)
+   - SSE endpoint via `/api/sse`
+   - auth flow + one tournament realtime update
 
-3. Apply migrations to the production database (with production `DATABASE_URL` set):
+Detailed phase status and open cutover tasks: [`MIGRATION_AWS.md`](MIGRATION_AWS.md).
+For Route53/domain switch and SSE edge verification, use [`doc/AWS_EDGE_CUTOVER_CHECKLIST.md`](doc/AWS_EDGE_CUTOVER_CHECKLIST.md).
 
-   ```bash
-   npm run db:deploy
-   ```
-
-   Migration history is tracked under `server/prisma/migrations/`; this command runs `prisma migrate deploy` (idempotent — applies only what has not been applied yet).
-
-4. Start the server (API + static SPA):
-
-   ```bash
-   npm run prod:start
-   ```
-
-Notes:
-- `db:seed` / `db:clear` are for development/test workflows. On production, use `db:deploy` only (and seed manually only if you explicitly want demo data).
-- **Reverse proxy (e.g. Nginx):** if TLS or a proxy sits in front of Node, the only realtime concern is that the proxy must **not** buffer responses on `/api/sse` (set `proxy_buffering off`). SSE is plain HTTP/1.1, so no WebSocket upgrade headers are required.
-- **Auth abuse protection:** login/signup are rate-limited per IP and per identifier (`email` / `username`) and return `429` + `Retry-After` when limits are exceeded.
-
-   Or use `npm run prod` to run steps 2–4's build/start in one go after `npm ci` (run `db:deploy` separately when the database is ready).
-
-   Equivalent from the server workspace after a root build: `npm run start:prod -w server`.
 
 ## Security Notes
 
@@ -430,7 +424,9 @@ For operational procedures and the security checklist in one place, see [`doc/SE
 ## Additional Documentation
 
 - [`MIGRATION_AWS.md`](MIGRATION_AWS.md) - phase-by-phase AWS migration plan and current status.
+- [`infra/README.md`](infra/README.md) - AWS-CDK Infrastrukturdoku (Stacks, Konfiguration, Schritt-für-Schritt Deploy).
 - [`doc/AWS_PERF_CHECKLIST.md`](doc/AWS_PERF_CHECKLIST.md) - SSE + DynamoDB capacity probe checklist and on-demand vs provisioned decision guide.
+- [`doc/AWS_EDGE_CUTOVER_CHECKLIST.md`](doc/AWS_EDGE_CUTOVER_CHECKLIST.md) - Route53/domain cutover and SSE edge validation checklist.
 - [`.github/workflows/spa-deploy.yml`](.github/workflows/spa-deploy.yml) - manual GitHub Action to build `client` and sync SPA assets to S3 (with optional CloudFront invalidation).
 - [`doc/TURNIERLOGIK.md`](doc/TURNIERLOGIK.md) - detailed German-language tournament logic documentation.
 - [`doc/SECURITY.md`](doc/SECURITY.md) - consolidated security checklist and incident runbook.
@@ -440,7 +436,6 @@ For operational procedures and the security checklist in one place, see [`doc/SE
 
 ```
 turnier-hub/
-├── ansible/                   # Legacy single-VM deployment (retiring in MIGRATION_AWS.md Phase 7)
 ├── infra/                     # AWS CDK app (Network/Data/Lambda/Edge stacks; see infra/bin/infra.ts)
 ├── tests/                     # Shared root test tree (server + client Vitest tests)
 │   ├── server/

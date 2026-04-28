@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import {
+  aws_certificatemanager as acm,
   aws_cloudfront as cloudfront,
   aws_cloudfront_origins as origins,
   aws_route53 as route53,
@@ -13,6 +14,7 @@ export type EdgeStackProps = cdk.StackProps & {
   namePrefix: string;
   apiFunctionUrlDomainName: string;
   sseFunctionUrlDomainName: string;
+  certificateArn?: string;
   domainName?: string;
   hostedZoneDomain?: string;
 };
@@ -76,9 +78,22 @@ export class EdgeStack extends cdk.Stack
       keepaliveTimeout: cdk.Duration.seconds(60),
     });
 
+    const lambdaOriginAccessControl = new cloudfront.CfnOriginAccessControl(this, "LambdaFunctionUrlOac", {
+      originAccessControlConfig: {
+        name: `${props.namePrefix}-lambda-url-oac`,
+        originAccessControlOriginType: "lambda",
+        signingBehavior: "always",
+        signingProtocol: "sigv4",
+      },
+    });
+
     this.distribution = new cloudfront.Distribution(this, "Distribution", {
+      domainNames: props.domainName ? [props.domainName] : undefined,
+      certificate: props.certificateArn
+        ? acm.Certificate.fromCertificateArn(this, "CloudFrontCertificate", props.certificateArn)
+        : undefined,
       defaultBehavior: {
-        origin: new origins.S3Origin(this.siteBucket),
+        origin: origins.S3BucketOrigin.withOriginAccessControl(this.siteBucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
       },
@@ -116,6 +131,17 @@ export class EdgeStack extends cdk.Stack
         },
       ],
     });
+
+    const distributionResource = this.distribution.node.defaultChild as cloudfront.CfnDistribution;
+    // Origins[1] = /api/sse function URL, Origins[2] = /api/* function URL.
+    distributionResource.addPropertyOverride(
+      "DistributionConfig.Origins.1.OriginAccessControlId",
+      lambdaOriginAccessControl.attrId
+    );
+    distributionResource.addPropertyOverride(
+      "DistributionConfig.Origins.2.OriginAccessControlId",
+      lambdaOriginAccessControl.attrId
+    );
 
     if (props.domainName && props.hostedZoneDomain)
     {

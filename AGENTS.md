@@ -200,7 +200,6 @@ $PG_BIN/psql -d turnier_test -c "ALTER SCHEMA public OWNER TO turnier; GRANT ALL
 | Local DB (no Docker) | PostgreSQL on `localhost:5432` (`turnier_dev`, `turnier_test`), cluster files under `data/postgres` |
 | AWS CDK app + stacks | `infra/bin/infra.ts`, `infra/lib/network-stack.ts`, `infra/lib/data-stack.ts`, `infra/lib/lambda-stack.ts`, `infra/lib/edge-stack.ts`, `infra/lib/config.ts` |
 | AWS migration plan | [`MIGRATION_AWS.md`](MIGRATION_AWS.md) |
-| Legacy single-VM deployment | `ansible/README.md`, `ansible/playbooks/`, `ansible/roles/turnier_hub/` (will be retired in Phase 7) |
 | Tournament views | `client/src/views/tournament/` |
 | Tournament types + inject key | `client/src/tournament/tournamentContext.ts` (re-exports tournament types from `@turnier-hub/shared`; Vue `inject` key) |
 | Client API helper | `client/src/api/http.ts` |

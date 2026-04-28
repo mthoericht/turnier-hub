@@ -228,7 +228,7 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 | ✅ | Test-DB-Schema anwenden (`npm run db:push:test`) läuft gegen lokale Postgres-Test-DB. |
 | ✅ | Tests grün halten (`npm run test`) ist lokal mit laufender Postgres-Instanz möglich (kein Docker-Zwang). |
 | ⬜ | `tests/server/helpers/db.ts`: aktuell Truncate-basiert (funktioniert mit Postgres unverändert). Optional in Folge-PR auf Testcontainers umstellen für CI-Parallelisierung. |
-| ⬜ | Ansible-Templates (`ansible/roles/turnier_hub/templates/server.env.j2`, `db:deploy`-Aufrufe) als „Legacy" markieren oder entfernen — tun wir gesammelt in Phase 7. |
+| ✅ | Legacy-Ansible-Templates/-Aufrufe entfernt (Phase-7-Bereinigung abgeschlossen). |
 | ⬜ | **PR-Grenze:** funktioniert lokal end-to-end mit Postgres, alle Tests grün, ohne dass AWS-Code im Repo ist. |
 
 > **Manuelle Schritte für Local Dev (ohne Docker):**
@@ -254,7 +254,7 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 | ✅ | **Tests:** `tests/server/unit/realtimeHub.test.ts` gelöscht. Neu: `tests/server/unit/eventBus.test.ts` (Bus-Logik), `tests/server/unit/sseEndpoint.test.ts` (HTTP-Integration mit `fetch` + Stream-Reader). `securityMonitoring.test.ts` umgeschrieben auf neue Log-Form. `tests/client/unit/realtimeClient.test.ts` auf `EventSource`-Mock umgestellt. |
 | ✅ | **Verifikation:** `npx tsc -p server --noEmit` grün; `npm run lint -w client` grün; alle 11 Server-Unit-Tests grün (49 Tests); alle 11 Client-Unit-Tests grün (48 Tests). `vue-tsc --build` zeigt 1 Pre-Existing-Fehler in `client/src/components/admin/AdminSchoolDialog.vue` (unbenutztes `emit`), nicht von Phase 2 verursacht. |
 | ⬜ | Manuell verifizieren (ohne Docker): `db:start` + `npm run dev` — Browser öffnen, Login + Match-Score-Update zeigt SSE-Push live. |
-| ⬜ | Manuell verifizieren: `npm run test:integration` (Client-Integration-Tests gegen Test-Postgres). |
+| ✅ | Verifiziert: `npm run test:integration` grün (Client-Integration-Tests gegen lokale Test-Postgres). |
 | ⬜ | **PR-Grenze:** funktioniert lokal end-to-end **ohne `ws`**, mit SSE, mit Memory-Adaptern. |
 
 ### Phase 3 — Lambda-Wrapper + lokaler Lambda-Stack
@@ -285,9 +285,9 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 | ✅ | **`DataStack`**: RDS PostgreSQL (`db.t4g.micro` Dev), RDS Proxy, DynamoDB-Tabellen (`realtime_events`, `rate_limit`, `login_lockout`), Secrets Manager (`JWT_SECRET`, `INVITE_CODE`) angelegt. |
 | ✅ | **`LambdaStack`**: `api`-Lambda + Function URL (`AuthType: AWS_IAM`), `sse`-Lambda + Function URL (`InvokeMode: RESPONSE_STREAM`, `AuthType: AWS_IAM`), `migrate`-Lambda + Custom Resource (aktuell Noop-Placeholder bis `prisma migrate deploy`-Runner in Phase 5) angelegt; alle Lambdas VPC-attached. |
 | ✅ | **`EdgeStack` (Basis):** S3-Bucket privat, CloudFront-Distribution mit drei Behaviors (`api/sse`, `api/*`, Default SPA), WAFv2 WebACL, optional Route53-Alias (wenn Domain/HostedZone gesetzt). |
-| ⬜ | **Edge-Hardening offen:** CloudFront OAC für Function URLs + SigV4-Origin-Requests, ACM-Zertifikat in `us-east-1`, finale Domain/Route53/Behavior-Feinheiten für SSE-Streaming. |
+| 🔄 | **Edge-Hardening in Arbeit:** CloudFront nutzt für S3 jetzt `S3BucketOrigin.withOriginAccessControl(...)` (OAC aktiv) und für Lambda Function URLs eine Origin Access Control mit `signingProtocol=sigv4`/`signingBehavior=always`; Lambda-Resource-Policies erlauben `cloudfront.amazonaws.com` für Function-URL-Invoke. ACM ist vorbereitet: optionaler `CertificateStack` (Region `us-east-1`) wird bei gesetztem `TURNIER_HUB_DOMAIN_NAME` + `TURNIER_HUB_HOSTED_ZONE_DOMAIN` automatisch erstellt (oder bestehendes Zertifikat via `TURNIER_HUB_ACM_CERTIFICATE_ARN`). Finale Domain/Route53/SSE-Feinheiten sind als Runbook dokumentiert: `doc/AWS_EDGE_CUTOVER_CHECKLIST.md` (Ausführung im Dev-Account steht aus). |
 | ⬜ | CDK-Pipeline (optional): `aws-cdk-lib/pipelines.CodePipeline` mit GitHub-Source. |
-| ⬜ | **Manuell verifizieren:** `npm run cdk:synth` (grün), danach in Dev-Account `npm run cdk:deploy` mit gesetzten AWS-Credentials + `TURNIER_HUB_STAGE=dev`; Outputs prüfen (`ApiFunctionUrl`, `SseFunctionUrl`, CloudFront-Domain). |
+| 🔄 | **Manuell verifizieren:** `npm run cdk:synth` ist grün (lokal verifiziert). Neuer Preflight `npm run cdk:check` prüft jetzt AWS-CLI, Credentials und CDK-Kontext vor Diff/Deploy. Aktueller Rechner-Blocker laut Preflight: `aws` CLI fehlt + `TURNIER_HUB_STAGE`/AWS-Kontext nicht gesetzt. Nächster Schritt: im Dev-Account mit gesetzten AWS-Credentials/Account-Kontext + `TURNIER_HUB_STAGE=dev` `npm run cdk:deploy` ausführen; danach Outputs prüfen (`ApiFunctionUrl`, `SseFunctionUrl`, CloudFront-Domain). |
 | ⬜ | **PR-Grenze:** `cdk deploy` baut den vollen Stack in Dev-Account auf, Smoke-Test mit `curl` gegen CloudFront/Custom-Domain liefert Login + SSE. |
 
 ### Phase 5 — State-Adapter auf AWS schalten + Observability
@@ -316,16 +316,16 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 | 🔄 | Build-Pipeline für SPA vorbereitet: GitHub Action `.github/workflows/spa-deploy.yml` baut `client` und synced `client/dist` nach S3 (`aws s3 sync`), optional inkl. CloudFront-Invalierung. Für produktiven Einsatz fehlen noch AWS-Secrets/Role-Wiring (`AWS_DEPLOY_ROLE_ARN`, `AWS_SPA_BUCKET`, optional `AWS_CLOUDFRONT_DISTRIBUTION_ID`). |
 | ✅ | `client/src/api/http.ts`: Base-URL aus `VITE_API_BASE_URL` umgesetzt (`buildApiUrl()`), genutzt für REST + SSE (`client/src/realtime/realtimeClient.ts`). Neues `client/.env.example` dokumentiert den Cutover-Pfad. |
 | ✅ | Bestandsdaten-Migration: nicht mehr Teil des aktiven Projekt-Workflows. Das Projekt ist vollständig auf PostgreSQL standardisiert (Seeds/Clear/Test-Clear laufen ausschließlich gegen Postgres). |
-| ⬜ | DNS-Cutover: TTL 24 h → 60 s vor Switch, dann Route 53 umstellen. |
+| 🔄 | DNS-Cutover-Runbook vorbereitet (`doc/AWS_EDGE_CUTOVER_CHECKLIST.md`): TTL 24 h → 60 s vor Switch, dann Route 53 umstellen (Ausführung offen). |
 | ⬜ | Alte Ansible-VM 14 Tage warmhalten als Rollback. |
 
 ### Phase 7 — Aufräumen & Dokumentation
 
 | | Schritt |
 | - | ------- |
-| ⬜ | `ansible/` archivieren oder löschen. |
+| ✅ | `ansible/` entfernt. |
 | ✅ | `AGENTS.md` aktualisiert — neue lokale DB-Befehle (`db:init`/`db:start`/`db:status`/`db:stop`), SSE- und Infra-Pfade synchronisiert. |
-| 🔄 | `README.md` weiter schärfen: Production-Setup final auf CDK/AWS-Credentials zuschneiden (lokaler Dev-Teil ist aktualisiert). |
+| ✅ | `README.md` Production-Setup auf AWS/CDK-Zielpfad geschärft (Cloud deploy + SPA deploy + Validierung), Legacy-VM als Übergangspfad markiert. |
 | ✅ | `server/.env.example` reduziert und geschärft: historische/Phasen-Kommentare entfernt, klare Local-vs-AWS Adapter-Hinweise ergänzt. |
 | ✅ | WS-bezogene Dokumentationsteile weitgehend ersetzt; Realtime-Doku basiert auf SSE (`/api/sse`). |
 

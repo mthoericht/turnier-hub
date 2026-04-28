@@ -1,6 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import {
   aws_ec2 as ec2,
+  aws_iam as iam,
   aws_lambda as lambda,
   aws_logs as logs,
   aws_lambda_nodejs as lambdaNodejs,
@@ -53,6 +54,19 @@ export class LambdaStack extends cdk.Stack
       DEFAULT_SCHOOL_NAME: "defaultSchool",
     };
 
+    const apiLogGroup = new logs.LogGroup(this, "ApiFunctionLogGroup", {
+      retention: logs.RetentionDays.ONE_MONTH,
+    });
+    const sseLogGroup = new logs.LogGroup(this, "SseFunctionLogGroup", {
+      retention: logs.RetentionDays.ONE_MONTH,
+    });
+    const migrateLogGroup = new logs.LogGroup(this, "MigrateFunctionLogGroup", {
+      retention: logs.RetentionDays.ONE_WEEK,
+    });
+    const migrationProviderLogGroup = new logs.LogGroup(this, "MigrationProviderLogGroup", {
+      retention: logs.RetentionDays.ONE_WEEK,
+    });
+
     this.apiFunction = new lambdaNodejs.NodejsFunction(this, "ApiFunction", {
       functionName: `${props.namePrefix}-api`,
       runtime: lambda.Runtime.NODEJS_22_X,
@@ -61,7 +75,7 @@ export class LambdaStack extends cdk.Stack
       handler: "handler",
       memorySize: 1024,
       timeout: cdk.Duration.seconds(30),
-      logRetention: logs.RetentionDays.ONE_MONTH,
+      logGroup: apiLogGroup,
       vpc: props.vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [props.appSecurityGroup],
@@ -81,7 +95,7 @@ export class LambdaStack extends cdk.Stack
       handler: "handler",
       memorySize: 1024,
       timeout: cdk.Duration.minutes(15),
-      logRetention: logs.RetentionDays.ONE_MONTH,
+      logGroup: sseLogGroup,
       vpc: props.vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [props.appSecurityGroup],
@@ -113,6 +127,23 @@ export class LambdaStack extends cdk.Stack
       },
     });
 
+    // Allow CloudFront (SigV4-signed Function URL calls) to invoke both lambdas.
+    // SourceArn scoping to a specific distribution will be added once edge wiring
+    // is finalized without introducing stack dependency cycles.
+    for (const fn of [this.apiFunction, this.sseFunction])
+    {
+      fn.addPermission(`${fn.node.id}InvokeUrlFromCloudFront`, {
+        principal: new iam.ServicePrincipal("cloudfront.amazonaws.com"),
+        action: "lambda:InvokeFunctionUrl",
+        functionUrlAuthType: lambda.FunctionUrlAuthType.AWS_IAM,
+      });
+      fn.addPermission(`${fn.node.id}InvokeFromCloudFrontViaFunctionUrl`, {
+        principal: new iam.ServicePrincipal("cloudfront.amazonaws.com"),
+        action: "lambda:InvokeFunction",
+        invokedViaFunctionUrl: true,
+      });
+    }
+
     const secrets = [props.databaseSecret, props.jwtSecret, props.inviteCodeSecret];
     for (const secret of secrets)
     {
@@ -136,7 +167,7 @@ export class LambdaStack extends cdk.Stack
       `),
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
-      logRetention: logs.RetentionDays.ONE_WEEK,
+      logGroup: migrateLogGroup,
       vpc: props.vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [props.appSecurityGroup],
@@ -150,7 +181,7 @@ export class LambdaStack extends cdk.Stack
 
     const migrationProvider = new cr.Provider(this, "MigrationProvider", {
       onEventHandler: this.migrateFunction,
-      logRetention: logs.RetentionDays.ONE_WEEK,
+      logGroup: migrationProviderLogGroup,
     });
 
     new cdk.CustomResource(this, "MigrationTrigger", {

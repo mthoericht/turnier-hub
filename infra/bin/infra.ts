@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import * as cdk from "aws-cdk-lib";
+import { CertificateStack } from "../lib/certificate-stack";
 import { loadConfig } from "../lib/config";
 import { DataStack } from "../lib/data-stack";
 import { EdgeStack } from "../lib/edge-stack";
@@ -50,11 +51,31 @@ const lambdaStack = new LambdaStack(app, `${namePrefix}-lambda`, {
 const apiUrlDomainName = cdk.Fn.select(2, cdk.Fn.split("/", lambdaStack.apiFunctionUrl.url));
 const sseUrlDomainName = cdk.Fn.select(2, cdk.Fn.split("/", lambdaStack.sseFunctionUrl.url));
 
+let cloudFrontCertificateArn = config.cloudFrontCertificateArn;
+
+if (config.domainName && config.hostedZoneDomain && !cloudFrontCertificateArn)
+{
+  const certificateStack = new CertificateStack(app, `${namePrefix}-certificate`, {
+    env: {
+      account: config.account,
+      region: "us-east-1",
+    },
+    crossRegionReferences: true,
+    namePrefix,
+    domainName: config.domainName,
+    hostedZoneDomain: config.hostedZoneDomain,
+    description: "ACM certificate (us-east-1) for CloudFront custom domain",
+  });
+  cloudFrontCertificateArn = certificateStack.certificate.certificateArn;
+}
+
 const edgeStack = new EdgeStack(app, `${namePrefix}-edge`, {
   env,
+  crossRegionReferences: true,
   namePrefix,
   apiFunctionUrlDomainName: apiUrlDomainName,
   sseFunctionUrlDomainName: sseUrlDomainName,
+  certificateArn: cloudFrontCertificateArn,
   domainName: config.domainName,
   hostedZoneDomain: config.hostedZoneDomain,
   description: "Edge layer (CloudFront, S3, WAF, optional DNS) for turnier-hub",

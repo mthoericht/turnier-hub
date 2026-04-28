@@ -7,6 +7,7 @@ export type InfraConfig = {
   account?: string;
   domainName?: string;
   hostedZoneDomain?: string;
+  cloudFrontCertificateArn?: string;
   jwtSecretName: string;
   inviteCodeSecretName: string;
 };
@@ -34,6 +35,7 @@ export function loadConfig(): InfraConfig
     account: readEnv("CDK_DEFAULT_ACCOUNT"),
     domainName: readEnv("TURNIER_HUB_DOMAIN_NAME"),
     hostedZoneDomain: readEnv("TURNIER_HUB_HOSTED_ZONE_DOMAIN"),
+    cloudFrontCertificateArn: readEnv("TURNIER_HUB_ACM_CERTIFICATE_ARN"),
     jwtSecretName: readEnv("TURNIER_HUB_JWT_SECRET_NAME") ?? "/turnier-hub/dev/jwt-secret",
     inviteCodeSecretName: readEnv("TURNIER_HUB_INVITE_CODE_SECRET_NAME") ?? "/turnier-hub/dev/invite-code",
   };
