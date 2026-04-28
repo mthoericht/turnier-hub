@@ -139,56 +139,6 @@ export const CORS_ALLOWED_ORIGINS = splitCsv(
 export const TRUST_PROXY = readTrustProxy(process.env.TRUST_PROXY);
 /** Max JSON request body size for `express.json`. */
 export const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT ?? "100kb";
-/** WebSocket connect-rate limit window in milliseconds. */
-export const WS_CONNECT_WINDOW_MS = readPositiveInt(
-  process.env.WS_CONNECT_WINDOW_MS,
-  60 * 1000
-);
-/** Maximum WS upgrade attempts per IP within connect window. */
-export const WS_CONNECT_MAX_PER_IP = readPositiveInt(
-  process.env.WS_CONNECT_MAX_PER_IP,
-  30
-);
-/** WebSocket message-rate limit window per socket in milliseconds. */
-export const WS_MESSAGE_WINDOW_MS = readPositiveInt(
-  process.env.WS_MESSAGE_WINDOW_MS,
-  10 * 1000
-);
-/** Maximum WS messages per socket within message window. */
-export const WS_MESSAGE_MAX_PER_WINDOW = readPositiveInt(
-  process.env.WS_MESSAGE_MAX_PER_WINDOW,
-  120
-);
-/** Maximum active tournament subscriptions per WS client. */
-export const WS_MAX_SUBSCRIPTIONS_PER_CLIENT = readPositiveInt(
-  process.env.WS_MAX_SUBSCRIPTIONS_PER_CLIENT,
-  50
-);
-/** Maximum websocket message payload in bytes. */
-export const WS_MAX_PAYLOAD_BYTES = readPositiveInt(
-  process.env.WS_MAX_PAYLOAD_BYTES,
-  16_384
-);
-/** Security telemetry window for HTTP status spike detection. */
-export const SECURITY_HTTP_STATUS_WINDOW_MS = readPositiveInt(
-  process.env.SECURITY_HTTP_STATUS_WINDOW_MS,
-  60 * 1000
-);
-/** HTTP status spike threshold within telemetry window. */
-export const SECURITY_HTTP_STATUS_THRESHOLD = readPositiveInt(
-  process.env.SECURITY_HTTP_STATUS_THRESHOLD,
-  50
-);
-/** Security telemetry window for websocket connection spikes. */
-export const SECURITY_WS_CONNECTIONS_WINDOW_MS = readPositiveInt(
-  process.env.SECURITY_WS_CONNECTIONS_WINDOW_MS,
-  60 * 1000
-);
-/** Websocket connection spike threshold within telemetry window. */
-export const SECURITY_WS_CONNECTIONS_THRESHOLD = readPositiveInt(
-  process.env.SECURITY_WS_CONNECTIONS_THRESHOLD,
-  100
-);
 
 /** Default school name auto-created for new accounts. */
 const defaultSchoolName = process.env.DEFAULT_SCHOOL_NAME?.trim();

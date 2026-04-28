@@ -18,6 +18,11 @@ import { signToken } from "../auth/token.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { ensureDefaultSchool } from "../lib/schools.js";
 import { createAuthRateLimiter } from "../middleware/authRateLimit.js";
+import {
+  type LockoutEntry,
+  type LockoutStore,
+  MemoryLockoutStore,
+} from "../state/lockoutStore.js";
 
 const router = Router();
 const loginRateLimit = createAuthRateLimiter({
@@ -31,19 +36,37 @@ const signupRateLimit = createAuthRateLimiter({
   maxPerIdentifier: AUTH_IDENTIFIER_MAX_REQUESTS,
 });
 
-type LoginFailureEntry = {
-  failures: number;
-  lockedUntilMs: number;
-};
+let lockoutStore: LockoutStore = new MemoryLockoutStore();
 
-const loginFailures = new Map<string, LoginFailureEntry>();
+/**
+ * Replaces the active login-lockout store. Used by tests and (in Phase 5) by
+ * Lambda bootstrap to inject `DynamoLockoutStore`. Pass `null` to revert to a
+ * fresh in-memory store.
+ */
+export function setLockoutStore(instance: LockoutStore | null): void
+{
+  lockoutStore = instance ?? new MemoryLockoutStore();
+}
+
+/**
+ * Test-only helper that drops every recorded login failure.
+ */
+export function resetLoginLockoutForTests(): void
+{
+  if (lockoutStore instanceof MemoryLockoutStore)
+  {
+    lockoutStore.clearForTests();
+    return;
+  }
+  lockoutStore = new MemoryLockoutStore();
+}
 
 function normalizeLoginIdentifier(email: string): string
 {
   return email.trim().toLowerCase();
 }
 
-function getLockoutMs(failures: number): number
+function computeLockoutMs(failures: number): number
 {
   if (failures <= LOGIN_LOCKOUT_START_AFTER_FAILURES)
   {
@@ -68,37 +91,19 @@ function rejectLockedLogin(res: Response, lockedUntilMs: number): void
   });
 }
 
-function getLoginLockout(identifier: string): LoginFailureEntry | null
+async function getLoginLockout(identifier: string): Promise<LockoutEntry | null>
 {
-  const current = loginFailures.get(identifier);
-  if (!current)
-  {
-    return null;
-  }
-
-  if (current.lockedUntilMs <= Date.now())
-  {
-    return null;
-  }
-  return current;
+  return lockoutStore.getActive(identifier);
 }
 
-function registerLoginFailure(identifier: string): LoginFailureEntry
+async function registerLoginFailure(identifier: string): Promise<LockoutEntry>
 {
-  const previous = loginFailures.get(identifier);
-  const failures = (previous?.failures ?? 0) + 1;
-  const lockoutMs = getLockoutMs(failures);
-  const next = {
-    failures,
-    lockedUntilMs: lockoutMs > 0 ? Date.now() + lockoutMs : 0,
-  };
-  loginFailures.set(identifier, next);
-  return next;
+  return lockoutStore.registerFailure(identifier, computeLockoutMs);
 }
 
-function resetLoginFailures(identifier: string): void
+async function resetLoginFailures(identifier: string): Promise<void>
 {
-  loginFailures.delete(identifier);
+  await lockoutStore.reset(identifier);
 }
 
 /** Username validation shared by signup and any future profile updates. */
@@ -249,7 +254,7 @@ async function loginHandler(req: Request, res: Response): Promise<void> {
 
   const { email, password } = parsed.data;
   const loginIdentifier = normalizeLoginIdentifier(email);
-  const lockout = getLoginLockout(loginIdentifier);
+  const lockout = await getLoginLockout(loginIdentifier);
   if (lockout)
   {
     rejectLockedLogin(res, lockout.lockedUntilMs);
@@ -274,7 +279,7 @@ async function loginHandler(req: Request, res: Response): Promise<void> {
   });
 
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-    const nextLockout = registerLoginFailure(loginIdentifier);
+    const nextLockout = await registerLoginFailure(loginIdentifier);
     if (nextLockout.lockedUntilMs > Date.now())
     {
       rejectLockedLogin(res, nextLockout.lockedUntilMs);
@@ -284,7 +289,7 @@ async function loginHandler(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  resetLoginFailures(loginIdentifier);
+  await resetLoginFailures(loginIdentifier);
   const token = signToken(user.id, user.tokenVersion);
   const { passwordHash: _pw, ...publicUser } = user;
   res.json({

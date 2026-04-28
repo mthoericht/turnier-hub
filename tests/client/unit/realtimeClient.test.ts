@@ -6,57 +6,53 @@ vi.mock("../../../client/src/api/http", () => ({
   getToken: getTokenMock,
 }));
 
-class MockWebSocket
+class MockEventSource
 {
   static readonly CONNECTING = 0;
   static readonly OPEN = 1;
-  static readonly CLOSING = 2;
-  static readonly CLOSED = 3;
-  static instances: MockWebSocket[] = [];
+  static readonly CLOSED = 2;
+  static instances: MockEventSource[] = [];
 
   readonly url: string;
-  readyState = MockWebSocket.CONNECTING;
-  sent: string[] = [];
-  onopen: (() => void) | null = null;
-  onmessage: ((ev: { data: string }) => void) | null = null;
-  onclose: (() => void) | null = null;
-  onerror: (() => void) | null = null;
+  readyState = MockEventSource.CONNECTING;
+  onerror: ((ev: unknown) => void) | null = null;
+  private readonly listeners = new Map<string, Array<(ev: { data: string }) => void>>();
 
   constructor(url: string)
   {
     this.url = url;
-    MockWebSocket.instances.push(this);
+    MockEventSource.instances.push(this);
   }
 
-  send(payload: string): void
+  addEventListener(name: string, handler: (ev: { data: string }) => void): void
   {
-    this.sent.push(payload);
+    const list = this.listeners.get(name) ?? [];
+    list.push(handler);
+    this.listeners.set(name, list);
   }
 
   close(): void
   {
-    this.readyState = MockWebSocket.CLOSED;
-    this.onclose?.();
+    this.readyState = MockEventSource.CLOSED;
+  }
+
+  emit(name: string, data: unknown): void
+  {
+    const handlers = this.listeners.get(name) ?? [];
+    const payload = typeof data === "string" ? data : JSON.stringify(data);
+    for (const handler of handlers)
+    {
+      handler({ data: payload });
+    }
   }
 
   open(): void
   {
-    this.readyState = MockWebSocket.OPEN;
-    this.onopen?.();
-  }
-
-  message(data: unknown): void
-  {
-    this.onmessage?.({ data: JSON.stringify(data) });
-  }
-
-  rawMessage(data: string): void
-  {
-    this.onmessage?.({ data });
+    this.readyState = MockEventSource.OPEN;
   }
 }
 
-async function flushMicrotasks(rounds = 3): Promise<void>
+async function flushMicrotasks(rounds = 5): Promise<void>
 {
   for (let i = 0; i < rounds; i++)
   {
@@ -64,12 +60,11 @@ async function flushMicrotasks(rounds = 3): Promise<void>
   }
 }
 
-describe("realtimeClient", () =>
+describe("realtimeClient (SSE)", () =>
 {
   beforeEach(() =>
   {
-    vi.useFakeTimers();
-    MockWebSocket.instances = [];
+    MockEventSource.instances = [];
     getTokenMock.mockReset();
     getTokenMock.mockReturnValue("token-123");
 
@@ -79,7 +74,7 @@ describe("realtimeClient", () =>
         host: "localhost:5173",
       },
     });
-    vi.stubGlobal("WebSocket", MockWebSocket);
+    vi.stubGlobal("EventSource", MockEventSource);
   });
 
   afterEach(async () =>
@@ -87,83 +82,100 @@ describe("realtimeClient", () =>
     const mod = await import("../../../client/src/realtime/realtimeClient");
     mod.setRealtimeDispatchForTests(null);
     mod.disconnectRealtime();
-    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
-  it("connects with token and flushes queued subscriptions on open", async () =>
+  it("opens an EventSource with the current token on connect", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
-    mod.subscribeTournamentRealtime("t1");
     mod.connectRealtime();
 
-    expect(MockWebSocket.instances).toHaveLength(1);
-    const ws = MockWebSocket.instances[0]!;
-    expect(ws.url).toContain("/api/ws?token=token-123");
-    expect(ws.sent).toEqual([]);
-
-    ws.open();
-    expect(ws.sent).toContain(
-      JSON.stringify({ type: "subscribe", tournamentId: "t1" })
-    );
+    expect(MockEventSource.instances).toHaveLength(1);
+    const es = MockEventSource.instances[0]!;
+    expect(es.url).toContain("/api/sse?");
+    expect(es.url).toContain("token=token-123");
+    expect(es.url).not.toContain("tournaments=");
   });
 
   it("does not connect when token is missing", async () =>
   {
-    const mod = await import("../../../client/src/realtime/realtimeClient");
     getTokenMock.mockReturnValue(null);
+    const mod = await import("../../../client/src/realtime/realtimeClient");
     mod.connectRealtime();
-    expect(MockWebSocket.instances).toHaveLength(0);
+    expect(MockEventSource.instances).toHaveLength(0);
   });
 
-  it("does not open duplicate socket while already connecting/open", async () =>
+  it("does not open a duplicate EventSource while one is open", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
     mod.connectRealtime();
-    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(MockEventSource.instances).toHaveLength(1);
 
-    // still CONNECTING
-    mod.connectRealtime();
-    expect(MockWebSocket.instances).toHaveLength(1);
+    const es = MockEventSource.instances[0]!;
+    es.open();
 
-    const ws = MockWebSocket.instances[0]!;
-    ws.open();
     mod.connectRealtime();
-    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(MockEventSource.instances).toHaveLength(1);
   });
 
-  it("sends subscribe/unsubscribe immediately when socket is open", async () =>
+  it("includes pre-connect subscriptions in the SSE URL on connect", async () =>
+  {
+    const mod = await import("../../../client/src/realtime/realtimeClient");
+    mod.subscribeTournamentRealtime("t1");
+    mod.subscribeTournamentRealtime("t2");
+    mod.connectRealtime();
+
+    const es = MockEventSource.instances[0]!;
+    expect(es.url).toContain("tournaments=");
+    const params = new URL(es.url).searchParams.get("tournaments")!;
+    expect(params.split(",").sort()).toEqual(["t1", "t2"]);
+  });
+
+  it("reopens the EventSource when subscriptions change after connect", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
     mod.connectRealtime();
-    const ws = MockWebSocket.instances[0]!;
-    ws.open();
+    const first = MockEventSource.instances[0]!;
+    first.open();
 
     mod.subscribeTournamentRealtime("t1");
-    mod.unsubscribeTournamentRealtime("t1");
+    await flushMicrotasks();
 
-    expect(ws.sent).toContain(
-      JSON.stringify({ type: "subscribe", tournamentId: "t1" })
-    );
-    expect(ws.sent).toContain(
-      JSON.stringify({ type: "unsubscribe", tournamentId: "t1" })
-    );
+    expect(MockEventSource.instances).toHaveLength(2);
+    expect(first.readyState).toBe(MockEventSource.CLOSED);
+    const next = MockEventSource.instances[1]!;
+    expect(next.url).toContain("tournaments=t1");
   });
 
-  it("forwards valid websocket messages to dispatch hook and ignores malformed/unknown", async () =>
+  it("coalesces rapid subscribe/unsubscribe into a single reconnect", async () =>
+  {
+    const mod = await import("../../../client/src/realtime/realtimeClient");
+    mod.connectRealtime();
+    MockEventSource.instances[0]!.open();
+
+    mod.subscribeTournamentRealtime("t1");
+    mod.subscribeTournamentRealtime("t2");
+    mod.unsubscribeTournamentRealtime("t1");
+    await flushMicrotasks();
+
+    expect(MockEventSource.instances).toHaveLength(2);
+    const next = MockEventSource.instances[1]!;
+    expect(next.url).toContain("tournaments=t2");
+    expect(next.url).not.toContain("t1");
+  });
+
+  it("forwards typed SSE events to the dispatch hook", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
     const dispatchSpy = vi.fn();
     mod.setRealtimeDispatchForTests(dispatchSpy);
     mod.connectRealtime();
-    const ws = MockWebSocket.instances[0]!;
-    ws.open();
+    const es = MockEventSource.instances[0]!;
+    es.open();
 
-    ws.message({ type: "tournamentChanged", tournamentId: "t-1" });
-    ws.message({ type: "catalogChanged", kinds: ["players", "classes"] });
-    ws.message({ type: "tournamentsChanged" });
-    ws.message({ type: "unknown" });
-    ws.rawMessage("{not-json}");
+    es.emit("tournamentChanged", { type: "tournamentChanged", tournamentId: "t-1" });
+    es.emit("catalogChanged", { type: "catalogChanged", kinds: ["players", "classes"] });
+    es.emit("tournamentsChanged", { type: "tournamentsChanged" });
     await flushMicrotasks(8);
 
     expect(dispatchSpy).toHaveBeenCalledTimes(3);
@@ -181,28 +193,41 @@ describe("realtimeClient", () =>
     );
   });
 
-  it("disconnect clears subscriptions and closes active socket", async () =>
+  it("ignores malformed SSE payloads without crashing", async () =>
+  {
+    const mod = await import("../../../client/src/realtime/realtimeClient");
+    const dispatchSpy = vi.fn();
+    mod.setRealtimeDispatchForTests(dispatchSpy);
+    mod.connectRealtime();
+    const es = MockEventSource.instances[0]!;
+    es.open();
+
+    es.emit("tournamentChanged", "{not-json");
+    es.emit("tournamentChanged", { type: "tournamentChanged", tournamentId: "t-2" });
+    await flushMicrotasks(5);
+
+    expect(dispatchSpy).toHaveBeenCalledTimes(1);
+    expect(dispatchSpy).toHaveBeenCalledWith({
+      type: "tournamentChanged",
+      tournamentId: "t-2",
+    });
+  });
+
+  it("disconnect clears subscriptions and closes the active stream", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
     mod.subscribeTournamentRealtime("t1");
     mod.connectRealtime();
-    const ws = MockWebSocket.instances[0]!;
-    ws.open();
-    expect(ws.sent).toContain(
-      JSON.stringify({ type: "subscribe", tournamentId: "t1" })
-    );
+    const first = MockEventSource.instances[0]!;
+    first.open();
+    expect(first.url).toContain("tournaments=t1");
 
     mod.disconnectRealtime();
-    expect(ws.readyState).toBe(MockWebSocket.CLOSED);
+    expect(first.readyState).toBe(MockEventSource.CLOSED);
 
-    const previousCount = MockWebSocket.instances.length;
     mod.connectRealtime();
-    const next = MockWebSocket.instances[MockWebSocket.instances.length - 1]!;
-    next.open();
-    expect(MockWebSocket.instances.length).toBe(previousCount + 1);
-    expect(next.sent).not.toContain(
-      JSON.stringify({ type: "subscribe", tournamentId: "t1" })
-    );
+    const next = MockEventSource.instances[MockEventSource.instances.length - 1]!;
+    expect(MockEventSource.instances).toHaveLength(2);
+    expect(next.url).not.toContain("tournaments=");
   });
 });
-

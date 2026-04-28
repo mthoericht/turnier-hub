@@ -1,11 +1,8 @@
 import type { Request, RequestHandler, Response } from "express";
-
-type Counter = {
-  count: number;
-  resetAtMs: number;
-};
-
-type CounterStore = Map<string, Counter>;
+import {
+  MemoryRateLimitStore,
+  type RateLimitStore,
+} from "../state/rateLimitStore.js";
 
 type AuthRateLimitOptions = {
   windowMs: number;
@@ -13,13 +10,31 @@ type AuthRateLimitOptions = {
   maxPerIdentifier: number;
 };
 
-const ipCounters: CounterStore = new Map();
-const identifierCounters: CounterStore = new Map();
+let store: RateLimitStore = new MemoryRateLimitStore();
 
+/**
+ * Replaces the active rate-limit store. Used by tests to inject a clean store
+ * and (in Phase 5) by Lambda bootstrap to inject `DynamoRateLimitStore`.
+ *
+ * Pass `null` to revert to a fresh in-memory store.
+ */
+export function setRateLimitStore(instance: RateLimitStore | null): void
+{
+  store = instance ?? new MemoryRateLimitStore();
+}
+
+/**
+ * Test-only convenience helper that resets the active store. Equivalent to
+ * `setRateLimitStore(null)` but keeps the existing call sites in tests.
+ */
 export function resetAuthRateLimitForTests(): void
 {
-  ipCounters.clear();
-  identifierCounters.clear();
+  if (store instanceof MemoryRateLimitStore)
+  {
+    store.clearForTests();
+    return;
+  }
+  store = new MemoryRateLimitStore();
 }
 
 function trimAndLower(value: unknown): string
@@ -44,38 +59,6 @@ function getRemainingSeconds(resetAtMs: number): number
   return Math.max(1, Math.ceil((resetAtMs - Date.now()) / 1000));
 }
 
-function consumeCounter(
-  key: string,
-  store: CounterStore,
-  windowMs: number
-): Counter
-{
-  const now = Date.now();
-  const existing = store.get(key);
-
-  if (!existing || existing.resetAtMs <= now)
-  {
-    const fresh = { count: 1, resetAtMs: now + windowMs };
-    store.set(key, fresh);
-    return fresh;
-  }
-
-  existing.count += 1;
-  return existing;
-}
-
-function cleanupExpired(store: CounterStore): void
-{
-  const now = Date.now();
-  for (const [key, counter] of store.entries())
-  {
-    if (counter.resetAtMs <= now)
-    {
-      store.delete(key);
-    }
-  }
-}
-
 function reject(res: Response, retryAfterSec: number): void
 {
   res.setHeader("Retry-After", String(retryAfterSec));
@@ -84,40 +67,43 @@ function reject(res: Response, retryAfterSec: number): void
   });
 }
 
+/**
+ * Builds an Express middleware that enforces per-IP and per-identifier auth
+ * rate limits via the active `RateLimitStore`.
+ */
 export function createAuthRateLimiter(options: AuthRateLimitOptions): RequestHandler
 {
   const { windowMs, maxPerIp, maxPerIdentifier } = options;
 
-  return (req, res, next) =>
+  return async (req, res, next) =>
   {
-    // Keep in-memory stores bounded over time.
-    cleanupExpired(ipCounters);
-    cleanupExpired(identifierCounters);
-
-    const ipKey = `${req.path}|ip:${req.ip}`;
-    const ipCounter = consumeCounter(ipKey, ipCounters, windowMs);
-    if (ipCounter.count > maxPerIp)
+    try
     {
-      reject(res, getRemainingSeconds(ipCounter.resetAtMs));
-      return;
-    }
-
-    const identifier = getIdentifier(req);
-    if (identifier)
-    {
-      const identifierKey = `${req.path}|id:${identifier}`;
-      const identifierCounter = consumeCounter(
-        identifierKey,
-        identifierCounters,
-        windowMs
-      );
-      if (identifierCounter.count > maxPerIdentifier)
+      const ipKey = `${req.path}|ip:${req.ip}`;
+      const ipCounter = await store.consume(ipKey, windowMs);
+      if (ipCounter.count > maxPerIp)
       {
-        reject(res, getRemainingSeconds(identifierCounter.resetAtMs));
+        reject(res, getRemainingSeconds(ipCounter.resetAtMs));
         return;
       }
-    }
 
-    next();
+      const identifier = getIdentifier(req);
+      if (identifier)
+      {
+        const identifierKey = `${req.path}|id:${identifier}`;
+        const identifierCounter = await store.consume(identifierKey, windowMs);
+        if (identifierCounter.count > maxPerIdentifier)
+        {
+          reject(res, getRemainingSeconds(identifierCounter.resetAtMs));
+          return;
+        }
+      }
+
+      next();
+    }
+    catch (err)
+    {
+      next(err);
+    }
   };
 }

@@ -36,7 +36,6 @@
     "express": "^4.21.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "ws": "^8.20.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -46,7 +45,6 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22.13.5",
     "@types/supertest": "^6.0.3",
-    "@types/ws": "^8.18.1",
     "dotenv-cli": "^8.0.0",
     "prisma": "^6.19.3",
     "supertest": "^7.1.1",

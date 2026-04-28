@@ -5,19 +5,24 @@ type ServerPushMessage =
   | { type: "catalogChanged"; kinds: Array<"players" | "classes"> }
   | { type: "tournamentsChanged" };
 
-let socket: WebSocket | null = null;
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let source: EventSource | null = null;
 const tournamentSubs = new Set<string>();
-const RECONNECT_MS = 4000;
 let dispatchMessage: (msg: ServerPushMessage) => Promise<void> = dispatch;
+let reopenScheduled = false;
+let intentionallyDisconnected = false;
 
-function wsUrl(): string | null
+function buildSseUrl(): string | null
 {
   const token = getToken();
   if (!token) return null;
-  const proto = window.location.protocol === "https:" ? "wss" : "ws";
-  const enc = encodeURIComponent(token);
-  return `${proto}://${window.location.host}/api/ws?token=${enc}`;
+  const params = new URLSearchParams();
+  params.set("token", token);
+  if (tournamentSubs.size > 0)
+  {
+    params.set("tournaments", Array.from(tournamentSubs).join(","));
+  }
+  const proto = window.location.protocol === "https:" ? "https" : "http";
+  return `${proto}://${window.location.host}/api/sse?${params.toString()}`;
 }
 
 async function dispatch(msg: ServerPushMessage): Promise<void>
@@ -61,48 +66,33 @@ async function dispatch(msg: ServerPushMessage): Promise<void>
   }
 }
 
-function flushSubscriptions(): void
+function closeSource(): void
 {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-  for (const id of tournamentSubs)
-  {
-    socket.send(JSON.stringify({ type: "subscribe", tournamentId: id }));
-  }
-}
-
-function scheduleReconnect(): void
-{
-  if (reconnectTimer) return;
-  if (!getToken()) return;
-  reconnectTimer = setTimeout(() =>
-  {
-    reconnectTimer = null;
-    connectRealtime();
-  }, RECONNECT_MS);
-}
-
-export function connectRealtime(): void
-{
-  const url = wsUrl();
-  if (!url) return;
-  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING))
-  {
-    return;
-  }
-  socket?.close();
+  if (!source) return;
   try
   {
-    const ws = new WebSocket(url);
-    socket = ws;
-    ws.onopen = () =>
-    {
-      flushSubscriptions();
-    };
-    ws.onmessage = (ev) =>
+    source.close();
+  }
+  catch
+  {
+    // ignore
+  }
+  source = null;
+}
+
+function openSource(): void
+{
+  const url = buildSseUrl();
+  if (!url) return;
+  try
+  {
+    const es = new EventSource(url);
+    source = es;
+    const handle = (raw: unknown): void =>
     {
       try
       {
-        const msg = JSON.parse(String(ev.data)) as ServerPushMessage;
+        const msg = JSON.parse(String(raw)) as ServerPushMessage;
         if (
           msg.type === "tournamentChanged"
           || msg.type === "catalogChanged"
@@ -114,52 +104,89 @@ export function connectRealtime(): void
       }
       catch
       {
-        /* ignore */
+        /* ignore malformed payload */
       }
     };
-    ws.onclose = () =>
+    es.addEventListener("tournamentChanged", (ev) => handle((ev as MessageEvent).data));
+    es.addEventListener("catalogChanged", (ev) => handle((ev as MessageEvent).data));
+    es.addEventListener("tournamentsChanged", (ev) => handle((ev as MessageEvent).data));
+    // EventSource auto-reconnects on transient network errors. We only react
+    // to errors here for diagnostics and to drop a stale handle if the browser
+    // gives up entirely (readyState === CLOSED).
+    es.onerror = () =>
     {
-      socket = null;
-      scheduleReconnect();
-    };
-    ws.onerror = () =>
-    {
-      ws.close();
+      if (es.readyState === EventSource.CLOSED && source === es)
+      {
+        source = null;
+      }
     };
   }
   catch
   {
-    scheduleReconnect();
+    source = null;
   }
+}
+
+/**
+ * Closes any current SSE connection and reopens one with the latest token and
+ * tournament-subscription set. Coalesces rapid-fire calls so a burst of
+ * subscribe/unsubscribe operations only triggers a single reconnect.
+ */
+function reopenSoon(): void
+{
+  if (intentionallyDisconnected) return;
+  if (reopenScheduled) return;
+  reopenScheduled = true;
+  queueMicrotask(() =>
+  {
+    reopenScheduled = false;
+    if (intentionallyDisconnected) return;
+    if (!getToken())
+    {
+      closeSource();
+      return;
+    }
+    closeSource();
+    openSource();
+  });
+}
+
+export function connectRealtime(): void
+{
+  intentionallyDisconnected = false;
+  if (!getToken()) return;
+  if (source && source.readyState !== EventSource.CLOSED)
+  {
+    return;
+  }
+  closeSource();
+  openSource();
 }
 
 export function disconnectRealtime(): void
 {
-  if (reconnectTimer)
-  {
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
-  }
+  intentionallyDisconnected = true;
   tournamentSubs.clear();
-  socket?.close();
-  socket = null;
+  closeSource();
 }
 
 export function subscribeTournamentRealtime(tournamentId: string): void
 {
+  if (tournamentSubs.has(tournamentId)) return;
   tournamentSubs.add(tournamentId);
-  if (socket?.readyState === WebSocket.OPEN)
+  if (source)
   {
-    socket.send(JSON.stringify({ type: "subscribe", tournamentId }));
+    reopenSoon();
   }
 }
 
 export function unsubscribeTournamentRealtime(tournamentId: string): void
 {
+  if (!tournamentSubs.has(tournamentId)) return;
   tournamentSubs.delete(tournamentId);
-  if (socket?.readyState === WebSocket.OPEN)
+  if (source)
   {
-    socket.send(JSON.stringify({ type: "unsubscribe", tournamentId }));
+    reopenSoon();
   }
 }
 

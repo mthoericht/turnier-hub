@@ -244,16 +244,18 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 
 | | Schritt |
 | - | ------- |
-| ⬜ | **Rate-Limit-Adapter:** `server/src/middleware/authRateLimit.ts` umbauen — Interface `RateLimitStore { consume, reset }`. Implementierungen `MemoryRateLimitStore` (Default Dev/Tests) + `DynamoRateLimitStore` (Phase 5). |
-| ⬜ | **Login-Lockout** (`server/src/routes/auth.ts` `loginFailures`) hinter `LockoutStore` verschieben. Memory- + Dynamo-Adapter. |
-| ⬜ | **Realtime-Backend** (`server/src/realtime/`) komplett ersetzen: `ws`-`RealtimeHub` löschen → neues Interface `RealtimeEventBus { publish, subscribe }`. Implementierungen `MemoryEventBus` (Dev/Tests) + `DynamoEventBus` (Polling für Lambda). |
-| ⬜ | Neuer Express-Endpoint `GET /api/sse?tournaments=…` mit `text/event-stream`, schreibt aus `RealtimeEventBus.subscribe()` SSE-Frames. |
-| ⬜ | Client (`client/src/realtime/realtimeClient.ts`) von `WebSocket` auf `EventSource` umstellen — `dispatch()` bleibt. |
-| ⬜ | `server/src/security/monitoring.ts`: In-Process-Counter entfernen, nur strukturierte JSON-Logs behalten. |
-| ⬜ | `WS_*`-Config-Werte in `server/src/config.ts` löschen, `ws` aus `server/package.json` entfernen. |
-| ⬜ | Tests: `realtimeHub.test.ts` ersetzen durch `realtimeEventBus.test.ts` + `sseEndpoint.test.ts`; `securityMonitoring.test.ts` reduzieren oder entfernen. |
-| ⬜ | `client/src/realtime/__tests__` (sofern vorhanden) auf SSE-Mock umbauen. |
-| ⬜ | **PR-Grenze:** funktioniert lokal end-to-end **ohne `ws`**, mit SSE, mit Memory-Adaptern; alle Tests grün; `npm run dev` läuft normal. |
+| ✅ | **Rate-Limit-Adapter:** `server/src/state/rateLimitStore.ts` mit `RateLimitStore` Interface + `MemoryRateLimitStore`. `authRateLimit.ts` benutzt jetzt den Store, `setRateLimitStore()` für Lambda-Bootstrap (Phase 5: `DynamoRateLimitStore`). |
+| ✅ | **Login-Lockout:** `server/src/state/lockoutStore.ts` mit `LockoutStore` + `MemoryLockoutStore`. `auth.ts` `loginFailures`-Map durch `lockoutStore.registerFailure / getActive / reset` ersetzt. |
+| ✅ | **Realtime-Backend ersetzt:** `server/src/realtime/hub.ts` gelöscht. Neuer `server/src/realtime/eventBus.ts` mit Interface `RealtimeEventBus { publish, subscribe }` + `MemoryEventBus`. `notify.ts` publisht jetzt in den Bus. |
+| ✅ | **Neuer SSE-Endpoint:** `server/src/realtime/sseEndpoint.ts` (`createSseHandler(bus)`); `app.ts` mountet `GET /api/sse` und wired den Bus über `setRealtimeEventBus`. JWT-Auth via `?token=`, Subscription via `?tournaments=…`, 30 s Heartbeat-Comments, sauberes Cleanup auf `req close`. |
+| ✅ | **Client-Realtime auf `EventSource`** umgestellt: `client/src/realtime/realtimeClient.ts` baut SSE-URL mit aktueller Subscription-Set, reconnect bei Subscription-Änderungen wird per `queueMicrotask` gebündelt. `dispatch()`-Hook und externe API (`connect/disconnect/subscribeTournament/unsubscribeTournament`) unverändert. |
+| ✅ | **`security/monitoring.ts` reduziert:** keine In-Process-Counter mehr, nur strukturierte JSON-`warn`-Logs für 401/403/429. WS-Telemetrie komplett entfernt. CloudWatch Metric Filter wird in Phase 5 aufgesetzt. |
+| ✅ | **Config + Dependencies aufgeräumt:** `WS_*` und `SECURITY_*`-Werte aus `server/src/config.ts` und `server/.env.example` entfernt. `ws` und `@types/ws` aus `server/package.json` entfernt; `package-lock.json` aktualisiert. |
+| ✅ | **Tests:** `tests/server/unit/realtimeHub.test.ts` gelöscht. Neu: `tests/server/unit/eventBus.test.ts` (Bus-Logik), `tests/server/unit/sseEndpoint.test.ts` (HTTP-Integration mit `fetch` + Stream-Reader). `securityMonitoring.test.ts` umgeschrieben auf neue Log-Form. `tests/client/unit/realtimeClient.test.ts` auf `EventSource`-Mock umgestellt. |
+| ✅ | **Verifikation:** `npx tsc -p server --noEmit` grün; `npm run lint -w client` grün; alle 11 Server-Unit-Tests grün (49 Tests); alle 11 Client-Unit-Tests grün (48 Tests). `vue-tsc --build` zeigt 1 Pre-Existing-Fehler in `client/src/components/admin/AdminSchoolDialog.vue` (unbenutztes `emit`), nicht von Phase 2 verursacht. |
+| ⬜ | Manuell verifizieren (Docker erforderlich): `npm run docker:up && npm run dev` — Browser öffnen, Login + Match-Score-Update zeigt SSE-Push live. |
+| ⬜ | Manuell verifizieren: `npm run test:integration` (Client-Integration-Tests gegen Test-Postgres). |
+| ⬜ | **PR-Grenze:** funktioniert lokal end-to-end **ohne `ws`**, mit SSE, mit Memory-Adaptern. |
 
 ### Phase 3 — Lambda-Wrapper + lokaler Lambda-Stack
 

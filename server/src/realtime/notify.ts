@@ -1,25 +1,45 @@
-import type { RealtimeHub } from "./hub.js";
+import type { RealtimeEventBus } from "./eventBus.js";
 
-let hub: RealtimeHub | null = null;
+let bus: RealtimeEventBus | null = null;
 
-export function setRealtimeHub(instance: RealtimeHub | null): void
+/**
+ * Registers the active realtime bus instance used by `notify*` calls.
+ *
+ * `createApp()` wires this up automatically. Tests may override the bus to
+ * substitute a mock, and pass `null` to disable publishing entirely.
+ */
+export function setRealtimeEventBus(instance: RealtimeEventBus | null): void
 {
-  hub = instance;
+  bus = instance;
 }
 
+/**
+ * Pushes a single-tournament change to clients that subscribed to that
+ * tournament's id via `GET /api/sse?tournaments=…`.
+ */
 export function notifyTournamentChanged(tournamentId: string): void
 {
-  hub?.notifyTournamentChanged(tournamentId);
+  bus?.publish({ type: "tournamentChanged", tournamentId });
 }
 
+/**
+ * Broadcasts a catalog change (`players` and/or `classes`) to all SSE clients.
+ */
 export function notifyCatalogChanged(
   kinds: Array<"players" | "classes">
 ): void
 {
-  hub?.notifyCatalogChanged(kinds);
+  if (kinds.length === 0)
+  {
+    return;
+  }
+  bus?.publish({ type: "catalogChanged", kinds });
 }
 
+/**
+ * Broadcasts a tournament-list change to all SSE clients.
+ */
 export function notifyTournamentsListChanged(): void
 {
-  hub?.notifyTournamentsListChanged();
+  bus?.publish({ type: "tournamentsChanged" });
 }

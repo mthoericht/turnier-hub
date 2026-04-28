@@ -34,7 +34,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Clean install | `npm run clean:install` |
 
 - **Server** entry: `server/src/index.ts` creates an **HTTP** server from the Express app and attaches the **WebSocket** server on **`/api/ws`** (JWT via query `token=`). Production: `node server/dist/index.js` (`start` / `start:prod` in server workspace).
-- **Client** dev server proxies **`/api`** to the backend (default `http://localhost:3001`) with **`ws: true`** so WebSockets work through Vite in development.
+- **Client** dev server proxies **`/api`** to the backend (default `http://localhost:3001`); SSE on `/api/sse` works through that proxy as a regular long-lived HTTP response (no `ws: true` needed since the legacy WebSocket hub was removed).
 - **Client** ESLint: flat config in `client/eslint.config.js` (`typescript-eslint`, `eslint-plugin-vue`; stylistic rules include semicolons, Allman braces, 2-space indent).
 - Tests live in the repository root under `tests/` (`tests/server/**`, `tests/client/**`), executed via each workspace's Vitest config.
 - **Storybook** (`npm run storybook`): config under `tests/client/storybook/` — for **fixtures, mocks, router canvas, and Vitest integration** see [`tests/client/storybook/README.md`](tests/client/storybook/README.md). Name the primary CSF export **`Default`** when reasonable so URLs and tooling that expect `…--default` keep working; preview wraps the canvas with padding and uses **non-inline** docs stories for reliable Vue rendering. Example: `tests/client/storybook/stories/components/common/CatalogPageHeader.stories.ts`.
