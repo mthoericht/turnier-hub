@@ -139,6 +139,22 @@ export const CORS_ALLOWED_ORIGINS = splitCsv(
 export const TRUST_PROXY = readTrustProxy(process.env.TRUST_PROXY);
 /** Max JSON request body size for `express.json`. */
 export const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT ?? "100kb";
+/** Backing store mode for auth rate limiting (`memory` or `dynamo`). */
+export const RATE_LIMIT_STORE = process.env.RATE_LIMIT_STORE ?? "memory";
+/** Backing store mode for login lockout (`memory` or `dynamo`). */
+export const LOCKOUT_STORE = process.env.LOCKOUT_STORE ?? "memory";
+/** Realtime bus mode (`memory` or `dynamo`). */
+export const EVENT_BUS = process.env.EVENT_BUS ?? "memory";
+/** DynamoDB table used for auth rate limiting (when `RATE_LIMIT_STORE=dynamo`). */
+export const RATE_LIMIT_TABLE = process.env.RATE_LIMIT_TABLE ?? "turnier-hub-dev-rate-limit";
+/** DynamoDB table used for login lockout (when `LOCKOUT_STORE=dynamo`). */
+export const LOGIN_LOCKOUT_TABLE = process.env.LOGIN_LOCKOUT_TABLE ?? "turnier-hub-dev-login-lockout";
+/** DynamoDB table used for cross-lambda realtime fan-out (when `EVENT_BUS=dynamo`). */
+export const REALTIME_EVENTS_TABLE = process.env.REALTIME_EVENTS_TABLE ?? "turnier-hub-dev-realtime-events";
+/** Poll interval for Dynamo-backed SSE fan-out. */
+export const EVENT_BUS_POLL_MS = readPositiveInt(process.env.EVENT_BUS_POLL_MS, 1_000);
+/** Optional custom DynamoDB endpoint (used in local Docker / tests). */
+export const DYNAMODB_ENDPOINT = process.env.DYNAMODB_ENDPOINT;
 
 /** Default school name auto-created for new accounts. */
 const defaultSchoolName = process.env.DEFAULT_SCHOOL_NAME?.trim();

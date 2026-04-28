@@ -15,10 +15,13 @@ import tournamentsRouter from "./routes/tournaments/index.js";
 import adminRouter from "./routes/admin.js";
 import { errorMiddleware } from "./middleware/error.js";
 import { recordHttpSecurityStatus } from "./security/monitoring.js";
-import { MemoryEventBus } from "./realtime/eventBus.js";
 import type { RealtimeEventBus } from "./realtime/eventBus.js";
 import { setRealtimeEventBus } from "./realtime/notify.js";
 import { createSseHandler } from "./realtime/sseEndpoint.js";
+import {
+  applyRuntimeAuthAdapters,
+  resolveRealtimeBus,
+} from "./runtime/runtimeAdapters.js";
 
 /**
  * Checks whether an incoming browser origin is allowed by the configured CORS allowlist.
@@ -48,7 +51,8 @@ export function createApp(options: CreateAppOptions = {})
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const clientDist = path.resolve(__dirname, "../../client/dist");
 
-  const eventBus = options.eventBus ?? new MemoryEventBus();
+  applyRuntimeAuthAdapters();
+  const eventBus = options.eventBus ?? resolveRealtimeBus();
   setRealtimeEventBus(eventBus);
 
   const app = express();

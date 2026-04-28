@@ -1,26 +1,20 @@
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
-import { MemoryEventBus } from "../realtime/eventBus.js";
 import {
   authenticateSseToken,
   parseSseQuery,
   startSseStream,
 } from "../realtime/sseEndpoint.js";
 import { setRealtimeEventBus } from "../realtime/notify.js";
+import { resolveRealtimeBus } from "../runtime/runtimeAdapters.js";
 
 /**
  * Per-container bus instance.
  *
- * **Phase 3 caveat:** the SSE Lambda and the REST (`api`) Lambda run in
- * **different processes**, so a `MemoryEventBus` here cannot receive events
- * published from the REST Lambda. End-to-end fan-out (REST mutation → SSE
- * push) requires the `DynamoEventBus` introduced in Phase 5. Until then, the
- * Lambda SSE handler still validates auth, opens a stream, and emits
- * heartbeats; the only events it can deliver are those published from within
- * the same SSE Lambda container (effectively none in practice). Daily local
- * development should keep using the Express direct mode (`npm run dev`),
- * where REST and SSE share the in-memory bus inside the same process.
+ * Selected via `EVENT_BUS` env (`memory` by default, `dynamo` in AWS Phase 5).
+ * This allows the same handler to work in local SAM and in multi-lambda
+ * fan-out mode once `DynamoEventBus` is enabled.
  */
-const bus = new MemoryEventBus();
+const bus = resolveRealtimeBus();
 setRealtimeEventBus(bus);
 
 /**
