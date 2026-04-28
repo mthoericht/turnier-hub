@@ -4,7 +4,8 @@
   "workspaces": [
     "client",
     "server",
-    "shared"
+    "shared",
+    "infra"
   ],
   "engines": {
     "node": ">=22"
@@ -20,6 +21,9 @@
     "dev:lambda": "npm run docker:up:wait && npm run db:deploy && npm run dev:lambda:sam",
     "dev:lambda:sam": "sam local start-api -t template.yaml --warm-containers EAGER --port 3001",
     "dev:lambda:invoke": "sam local invoke -t template.yaml ApiFunction --event tests/lambda/events/api-health.json",
+    "cdk:synth": "npm run synth -w infra",
+    "cdk:diff": "npm run diff -w infra",
+    "cdk:deploy": "npm run deploy -w infra",
     "build": "npm run build -w @turnier-hub/shared && npm run build -w server && npm run build -w client",
     "lint": "npm run lint -w client",
     "lint:fix": "npm run lint:fix -w client",

@@ -214,6 +214,9 @@ npm run db:clear:test -- --yes
 | `npm run docker:up` | Starts local Postgres + DynamoDB-Local via `docker-compose.yml`. |
 | `npm run docker:down` | Stops the containers (keeps named volumes). |
 | `npm run docker:reset` | Stops containers **and** drops their data volumes. |
+| `npm run cdk:synth` | Synthesizes all CDK stacks in `infra/` to CloudFormation templates (`infra/cdk.out`). |
+| `npm run cdk:diff` | Shows infrastructure differences against the deployed stacks (all CDK stacks). |
+| `npm run cdk:deploy` | Deploys all CDK stacks in dependency order. |
 | `npm run build` | Builds server TypeScript output and the client production bundle. |
 | `npm run lint` | Runs ESLint on the client (`client/`). |
 | `npm run lint:fix` | ESLint with `--fix` (client workspace). |
@@ -350,6 +353,7 @@ turnier-hub/
 ├── ansible/                   # Legacy single-VM deployment (retiring in MIGRATION_AWS.md Phase 7)
 ├── docker-compose.yml         # Local Postgres + DynamoDB-Local for dev/tests
 ├── docker/postgres/init/      # First-run init SQL (creates the test database alongside dev)
+├── infra/                     # AWS CDK app (Network/Data/Lambda/Edge stacks; see infra/bin/infra.ts)
 ├── tests/                     # Shared root test tree (server + client Vitest tests)
 │   ├── server/
 │   └── client/

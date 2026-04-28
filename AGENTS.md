@@ -16,6 +16,9 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Start local Postgres + DynamoDB-Local (Docker Compose) | `npm run docker:up` |
 | Stop containers (keep volumes) | `npm run docker:down` |
 | Stop containers + drop volumes | `npm run docker:reset` |
+| CDK synth (all infra stacks) | `npm run cdk:synth` |
+| CDK diff (all infra stacks) | `npm run cdk:diff` |
+| CDK deploy (all infra stacks) | `npm run cdk:deploy` |
 | Production build (server + client) | `npm run build` |
 | Lint client (ESLint) | `npm run lint` / `npm run lint:fix` |
 | Prod: generate Prisma client + build | `npm run prod:prepare` |
@@ -161,6 +164,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Global confirm + text prompt | `client/src/stores/confirmDialog.ts`, `textPromptDialog.ts`, `GlobalTextPromptDialog.vue`, mounted in `App.vue`; Storybook under `tests/client/storybook/stories/components/common/` (`GlobalTextPromptDialog.stories.ts`) |
 | Catalog page header (lists + dashboard) | `client/src/components/common/CatalogPageHeader.vue`; Storybook `tests/client/storybook/stories/components/common/CatalogPageHeader.stories.ts` |
 | Local infra (Postgres + DynamoDB-Local) | `docker-compose.yml`, `docker/postgres/init/01-create-test-database.sql` |
+| AWS CDK app + stacks | `infra/bin/infra.ts`, `infra/lib/network-stack.ts`, `infra/lib/data-stack.ts`, `infra/lib/lambda-stack.ts`, `infra/lib/edge-stack.ts`, `infra/lib/config.ts` |
 | AWS migration plan | [`MIGRATION_AWS.md`](MIGRATION_AWS.md) |
 | Legacy single-VM deployment | `ansible/README.md`, `ansible/playbooks/`, `ansible/roles/turnier_hub/` (will be retired in Phase 7) |
 | Tournament views | `client/src/views/tournament/` |

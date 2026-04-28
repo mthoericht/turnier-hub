@@ -280,12 +280,15 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 
 | | Schritt |
 | - | ------- |
-| ⬜ | **`NetworkStack`**: VPC mit private Subnets für RDS + Lambda, NAT Gateway (Single AZ für Kostenkontrolle), Security Groups. |
-| ⬜ | **`DataStack`**: RDS PostgreSQL (`db.t4g.micro` Dev), RDS Proxy, DynamoDB-Tabellen (`realtime_events`, `rate_limit`, `login_lockout`), Secrets Manager. |
-| ⬜ | **`LambdaStack`**: `api`-Lambda + Function URL (`AuthType: AWS_IAM`), `sse`-Lambda + Function URL (`InvokeMode: RESPONSE_STREAM`, `AuthType: AWS_IAM`), `migrate`-Lambda + Custom Resource. VPC-Attached, IAM-Rollen. |
-| ⬜ | **`EdgeStack`**: S3-Bucket (privat, OAC), CloudFront-Distribution mit drei Behaviors (`/api/sse` → SSE-Function-URL mit OAC; `/api/*` → API-Function-URL mit OAC; `/*` → S3 mit SPA-Fallback). WAFv2-WebACL, ACM-Zertifikat in `us-east-1`, Route 53 Alias. |
+| ✅ | **CDK-Workspace initialisiert:** neues `infra/`-Workspace mit `aws-cdk-lib`, `constructs`, `aws-cdk`, `typescript`, `ts-node`; Einstieg über `infra/bin/infra.ts`, Konfig über `infra/lib/config.ts` (Stage/Region/Domain via Env). |
+| ✅ | **`NetworkStack`**: VPC mit Public + Private-with-egress + Private-isolated Subnets, NAT Gateway (single), Lambda-App-Security-Group. |
+| ✅ | **`DataStack`**: RDS PostgreSQL (`db.t4g.micro` Dev), RDS Proxy, DynamoDB-Tabellen (`realtime_events`, `rate_limit`, `login_lockout`), Secrets Manager (`JWT_SECRET`, `INVITE_CODE`) angelegt. |
+| ✅ | **`LambdaStack`**: `api`-Lambda + Function URL (`AuthType: AWS_IAM`), `sse`-Lambda + Function URL (`InvokeMode: RESPONSE_STREAM`, `AuthType: AWS_IAM`), `migrate`-Lambda + Custom Resource (aktuell Noop-Placeholder bis `prisma migrate deploy`-Runner in Phase 5) angelegt; alle Lambdas VPC-attached. |
+| ✅ | **`EdgeStack` (Basis):** S3-Bucket privat, CloudFront-Distribution mit drei Behaviors (`api/sse`, `api/*`, Default SPA), WAFv2 WebACL, optional Route53-Alias (wenn Domain/HostedZone gesetzt). |
+| ⬜ | **Edge-Hardening offen:** CloudFront OAC für Function URLs + SigV4-Origin-Requests, ACM-Zertifikat in `us-east-1`, finale Domain/Route53/Behavior-Feinheiten für SSE-Streaming. |
 | ⬜ | CDK-Pipeline (optional): `aws-cdk-lib/pipelines.CodePipeline` mit GitHub-Source. |
-| ⬜ | **PR-Grenze:** `cdk deploy` baut den vollen Stack in Dev-Account auf, Smoke-Test mit `curl` gegen Custom Domain liefert Login + SSE. |
+| ⬜ | **Manuell verifizieren:** `npm run cdk:synth` (grün), danach in Dev-Account `npm run cdk:deploy` mit gesetzten AWS-Credentials + `TURNIER_HUB_STAGE=dev`; Outputs prüfen (`ApiFunctionUrl`, `SseFunctionUrl`, CloudFront-Domain). |
+| ⬜ | **PR-Grenze:** `cdk deploy` baut den vollen Stack in Dev-Account auf, Smoke-Test mit `curl` gegen CloudFront/Custom-Domain liefert Login + SSE. |
 
 ### Phase 5 — State-Adapter auf AWS schalten + Observability
 
