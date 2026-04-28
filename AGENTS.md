@@ -16,6 +16,11 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Start local Postgres cluster | `npm run db:start` |
 | Check local Postgres status | `npm run db:status` |
 | Stop local Postgres cluster | `npm run db:stop` |
+| Restart local Postgres cluster | `npm run db:restart` |
+| Check SAM + Docker tooling | `npm run dev:lambda:check` |
+| Lambda local stack (SAM + local Postgres) | `npm run dev:lambda` |
+| Lambda local API only | `npm run dev:lambda:sam` |
+| Lambda one-shot invoke (sample event) | `npm run dev:lambda:invoke` |
 | Dev (API + Vite) | `npm run dev` |
 | CDK synth (all infra stacks) | `npm run cdk:synth` |
 | CDK diff (all infra stacks) | `npm run cdk:diff` |
@@ -54,15 +59,16 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - Copy `server/.env.example` → `server/.env` for local development. Do **not** commit `.env`.
 - `DATABASE_URL` in `.env` is a Postgres connection string; default points at `postgresql://turnier:turnier@localhost:5432/turnier_dev?schema=public`.
 - **Test** profile: `server/.env.test` (separate Postgres database, default `postgresql://turnier:turnier@localhost:5432/turnier_test?schema=public`). Seed respects an already-set `DATABASE_URL` so `dotenv-cli` can target the test DB.
-- Local Postgres can run from `data/postgres` via root scripts (`db:init` / `db:start` / `db:stop`). Logs go to `data/postgres.log`. If binaries are not in PATH, use `PG_BIN=/path/to/postgres/bin`.
+- Local Postgres can run from `data/postgres` via root scripts (`db:init` / `db:start` / `db:stop`). Logs go to `data/postgres.log`. The helper auto-detects Homebrew Postgres (`postgresql@16/bin`); if binaries are still not in PATH, use `PG_BIN=/path/to/postgres/bin`.
+- SAM local (`sam local start-api`) is optional and still relies on Docker for Lambda runtime emulation, but uses the same local Postgres DB (`localhost:5432`).
 - Typical keys: `JWT_SECRET`, `INVITE_CODE`, `PORT`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`.
 
 ### Local Postgres quick setup (macOS, no Docker)
 
 ```bash
 brew install postgresql@16
-PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:init
-PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:start
+npm run db:init
+npm run db:start
 npm run db:push
 npm run db:push:test
 ```

@@ -8,6 +8,29 @@ const postgresDataDir = path.join(dataDir, "postgres");
 const postgresLogFile = path.join(dataDir, "postgres.log");
 
 const action = process.argv[2];
+const cachedAutoBinDir = detectBrewPostgresBinDir();
+
+function detectBrewPostgresBinDir()
+{
+  const brewCheck = spawnSync("brew", ["--prefix", "postgresql@16"], {
+    stdio: "pipe",
+    encoding: "utf8",
+  });
+
+  if (brewCheck.error || brewCheck.status !== 0)
+  {
+    return null;
+  }
+
+  const prefix = (brewCheck.stdout ?? "").trim();
+  if (!prefix)
+  {
+    return null;
+  }
+
+  const binDir = path.join(prefix, "bin");
+  return fs.existsSync(binDir) ? binDir : null;
+}
 
 function resolveBinary(name)
 {
@@ -16,6 +39,11 @@ function resolveBinary(name)
   if (localBin && localBin.trim())
   {
     return path.join(localBin.trim(), name);
+  }
+
+  if (cachedAutoBinDir)
+  {
+    return path.join(cachedAutoBinDir, name);
   }
 
   return name;
@@ -167,6 +195,7 @@ catch (error)
   if (message.includes("spawn") && message.includes("ENOENT"))
   {
     console.error("Postgres binaries not found. Install PostgreSQL and/or set PG_BIN=/path/to/postgres/bin.");
+    console.error("Tip: brew install postgresql@16");
   }
   process.exit(1);
 }

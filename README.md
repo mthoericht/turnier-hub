@@ -6,48 +6,34 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 
 ## Table of Contents
 
-- [Features](#features)
-- [How To Use (Typical Workflow)](#how-to-use-typical-workflow)
-- [Tech Stack](#tech-stack)
-- [Prerequisites](#prerequisites)
+- [Quick Paths](#quick-paths)
 - [Quick Start](#quick-start)
 - [NPM Scripts (repository root)](#npm-scripts-repository-root)
-- [Database Profiles (dev / test / production)](#database-profiles-dev--test--production)
+- [How To Use (Typical Workflow)](#how-to-use-typical-workflow)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
 - [Production](#production)
-- [Security Notes](#security-notes)
-- [Security Runbook](#security-runbook)
 - [Additional Documentation](#additional-documentation)
-- [Project Layout](#project-layout)
-- [Accessibility (front end)](#accessibility-front-end)
-- [Test Environment](#test-environment)
+
+## Quick Paths
+
+- **Run locally (daily dev):** follow [Quick Start](#quick-start), then `npm run dev`.
+- **Work on database:** use [Local Dev (no Docker DB)](#local-dev-no-docker-db) and [Database Profiles](#database-profiles-dev--test--production).
+- **Run Lambda locally:** use [Lambda Local (SAM)](#lambda-local-sam).
+- **Deploy AWS/CDK:** see [AWS / CDK](#aws--cdk) and migration status in [`MIGRATION_AWS.md`](MIGRATION_AWS.md).
+- **Need contributor-level details?** Use [`AGENTS.md`](AGENTS.md) for deeper implementation notes.
 
 ## Features
 
-- **Authentication:** Sign-up requires a shared **invite code** (configurable). Login uses email and password. Sessions use **JWT** in the `Authorization: Bearer` header; the token is stored in the browser under the localStorage key `turnier_hub_token`.
-- **Users and roles:** Each account has a **username** (unique, normalized), email, and a role: **`user`** or **`admin`**. New accounts default to `user`. Admin-only actions are available in the **Admin** view.
-- **Admin area:** Admins can open `/admin` from the top navigation (next to tournaments) and manage:
-  - **Schools:** create, rename, delete (deletion only when no users are assigned).
-  - **User administration:** list users, change role (`user`/`admin`), and reassign users to a different school.
-  - **Safety rule:** the backend prevents demoting the last remaining admin account.
-- **Shared catalog:** **School classes**, **players**, and **tournaments** are visible and **fully editable** (create / update / delete) by **any authenticated user**. Database rows still store the **original creator** (`userId` on create); the API exposes this as **`createdBy`** for display only (“Von …” / “Erstellt von …”). List filters **Alle** vs. **Eigene** only narrow what you see, not who may edit. **Players** can be assigned to **any** class in the catalog. **Roster transfer** can use any tournament as the source.
-- **Classes:** CRUD for **school classes** (names unique **per creator** in the DB — two users can each have a class named `10a`). Routes `/classes` (API `/api/classes`).
-- **Players:** CRUD for players with separate **`firstName`** and **`lastName`**; optional class is chosen from **all** classes in the catalog. Scoped list views (all vs. own) like tournaments. The players page provides text search (first name, last name, full name, class), sortable table columns (**Vorname**, **Name**, **Klasse**, asc/desc toggle), and an **Import/Export** dialog. Import accepts **XLS/XLSX** with columns **`Vorname`**, **`Name`** (last name), **`Klasse`** and offers modes to append, reset all data, or replace players by matching existing rows on **Vorname + Name + Klasse** (only missing rows are removed). Export writes current players to XLSX using the same column schema. For better mobile landscape fit, creator attribution is shown as compact text below each row's action buttons.
-- **Tournaments:** Create tournaments with one of three **modes**: **Group → K.O.** (classic group stage feeding knockout rounds), **Direct K.O.** (knockout only, supports arbitrary team counts with byes), or **Round-Robin** (everyone vs everyone, no knockout). Optionally mark **teams as individuals** (e.g. badminton — players become teams directly). In the **Operations** tab (`Spielbetrieb`), Group → K.O. lets you set **group count** directly next to "Generate group matches" and save **advancers per group** separately via "Save settings". Add **teams**, assign **any** catalog players to **team rosters** (optionally transfer rosters from **another** tournament in the **Teams** tab), generate **group / round-robin matches** (organized in parallel rounds), view **standings** (per group when applicable), then advance through **round of 16 → quarter → semi → final** with pairings computed on the server. K.O. pairings are randomized when generated. Group generation ignores teams without members and regenerating group matches removes existing knockout matches. Group and team names are editable in the roster UI. All matches can be **deleted at once** via "Delete all matches and groups" in the operations view. The tournament UI uses top tabs **Teams** (`Mannschaften`), **Matches** (`Spiele`), and **Operations** (`Spielbetrieb`).
-- **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. When the final is finished, the tournament phase is automatically set to **Ende** (`COMPLETED`). Matches with a **Freilos** are created directly as **beendet** (`FINISHED`). **Live updates** use **Server-Sent Events** (`GET /api/sse?token=…&tournaments=…`): the server pushes **`tournamentChanged`** to clients subscribed to that tournament; **`catalogChanged`** (players/classes) and **`tournamentsChanged`** are **broadcast to every connected client**. The client uses the browser's `EventSource` and refetches affected tournament detail, **merging** the score draft so unsaved typing is not wiped. **Stopwatch display:** while a match is **LIVE**, elapsed time is derived **locally** from server timestamps (`matchStartedAt`, `totalPausedMs`, …) on a one-second **UI** tick — no per-second HTTP or SSE traffic; timer **state** still updates only from the API or SSE-driven refetches when you use the controls or another client changes the match. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
-- **Feedback:** **Toasts** (global, bottom of the screen) surface validation hints and API errors for tournament actions (for example advance rules or save issues).
-- **UI:** Vue front end with a single light theme, **responsive** layout including a mobile navigation menu. **`CatalogPageHeader`** (`client/src/components/common/CatalogPageHeader.vue`) unifies title rows and action toolbars on **Classes**, **Players**, **Tournaments**, and the signed-in **home** (dashboard) view; optional intro text and controls use Vue slots.
-- **Theming (centralized):** fonts and semantic UI colors are configured centrally. Font tokens live in `client/src/theme/designTokens.js` + `client/src/theme/fonts.css`; semantic color variables (`--ui-primary`, `--ui-card-*`, `--ui-input-*`, `--ui-danger*`) and reusable UI classes (`.ui-card`, `.ui-btn-primary-*`, `.ui-input-*`, etc.) are defined in `client/src/style.css`.
+- **Auth + roles:** invite-code signup, JWT sessions, `user`/`admin` roles with admin-only school/user management.
+- **Shared catalog:** classes, players, and tournaments are editable by any signed-in user; creator attribution is kept for transparency.
+- **Tournament operations:** `GROUP_KO`, `DIRECT_KO`, `ROUND_ROBIN`, plus roster management, transfers, standings, and phase progression.
+- **Realtime updates:** SSE (`/api/sse`) pushes tournament and catalog changes to connected clients.
+- **Match control:** timer controls, score persistence, KO advancement rules, and final auto-complete.
+- **Frontend UX:** responsive Vue UI with global toasts, centralized design tokens, and shared page-header components.
 
-### Knockout bracket, phase flow, randomness
-
-- **Bracket (Turnierbaum):** In this project, "bracket" means the K.O. tournament tree (who plays whom and which winner advances to the next round).
-- **Phase flows:** Group+KO and Direct-KO display concrete KO phases (`ROUND_OF_16` → `QUARTER` → `SEMI` → `FINAL` → `COMPLETED`) depending on team count and current state; Round-Robin uses `GROUP` (match operation phase) → `COMPLETED`.
-- **Randomness:** KO pairings are intentionally randomized during KO generation (direct KO) and during advancement from qualifiers; byes (`Freilos`) are handled automatically and created as finished matches.
-- **Bye handling:** Non-power-of-2 team counts are padded to the next power of 2. Empty slots become bye matches (`awayTeamId = null`) created as `FINISHED` so they auto-advance the home team. This applies to both Direct-KO generation and qualifier-based advancement.
-- **Tie-breaking in qualifiers:** When multiple teams share the same point total at the cutoff boundary, a deterministic pseudo-random selection (seeded by tournament ID + group label) picks the advancing teams and emits a user-visible notice.
-- **Winner determination:** KO winners are determined exclusively from persisted `homeScore`/`awayScore`. Draws are not allowed in knockout — the user must enter a decisive result (e.g. after extra time or penalties).
-
-For a detailed German-language explanation of the tournament logic, see **[`doc/TURNIERLOGIK.md`](doc/TURNIERLOGIK.md)**.
+For detailed tournament behavior (KO bracket, byes, tie-breakers, phase flow), see **[`doc/TURNIERLOGIK.md`](doc/TURNIERLOGIK.md)**.
+For contributor/deep implementation notes, see **[`AGENTS.md`](AGENTS.md)**.
 
 ## How To Use (Typical Workflow)
 
@@ -147,8 +133,8 @@ Server architecture (quick reference):
    Then run all local DB scripts with explicit binary path:
 
    ```bash
-   PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:init
-   PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:start
+   npm run db:init
+   npm run db:start
    ```
 
 3. **Configure the server environment.** Copy the example file and adjust values if needed:
@@ -192,7 +178,8 @@ Server architecture (quick reference):
    Helpful commands:
    - `npm run db:status`
    - `npm run db:stop`
-   - If Postgres binaries are not in your PATH, set `PG_BIN` (example: `PG_BIN=/opt/homebrew/opt/postgresql@16/bin npm run db:start`).
+   - The script auto-detects Homebrew Postgres (`postgresql@16/bin`) when available.
+   - If binaries are still not in your PATH, set `PG_BIN` manually (example: `PG_BIN=/opt/homebrew/opt/postgresql@16/bin npm run db:start`).
 
    If you run into role/permission issues (for example Prisma `P1010: User was denied access`), fix local ownership/rights once:
 
@@ -253,12 +240,23 @@ npm run db:clear:test -- --yes
    - API: [http://localhost:3001](http://localhost:3001)
    - The Vite dev server proxies **`/api`** to port 3001. SSE (`/api/sse`) goes through that proxy as a regular long-lived HTTP response — no special WebSocket pass-through is needed.
 
+7. **(Optional) Run Lambda locally via SAM** (integration path):
+
+   ```bash
+   npm run dev:lambda
+   ```
+
+   Notes:
+   - This path uses your local Postgres (`localhost:5432`) and runs Prisma schema sync before SAM startup.
+   - `sam local` itself requires Docker as Lambda runtime emulator, even if your daily DB/API workflow runs without Docker.
+   - One-shot invoke is available via `npm run dev:lambda:invoke`.
+
 ### Local Dev Quick Commands (macOS, no Docker)
 
 ```bash
 brew install postgresql@16
-PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:init
-PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:start
+npm run db:init
+npm run db:start
 npm run db:push
 npm run db:push:test
 npm run db:seed
@@ -267,6 +265,8 @@ npm run dev
 
 ## NPM Scripts (repository root)
 
+### Local Dev (no Docker DB)
+
 | Script | Description |
 | ------ | ----------- |
 | `npm run dev` | Starts Express (with API) and the Vite dev server concurrently. |
@@ -274,15 +274,7 @@ npm run dev
 | `npm run db:start` | Starts local Postgres from `data/postgres` and ensures `turnier_dev` + `turnier_test`. |
 | `npm run db:status` | Shows status for the local Postgres cluster in `data/postgres`. |
 | `npm run db:stop` | Stops local Postgres cluster from `data/postgres`. |
-| `npm run cdk:synth` | Synthesizes all CDK stacks in `infra/` to CloudFormation templates (`infra/cdk.out`). |
-| `npm run cdk:diff` | Shows infrastructure differences against the deployed stacks (all CDK stacks). |
-| `npm run cdk:deploy` | Deploys all CDK stacks in dependency order. |
-| `npm run build` | Builds server TypeScript output and the client production bundle. |
-| `npm run lint` | Runs ESLint on the client (`client/`). |
-| `npm run lint:fix` | ESLint with `--fix` (client workspace). |
-| `npm run prod:prepare` | `db:generate` + full `build` (typical after `npm ci` on a server). |
-| `npm run prod:start` | Starts the server with `NODE_ENV=production` (serves API + built SPA from `client/dist`). |
-| `npm run prod` | `prod:prepare` then `prod:start` in one step. |
+| `npm run db:restart` | Restarts the local Postgres cluster (`db:stop` then `db:start`). |
 | `npm run db:push` | Applies the Prisma schema using `server/.env` (= `prisma db push`). |
 | `npm run db:deploy` | Same as `db:push` — use on hosts with the correct `DATABASE_URL` in the environment. |
 | `npm run db:studio` | Opens Prisma Studio against the database from `server/.env`. |
@@ -294,15 +286,53 @@ npm run dev
 | `npm run db:seed:test` | Seeds the test database. |
 | `npm run db:clear:test` | Clears all tables except `User` (test DB). Pass `-- --yes` for confirmation. |
 | `npm run dev:test` | Runs the server with `NODE_ENV=test` (loads `server/.env.test`, default port `3002`). |
+
+### Lambda Local (SAM)
+
+| Script | Description |
+| ------ | ----------- |
+| `npm run dev:lambda:check` | Checks whether `sam` and `docker` are installed and reachable. |
+| `npm run dev:lambda` | Starts local Postgres (if needed), syncs schema, then runs SAM local API (`template.yaml`). |
+| `npm run dev:lambda:sam` | Starts SAM local API only (`sam local start-api -t template.yaml --port 3001`). |
+| `npm run dev:lambda:invoke` | Invokes local Lambda once with sample event (`tests/lambda/events/api-health.json`). |
+
+### AWS / CDK
+
+| Script | Description |
+| ------ | ----------- |
+| `npm run cdk:synth` | Synthesizes all CDK stacks in `infra/` to CloudFormation templates (`infra/cdk.out`). |
+| `npm run cdk:diff` | Shows infrastructure differences against the deployed stacks (all CDK stacks). |
+| `npm run cdk:deploy` | Deploys all CDK stacks in dependency order. |
+
+### Build, Test, Quality
+
+| Script | Description |
+| ------ | ----------- |
+| `npm run build` | Builds server TypeScript output and the client production bundle. |
+| `npm run lint` | Runs ESLint on the client (`client/`). |
+| `npm run lint:fix` | ESLint with `--fix` (client workspace). |
 | `npm run test` | Runs Vitest suites for server + client. |
 | `npm run test:client` | Runs all client tests (unit + client-API integration). |
 | `npm run test:unit` | Runs server unit tests only (Vitest). |
 | `npm run test:integration` | Pushes test schema and runs client-API integration tests (Vitest, against test DB/API). |
 | `npm run security:audit` | Runs a policy-based audit wrapper across workspaces (fails on non-allowlisted high/critical vulnerabilities). |
-| `npm run clean` | Removes `node_modules` and `dist` folders in the monorepo. |
-| `npm run clean:install` | Runs `clean` then `npm install`. |
 | `npm run storybook` | Starts Storybook for the client (port `6006`; config in `tests/client/storybook/`). See **[tests/client/storybook/README.md](tests/client/storybook/README.md)** for fixtures, mocks, and routed stories. |
 | `npm run build-storybook` | Static Storybook build (output under `client/storybook-static/`). |
+
+### Production Helpers
+
+| Script | Description |
+| ------ | ----------- |
+| `npm run prod:prepare` | `db:generate` + full `build` (typical after `npm ci` on a server). |
+| `npm run prod:start` | Starts the server with `NODE_ENV=production` (serves API + built SPA from `client/dist`). |
+| `npm run prod` | `prod:prepare` then `prod:start` in one step. |
+
+### Maintenance
+
+| Script | Description |
+| ------ | ----------- |
+| `npm run clean` | Removes `node_modules` and `dist` folders in the monorepo. |
+| `npm run clean:install` | Runs `clean` then `npm install`. |
 
 **Prisma — `db:push` / `db:deploy` vs `db:generate`:** `db:push` and `db:deploy` both apply the current `schema.prisma` to the configured database (`prisma db push`). `db:generate` only **rebuilds the Prisma Client** under `node_modules` (typed API for your code) and does **not** modify the database.
 

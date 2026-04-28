@@ -30,6 +30,9 @@ Globals:
         CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
         TRUST_PROXY: "1"
         DEFAULT_SCHOOL_NAME: defaultSchool
+        RATE_LIMIT_STORE: memory
+        LOCKOUT_STORE: memory
+        EVENT_BUS: memory
         NODE_OPTIONS: --enable-source-maps
 
 Resources:
@@ -85,7 +88,13 @@ Resources:
 Outputs:
   ApiFunctionUrl:
     Description: REST Function URL (local SAM emulation).
-    Value: !GetAtt ApiFunctionUrl.FunctionUrl
+    Value:
+      Fn::GetAtt:
+        - ApiFunctionUrl
+        - FunctionUrl
   SseFunctionUrl:
     Description: SSE Function URL with response streaming (local SAM emulation).
-    Value: !GetAtt SseFunctionUrl.FunctionUrl
+    Value:
+      Fn::GetAtt:
+        - SseFunctionUrl
+        - FunctionUrl

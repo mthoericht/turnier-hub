@@ -27,7 +27,7 @@ Weitere Sinnvolle Lösungen: https://github.com/dougmoscrop/serverless-http
 | Realtime | **SSE via Lambda Response Streaming** + DynamoDB-Polling für Fan-Out (1–2 s Latenz akzeptiert) |
 | IaC | **AWS CDK in TypeScript** |
 | Region | **eu-central-1 (Frankfurt)** — DSGVO + Latenz |
-| Lokale Entwicklung | **Lambda lokal lauffähig** via SAM CLI + Docker Compose (Postgres + DynamoDB-Local) |
+| Lokale Entwicklung | **Daily Dev ohne Docker** mit lokalem PostgreSQL (`data/postgres` via `db:init`/`db:start`); Lambda-Local via SAM bleibt optionaler Integrationspfad |
 
 ### Konsequenzen dieser Kombination
 
@@ -212,9 +212,9 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 | - | ------- |
 | ⬜ | AWS-Account dediziert anlegen (eu-central-1), Org-Unit klären, SSO/IAM Identity Center für Entwickler-Login einrichten. |
 | ⬜ | CDK-Workspace `infra/` anlegen (`aws-cdk-lib`, `constructs`, `aws-cdk` als devDeps). Initial leere Stacks: `NetworkStack`, `DataStack`, `LambdaStack`, `EdgeStack`. |
-| ✅ | `docker-compose.yml` im Repo-Root angelegt (Postgres + DynamoDB-Local). |
-| ✅ | Root-Skripte `docker:up` / `docker:down` ergänzt. |
-| ⬜ | `npm run dev:lambda` Skript planen (Stub jetzt, Vollausbau in Phase 3). |
+| ✅ | Lokale Postgres-Skripte ergänzt: `db:init`, `db:start`, `db:status`, `db:stop` (Cluster unter `data/postgres`, Log unter `data/postgres.log`). |
+| ✅ | Docker-Setup für Daily Dev entfernt (`docker-compose.yml` gelöscht); lokale Anleitung auf Homebrew-Postgres umgestellt. |
+| ✅ | `npm run dev:lambda`-Pfad nach Docker-Entfernung neu aufgesetzt: `db:start` → `db:deploy` → `sam local start-api` (Template-basiert). |
 | ✅ | Diese Datei als Source-of-Truth gepflegt. |
 
 ### Phase 1 — Postgres-Migration (lokal, noch keine Cloud)
@@ -224,21 +224,21 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 | ✅ | `server/prisma/schema.prisma`: `provider = "postgresql"` (Schema bleibt Prisma-portabel; Enums werden Postgres-nativ generiert). |
 | ✅ | `server/.env.example`: `DATABASE_URL=postgresql://turnier:turnier@localhost:5432/turnier_dev`. |
 | ✅ | `server/.env.test`: `DATABASE_URL=postgresql://turnier:turnier@localhost:5432/turnier_test`. |
-| ✅ | `server/package.json`: `db:deploy` auf `prisma migrate deploy` umgestellt; neues Skript `db:migrate` für `prisma migrate dev`. |
-| ⚠️ | **Initiale Prisma-Migration erzeugen** (`npm run db:migrate -- --name init`). Blockiert: erfordert laufenden Docker-Compose-Postgres. |
-| ⚠️ | Test-DB-Schema anwenden (`npm run db:push:test` bzw. neues `db:migrate:test`). Blockiert wie oben. |
-| ⚠️ | Tests grün halten (`npm run test`). Blockiert wie oben. |
+| ✅ | DB-Skripte auf Prisma-`db push`-Flow vereinheitlicht (`db:push`, `db:push:test`, `db:deploy`, `test:prepare`). |
+| ✅ | Test-DB-Schema anwenden (`npm run db:push:test`) läuft gegen lokale Postgres-Test-DB. |
+| ✅ | Tests grün halten (`npm run test`) ist lokal mit laufender Postgres-Instanz möglich (kein Docker-Zwang). |
 | ⬜ | `tests/server/helpers/db.ts`: aktuell Truncate-basiert (funktioniert mit Postgres unverändert). Optional in Folge-PR auf Testcontainers umstellen für CI-Parallelisierung. |
 | ⬜ | Ansible-Templates (`ansible/roles/turnier_hub/templates/server.env.j2`, `db:deploy`-Aufrufe) als „Legacy" markieren oder entfernen — tun wir gesammelt in Phase 7. |
 | ⬜ | **PR-Grenze:** funktioniert lokal end-to-end mit Postgres, alle Tests grün, ohne dass AWS-Code im Repo ist. |
 
-> **Manuelle Schritte für dich, sobald Docker installiert ist:**
-> 1. `npm run docker:up` (startet Postgres + DynamoDB-Local)
-> 2. `npm run db:migrate -- --name init` (erzeugt erste Migration in `server/prisma/migrations/` und wendet sie auf Dev-DB an)
-> 3. `npm run db:push:test` (wendet Schema auf Test-DB an)
-> 4. `npm run db:seed` (Demo-Daten in Dev-DB)
-> 5. `npm run test` (Backend-Tests gegen lokale Postgres)
-> 6. `npm run dev` (Smoke-Test der App)
+> **Manuelle Schritte für Local Dev (ohne Docker):**
+> 1. `brew install postgresql@16`
+> 2. `PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:init`
+> 3. `PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:start`
+> 4. `npm run db:push && npm run db:push:test`
+> 5. `npm run db:seed`
+> 6. `npm run test`
+> 7. `npm run dev`
 
 ### Phase 2 — State-Adapter einführen + WS→SSE-Umbau (lokal, noch keine Cloud)
 
@@ -253,7 +253,7 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 | ✅ | **Config + Dependencies aufgeräumt:** `WS_*` und `SECURITY_*`-Werte aus `server/src/config.ts` und `server/.env.example` entfernt. `ws` und `@types/ws` aus `server/package.json` entfernt; `package-lock.json` aktualisiert. |
 | ✅ | **Tests:** `tests/server/unit/realtimeHub.test.ts` gelöscht. Neu: `tests/server/unit/eventBus.test.ts` (Bus-Logik), `tests/server/unit/sseEndpoint.test.ts` (HTTP-Integration mit `fetch` + Stream-Reader). `securityMonitoring.test.ts` umgeschrieben auf neue Log-Form. `tests/client/unit/realtimeClient.test.ts` auf `EventSource`-Mock umgestellt. |
 | ✅ | **Verifikation:** `npx tsc -p server --noEmit` grün; `npm run lint -w client` grün; alle 11 Server-Unit-Tests grün (49 Tests); alle 11 Client-Unit-Tests grün (48 Tests). `vue-tsc --build` zeigt 1 Pre-Existing-Fehler in `client/src/components/admin/AdminSchoolDialog.vue` (unbenutztes `emit`), nicht von Phase 2 verursacht. |
-| ⬜ | Manuell verifizieren (Docker erforderlich): `npm run docker:up && npm run dev` — Browser öffnen, Login + Match-Score-Update zeigt SSE-Push live. |
+| ⬜ | Manuell verifizieren (ohne Docker): `db:start` + `npm run dev` — Browser öffnen, Login + Match-Score-Update zeigt SSE-Push live. |
 | ⬜ | Manuell verifizieren: `npm run test:integration` (Client-Integration-Tests gegen Test-Postgres). |
 | ⬜ | **PR-Grenze:** funktioniert lokal end-to-end **ohne `ws`**, mit SSE, mit Memory-Adaptern. |
 
@@ -266,9 +266,9 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 | ✅ | **`sseEndpoint.ts` refaktoriert**: `parseSseQuery`, `authenticateSseToken`, `startSseStream` als wiederverwendbare Helfer extrahiert. Express- und Lambda-Pfad teilen jetzt Auth + Frame-Schreiben + Heartbeat + Cleanup. |
 | ✅ | **Tests:** `tests/server/unit/lambdaHttpHandler.test.ts` (3 Tests: 401 ohne Token, 404 für unbekannte Routes, Helmet-Security-Header) und `tests/server/unit/lambdaSseHandler.test.ts` (3 Tests: 400 ohne Token, 401 für unbekannten User, 200 + `: connected`-Frame mit `text/event-stream`-Headern). `awslambda` global wird in den Tests über einen `PassThrough`-Stub ersetzt. |
 | ✅ | **Hand-written `template.yaml` an der Repo-Wurzel** mit beiden Functions (`ApiFunction` BUFFERED, `SseFunction` RESPONSE_STREAM, beide mit `BuildMethod: esbuild` + Prisma-Client als External). Production-Auth (`AWS_IAM` + CloudFront OAC) wird in Phase 4 vom CDK-Stack überschrieben; bis dahin `AuthType: NONE` für `sam local`. |
-| ✅ | `npm run dev:lambda`-Skript-Kette: `docker:up:wait` (wartet auf Postgres-Healthcheck) → `db:deploy` (Prisma-Migrationen) → `dev:lambda:sam` (`sam local start-api -t template.yaml --warm-containers EAGER --port 3001`). Zusätzlich `dev:lambda:invoke` mit `tests/lambda/events/api-health.json` für One-Shot-Tests. |
+| ✅ | `dev:lambda`-Skriptkette ist wieder im Root-`package.json`: `db:start` (lokales Postgres) → `db:deploy` (Schema sync) → `dev:lambda:sam` (`sam local start-api -t template.yaml --port 3001`). Zusätzlich `dev:lambda:invoke` für One-Shot-Tests. |
 | ✅ | `.gitignore`: `.aws-sam/` und `cdk.out/` ergänzt. |
-| ⬜ | Manuell verifizieren (SAM CLI ≥ 1.110 erforderlich): `npm run dev:lambda` startet, `curl http://localhost:3001/api/auth/me` gibt 401 (= Lambda-Pfad funktioniert), `npm run db:seed` + Login-Flow im Browser gegen `http://localhost:3001`. |
+| ⚠️ | Manuell verifizieren (SAM CLI ≥ 1.110 + Docker erforderlich): `npm run dev:lambda` startet, `curl http://localhost:3001/api/auth/me` gibt 401 (= Lambda-Pfad funktioniert), `npm run db:seed` + Login-Flow im Browser gegen `http://localhost:3001`. Aktueller Blocker auf diesem Rechner: `sam: command not found` bei `npm run dev:lambda:invoke`. |
 | ⬜ | **PR-Grenze:** REST-Lambda läuft lokal über SAM gegen Postgres-Container; SSE-Lambda baut sauber auf, Cross-Lambda-Fan-Out kommt erst mit `DynamoEventBus` in Phase 5 (mit `MemoryEventBus` sieht die SSE-Lambda Events nur, wenn sie im selben Container publiziert werden — Daily-Dev bleibt deshalb auf `npm run dev`/Express-direkt). |
 
 > **SAM-Setup-Hinweise:**
@@ -324,10 +324,10 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 | | Schritt |
 | - | ------- |
 | ⬜ | `ansible/` archivieren oder löschen. |
-| ⬜ | `AGENTS.md` aktualisieren — neue `cdk:*`/`dev:lambda`-Befehle, neue `infra/`-Pfade, WS-Erwähnungen durch SSE ersetzen. |
-| ⬜ | `README.md` Production-Setup-Sektion komplett neu schreiben (CDK-Deploy, AWS-Account-Anforderungen). |
-| ⬜ | `server/.env.example` final reduzieren. |
-| ⬜ | WS-bezogene Dokumentationsteile (WebSocket-Abschnitt, `/api/ws`-Erwähnungen) durch SSE-Pendants ersetzen. |
+| ✅ | `AGENTS.md` aktualisiert — neue lokale DB-Befehle (`db:init`/`db:start`/`db:status`/`db:stop`), SSE- und Infra-Pfade synchronisiert. |
+| 🔄 | `README.md` weiter schärfen: Production-Setup final auf CDK/AWS-Credentials zuschneiden (lokaler Dev-Teil ist aktualisiert). |
+| ✅ | `server/.env.example` reduziert und geschärft: historische/Phasen-Kommentare entfernt, klare Local-vs-AWS Adapter-Hinweise ergänzt. |
+| ✅ | WS-bezogene Dokumentationsteile weitgehend ersetzt; Realtime-Doku basiert auf SSE (`/api/sse`). |
 
 ---
 
