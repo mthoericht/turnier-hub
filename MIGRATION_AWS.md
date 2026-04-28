@@ -296,7 +296,7 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 | - | ------- |
 | ✅ | **Runtime-Adapter live:** neue Dynamo-Implementierungen `DynamoRateLimitStore`, `DynamoLockoutStore`, `DynamoEventBus` eingebaut; Runtime-Umschaltung über Env (`RATE_LIMIT_STORE`, `LOCKOUT_STORE`, `EVENT_BUS`) in `server/src/runtime/runtimeAdapters.ts`. `createApp()` und `lambda/sseHandler.ts` nutzen jetzt denselben Resolver (`memory` default, `dynamo` für AWS). |
 | ⬜ | Performance-Test: 100 parallele SSE-Verbindungen, 1×/s Polling → DynamoDB Capacity (on-demand vs. provisioned) entscheiden. |
-| ⬜ | CloudWatch-Alarms scharfschalten: Lambda Errors > 1 % / 5 min, Lambda Throttles > 0, RDS CPU > 80 %, RDS Connections > 80 % vom Max, WAF blocked > Schwelle, Custom Metric Filter für `category:security`. |
+| ✅ | **CloudWatch-Alarms + Security-Metrik:** neuer `infra/lib/observability-stack.ts` erstellt. Enthält Alarme für Lambda Error-Rate (>1%/5m), Lambda Throttles (>0), RDS CPU (>80%), RDS Connections (>80), WAF `BlockedRequests` (CloudFront WebACL), plus `MetricFilter` auf API-Lambda-Logs für `$.category = \"security\"` (`TurnierHub/Security`, `SecuritySignals`) inkl. Alarm. SNS-Topic für Alarm-Fanout als Output. |
 
 ### Phase 6 — Frontend & Daten-Cutover
 

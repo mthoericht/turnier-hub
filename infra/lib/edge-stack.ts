@@ -21,6 +21,7 @@ export class EdgeStack extends cdk.Stack
 {
   public readonly siteBucket: s3.Bucket;
   public readonly distribution: cloudfront.Distribution;
+  public readonly webAclName: string;
 
   public constructor(scope: Construct, id: string, props: EdgeStackProps)
   {
@@ -35,8 +36,9 @@ export class EdgeStack extends cdk.Stack
       autoDeleteObjects: false,
     });
 
+    this.webAclName = `${props.namePrefix}-web-acl`;
     const webAcl = new wafv2.CfnWebACL(this, "WebAcl", {
-      name: `${props.namePrefix}-web-acl`,
+      name: this.webAclName,
       scope: "CLOUDFRONT",
       defaultAction: { allow: {} },
       visibilityConfig: {

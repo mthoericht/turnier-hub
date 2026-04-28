@@ -5,6 +5,7 @@ import { DataStack } from "../lib/data-stack";
 import { EdgeStack } from "../lib/edge-stack";
 import { LambdaStack } from "../lib/lambda-stack";
 import { NetworkStack } from "../lib/network-stack";
+import { ObservabilityStack } from "../lib/observability-stack";
 
 const app = new cdk.App();
 const config = loadConfig();
@@ -57,6 +58,17 @@ const edgeStack = new EdgeStack(app, `${namePrefix}-edge`, {
   domainName: config.domainName,
   hostedZoneDomain: config.hostedZoneDomain,
   description: "Edge layer (CloudFront, S3, WAF, optional DNS) for turnier-hub",
+});
+
+new ObservabilityStack(app, `${namePrefix}-observability`, {
+  env,
+  namePrefix,
+  apiFunction: lambdaStack.apiFunction,
+  sseFunction: lambdaStack.sseFunction,
+  migrateFunction: lambdaStack.migrateFunction,
+  database: dataStack.database,
+  webAclName: edgeStack.webAclName,
+  description: "CloudWatch metrics, filters, and alarms for turnier-hub",
 });
 
 app.synth();
