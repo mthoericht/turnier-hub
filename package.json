@@ -12,6 +12,9 @@
   "scripts": {
     "clean": "rimraf node_modules client/node_modules server/node_modules client/dist server/dist",
     "clean:install": "npm run clean && npm install",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:reset": "docker compose down -v",
     "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w @turnier-hub/shared && npm run build -w server && npm run build -w client",
     "lint": "npm run lint -w client",
@@ -21,6 +24,8 @@
     "prod": "npm run prod:prepare && npm run prod:start",
     "db:push": "npm run db:push -w server",
     "db:push:test": "npm run db:push:test -w server",
+    "db:migrate": "npm run db:migrate -w server --",
+    "db:migrate:test": "npm run db:migrate:test -w server",
     "db:deploy": "npm run db:deploy -w server",
     "db:studio": "npm run db:studio -w server",
     "dev:test": "npm run dev:test -w server",
