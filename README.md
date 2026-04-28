@@ -128,6 +128,7 @@ Server architecture (quick reference):
 
 - **Node.js** (>= 22)
 - **npm** (workspaces are used at the repo root)
+- **PostgreSQL 16** binaries (`initdb`, `pg_ctl`, `createdb`, optional `psql`)
 
 ## Quick Start
 
@@ -137,7 +138,20 @@ Server architecture (quick reference):
    npm install
    ```
 
-2. **Configure the server environment.** Copy the example file and adjust values if needed:
+2. **Install PostgreSQL binaries on macOS** (Homebrew):
+
+   ```bash
+   brew install postgresql@16
+   ```
+
+   Then run all local DB scripts with explicit binary path:
+
+   ```bash
+   PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:init
+   PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:start
+   ```
+
+3. **Configure the server environment.** Copy the example file and adjust values if needed:
 
    ```bash
    cp server/.env.example server/.env
@@ -156,7 +170,7 @@ Server architecture (quick reference):
    - `TRUST_PROXY` — set to `1` (or the correct hop count) when running behind a reverse proxy so IP-based protections use the real client IP.
    - `JSON_BODY_LIMIT` — max JSON request payload size for `express.json` (default `100kb`).
 
-2.1. **(Optional) Configure the client API base URL** for deployed frontends:
+3.1. **(Optional) Configure the client API base URL** for deployed frontends:
 
    ```bash
    cp client/.env.example client/.env
@@ -166,7 +180,41 @@ Server architecture (quick reference):
    - Keep it empty in local dev (Vite proxy handles `/api`).
    - Set it to your CloudFront/custom domain in deployed environments (for example `https://turnier.example.com`).
 
-3. **Apply Prisma schema** to the dev DB and optionally **seed** demo data:
+4. **Initialize and start local PostgreSQL** (without Docker):
+
+   ```bash
+   npm run db:init
+   npm run db:start
+   ```
+
+   This creates a local Postgres cluster under `data/postgres`, writes logs to `data/postgres.log`, and ensures both databases (`turnier_dev`, `turnier_test`) exist.
+
+   Helpful commands:
+   - `npm run db:status`
+   - `npm run db:stop`
+   - If Postgres binaries are not in your PATH, set `PG_BIN` (example: `PG_BIN=/opt/homebrew/opt/postgresql@16/bin npm run db:start`).
+
+   If you run into role/permission issues (for example Prisma `P1010: User was denied access`), fix local ownership/rights once:
+
+   ```bash
+   PG_BIN="$(brew --prefix postgresql@16)/bin"
+
+   $PG_BIN/psql -d postgres -c "CREATE ROLE turnier WITH LOGIN PASSWORD 'turnier';" || true
+   $PG_BIN/psql -d postgres -c "ALTER ROLE turnier WITH LOGIN PASSWORD 'turnier';"
+
+   $PG_BIN/psql -d postgres -c "CREATE DATABASE turnier_dev OWNER turnier;" || true
+   $PG_BIN/psql -d postgres -c "CREATE DATABASE turnier_test OWNER turnier;" || true
+
+   $PG_BIN/psql -d postgres -c "ALTER DATABASE turnier_dev OWNER TO turnier;"
+   $PG_BIN/psql -d postgres -c "ALTER DATABASE turnier_test OWNER TO turnier;"
+   $PG_BIN/psql -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE turnier_dev TO turnier;"
+   $PG_BIN/psql -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE turnier_test TO turnier;"
+
+   $PG_BIN/psql -d turnier_dev -c "ALTER SCHEMA public OWNER TO turnier; GRANT ALL ON SCHEMA public TO turnier;"
+   $PG_BIN/psql -d turnier_test -c "ALTER SCHEMA public OWNER TO turnier; GRANT ALL ON SCHEMA public TO turnier;"
+   ```
+
+5. **Apply Prisma schema** to the dev DB and optionally **seed** demo data:
 
    ```bash
    npm run db:push   # = prisma db push
@@ -181,7 +229,7 @@ Server architecture (quick reference):
 
    The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`) with role **`admin`**, twelve players, shared demo **school classes**, and four demo tournaments: **"Demo: Football School Cup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), **"Demo: Direct K.O. with 15 Teams"** (Direct K.O., 15 teams), and **"Demo: Badminton Round Robin"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
 
-4.1. **Wipe demo data (dev/test) without deleting users**
+5.1. **Wipe demo data (dev/test) without deleting users**
 
 If you want to remove all demo content but keep `User` rows intact:
 
@@ -195,7 +243,7 @@ For the test database:
 npm run db:clear:test -- --yes
 ```
 
-5. **Run the app in development** (API + Vite dev server with proxy):
+6. **Run the app in development** (API + Vite dev server with proxy):
 
    ```bash
    npm run dev
@@ -205,11 +253,27 @@ npm run db:clear:test -- --yes
    - API: [http://localhost:3001](http://localhost:3001)
    - The Vite dev server proxies **`/api`** to port 3001. SSE (`/api/sse`) goes through that proxy as a regular long-lived HTTP response — no special WebSocket pass-through is needed.
 
+### Local Dev Quick Commands (macOS, no Docker)
+
+```bash
+brew install postgresql@16
+PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:init
+PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:start
+npm run db:push
+npm run db:push:test
+npm run db:seed
+npm run dev
+```
+
 ## NPM Scripts (repository root)
 
 | Script | Description |
 | ------ | ----------- |
 | `npm run dev` | Starts Express (with API) and the Vite dev server concurrently. |
+| `npm run db:init` | Initializes local Postgres data directory under `data/postgres` (no Docker). |
+| `npm run db:start` | Starts local Postgres from `data/postgres` and ensures `turnier_dev` + `turnier_test`. |
+| `npm run db:status` | Shows status for the local Postgres cluster in `data/postgres`. |
+| `npm run db:stop` | Stops local Postgres cluster from `data/postgres`. |
 | `npm run cdk:synth` | Synthesizes all CDK stacks in `infra/` to CloudFormation templates (`infra/cdk.out`). |
 | `npm run cdk:diff` | Shows infrastructure differences against the deployed stacks (all CDK stacks). |
 | `npm run cdk:deploy` | Deploys all CDK stacks in dependency order. |
@@ -250,7 +314,7 @@ Realtime test coverage (current baseline):
 
 ### Dev DB
 - Environment file: `server/.env`
-- Underlying database: local PostgreSQL database `turnier_dev`
+- Underlying database: local PostgreSQL database `turnier_dev` (cluster files in `data/postgres`)
 - Apply schema: `npm run db:push` (= `prisma db push`)
 - Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)
 - Clear demo content (keep `User`): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
@@ -259,7 +323,7 @@ Realtime test coverage (current baseline):
 
 ### Test DB
 - Environment file: `server/.env.test`
-- Underlying database: local PostgreSQL database `turnier_test`
+- Underlying database: local PostgreSQL database `turnier_test` (same local cluster)
 - Apply schema: `npm run db:push:test`
 - Seed demo data: `npm run db:seed:test` (same script: `server/scripts/seed.ts`)
 - Clear demo content (keep `User`): `npm run db:clear:test -- --yes` (same script: `server/scripts/clearDbExceptUsers.ts`)

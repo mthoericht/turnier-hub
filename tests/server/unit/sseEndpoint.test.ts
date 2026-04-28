@@ -1,5 +1,5 @@
 import http from "node:http";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../../server/src/app.js";
 import { signToken } from "../../../server/src/auth/token.js";
 import { MemoryEventBus } from "../../../server/src/realtime/eventBus.js";
@@ -76,6 +76,13 @@ describe("SSE endpoint /api/sse", () =>
     const addr = server.address();
     const port = typeof addr === "object" && addr ? addr.port : 0;
     baseUrl = `http://127.0.0.1:${port}`;
+  });
+
+  beforeEach(() =>
+  {
+    // Expected auth failures (401) in dedicated tests emit structured security
+    // warning logs; mute them to keep test output focused.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterAll(async () =>

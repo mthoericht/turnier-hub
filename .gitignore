@@ -10,3 +10,5 @@ figma-preset
 storybook-static
 .aws-sam
 cdk.out
+data/postgres/
+data/postgres.log

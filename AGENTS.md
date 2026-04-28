@@ -12,6 +12,10 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 | Goal | Command |
 | ---- | ------- |
+| Init local Postgres cluster (no Docker) | `npm run db:init` |
+| Start local Postgres cluster | `npm run db:start` |
+| Check local Postgres status | `npm run db:status` |
+| Stop local Postgres cluster | `npm run db:stop` |
 | Dev (API + Vite) | `npm run dev` |
 | CDK synth (all infra stacks) | `npm run cdk:synth` |
 | CDK diff (all infra stacks) | `npm run cdk:diff` |
@@ -50,7 +54,38 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - Copy `server/.env.example` → `server/.env` for local development. Do **not** commit `.env`.
 - `DATABASE_URL` in `.env` is a Postgres connection string; default points at `postgresql://turnier:turnier@localhost:5432/turnier_dev?schema=public`.
 - **Test** profile: `server/.env.test` (separate Postgres database, default `postgresql://turnier:turnier@localhost:5432/turnier_test?schema=public`). Seed respects an already-set `DATABASE_URL` so `dotenv-cli` can target the test DB.
+- Local Postgres can run from `data/postgres` via root scripts (`db:init` / `db:start` / `db:stop`). Logs go to `data/postgres.log`. If binaries are not in PATH, use `PG_BIN=/path/to/postgres/bin`.
 - Typical keys: `JWT_SECRET`, `INVITE_CODE`, `PORT`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`.
+
+### Local Postgres quick setup (macOS, no Docker)
+
+```bash
+brew install postgresql@16
+PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:init
+PG_BIN="$(brew --prefix postgresql@16)/bin" npm run db:start
+npm run db:push
+npm run db:push:test
+```
+
+If Prisma reports `P1010: User was denied access`, fix local role/db ownership once:
+
+```bash
+PG_BIN="$(brew --prefix postgresql@16)/bin"
+
+$PG_BIN/psql -d postgres -c "CREATE ROLE turnier WITH LOGIN PASSWORD 'turnier';" || true
+$PG_BIN/psql -d postgres -c "ALTER ROLE turnier WITH LOGIN PASSWORD 'turnier';"
+
+$PG_BIN/psql -d postgres -c "CREATE DATABASE turnier_dev OWNER turnier;" || true
+$PG_BIN/psql -d postgres -c "CREATE DATABASE turnier_test OWNER turnier;" || true
+
+$PG_BIN/psql -d postgres -c "ALTER DATABASE turnier_dev OWNER TO turnier;"
+$PG_BIN/psql -d postgres -c "ALTER DATABASE turnier_test OWNER TO turnier;"
+$PG_BIN/psql -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE turnier_dev TO turnier;"
+$PG_BIN/psql -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE turnier_test TO turnier;"
+
+$PG_BIN/psql -d turnier_dev -c "ALTER SCHEMA public OWNER TO turnier; GRANT ALL ON SCHEMA public TO turnier;"
+$PG_BIN/psql -d turnier_test -c "ALTER SCHEMA public OWNER TO turnier; GRANT ALL ON SCHEMA public TO turnier;"
+```
 
 ## Database and Prisma
 
@@ -156,7 +191,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Modal dialog + focus trap | `client/src/components/common/EntityDialog.vue`, `client/src/composables/useDialogFocusTrap.ts` |
 | Global confirm + text prompt | `client/src/stores/confirmDialog.ts`, `textPromptDialog.ts`, `GlobalTextPromptDialog.vue`, mounted in `App.vue`; Storybook under `tests/client/storybook/stories/components/common/` (`GlobalTextPromptDialog.stories.ts`) |
 | Catalog page header (lists + dashboard) | `client/src/components/common/CatalogPageHeader.vue`; Storybook `tests/client/storybook/stories/components/common/CatalogPageHeader.stories.ts` |
-| Local DB (no Docker) | PostgreSQL on `localhost:5432` (`turnier_dev`, `turnier_test`) |
+| Local DB (no Docker) | PostgreSQL on `localhost:5432` (`turnier_dev`, `turnier_test`), cluster files under `data/postgres` |
 | AWS CDK app + stacks | `infra/bin/infra.ts`, `infra/lib/network-stack.ts`, `infra/lib/data-stack.ts`, `infra/lib/lambda-stack.ts`, `infra/lib/edge-stack.ts`, `infra/lib/config.ts` |
 | AWS migration plan | [`MIGRATION_AWS.md`](MIGRATION_AWS.md) |
 | Legacy single-VM deployment | `ansible/README.md`, `ansible/playbooks/`, `ansible/roles/turnier_hub/` (will be retired in Phase 7) |
