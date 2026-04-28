@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+# Hand-written SAM template used for local Lambda emulation while Phase 3 of
+# the AWS migration is in flight. Phase 4 will replace this file with a CDK-
+# generated `cdk.out/<stack>.template.json` that produces equivalent
+# resources. Until then, this file is the single source of truth for SAM CLI
+# invocations such as `sam local invoke` or `sam local start-api`.
+
+Description: |
+  Local Lambda emulation for turnier-hub. Defines the REST and SSE handlers
+  that target Lambda Function URLs in production. Local SAM invocation uses
+  AuthType NONE; the production CDK stack (Phase 4) overrides this to
+  AWS_IAM and adds CloudFront OAC.
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures:
+      - arm64
+    MemorySize: 512
+    Timeout: 30
+    Environment:
+      Variables:
+        # `host.docker.internal` is the gateway from inside the SAM Docker
+        # container back to the host where Docker Compose runs Postgres.
+        DATABASE_URL: postgresql://turnier:turnier@host.docker.internal:5432/turnier_dev?schema=public
+        JWT_SECRET: dev-only-change-me-and-keep-it-very-long
+        INVITE_CODE: ballspiele2026
+        CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+        TRUST_PROXY: "1"
+        DEFAULT_SCHOOL_NAME: defaultSchool
+        NODE_OPTIONS: --enable-source-maps
+
+Resources:
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: REST/HTTP handler for /api/* (except /api/sse). Wraps Express via serverless-http.
+      CodeUri: server/
+      Handler: src/lambda/httpHandler.handler
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: BUFFERED
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/lambda/httpHandler.ts
+        External:
+          - "@prisma/client"
+          - .prisma/client
+        Format: esm
+        OutExtension:
+          - .js=.mjs
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+
+  SseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Streaming SSE handler for /api/sse. Wraps the bus subscription with awslambda.streamifyResponse.
+      CodeUri: server/
+      Handler: src/lambda/sseHandler.handler
+      Timeout: 900
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: RESPONSE_STREAM
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/lambda/sseHandler.ts
+        External:
+          - "@prisma/client"
+          - .prisma/client
+        Format: esm
+        OutExtension:
+          - .js=.mjs
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+
+Outputs:
+  ApiFunctionUrl:
+    Description: REST Function URL (local SAM emulation).
+    Value: !GetAtt ApiFunctionUrl.FunctionUrl
+  SseFunctionUrl:
+    Description: SSE Function URL with response streaming (local SAM emulation).
+    Value: !GetAtt SseFunctionUrl.FunctionUrl

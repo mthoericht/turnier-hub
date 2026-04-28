@@ -6,8 +6,8 @@ import type { AuthPayload } from "../auth/token.js";
 import { prisma } from "../db.js";
 import type { RealtimeEvent, RealtimeEventBus } from "./eventBus.js";
 
-const SSE_HEARTBEAT_INTERVAL_MS = 30_000;
-const MAX_TOURNAMENT_SUBS_PER_CLIENT = 50;
+export const SSE_HEARTBEAT_INTERVAL_MS = 30_000;
+export const MAX_TOURNAMENT_SUBS_PER_CLIENT = 50;
 
 const querySchema = z.object({
   token: z.string().min(1),
@@ -21,7 +21,7 @@ const querySchema = z.object({
  * EventSource cannot send `Authorization` headers, so the token must travel as
  * a query parameter — same approach as the legacy WebSocket upgrade.
  */
-async function authenticate(token: string): Promise<string | null>
+export async function authenticateSseToken(token: string): Promise<string | null>
 {
   try
   {
@@ -41,11 +41,11 @@ async function authenticate(token: string): Promise<string | null>
 }
 
 /**
- * Parses a comma-separated list of tournament ids from the SSE query string.
+ * Parses a comma-separated list of tournament ids from an SSE query value.
  *
  * Caps at `MAX_TOURNAMENT_SUBS_PER_CLIENT` to bound work per connection.
  */
-function parseTournamentIds(raw: string | undefined): ReadonlySet<string>
+export function parseTournamentIds(raw: string | undefined): ReadonlySet<string>
 {
   if (!raw)
   {
@@ -63,13 +63,87 @@ function parseTournamentIds(raw: string | undefined): ReadonlySet<string>
 }
 
 /**
- * Writes one SSE frame for a realtime event using its `type` as the SSE event
- * name and serialised payload as data. The blank line terminates the frame.
+ * Validates the incoming query string for the SSE endpoint and returns either
+ * a parsed value with `token` and (already cropped) `tournamentIds`, or a
+ * structured error describing why the request must be rejected.
  */
-function writeSseFrame(res: Response, event: RealtimeEvent): void
+export function parseSseQuery(query: unknown):
+  | { kind: "ok"; token: string; tournamentIds: ReadonlySet<string> }
+  | { kind: "invalid" }
 {
-  res.write(`event: ${event.type}\n`);
-  res.write(`data: ${JSON.stringify(event)}\n\n`);
+  const parsed = querySchema.safeParse(query);
+  if (!parsed.success)
+  {
+    return { kind: "invalid" };
+  }
+  return {
+    kind: "ok",
+    token: parsed.data.token,
+    tournamentIds: parseTournamentIds(parsed.data.tournaments),
+  };
+}
+
+type StartSseStreamOptions = {
+  bus: RealtimeEventBus;
+  tournamentIds: ReadonlySet<string>;
+  /** Writes a single SSE chunk (including its trailing `\n\n`) to the client. */
+  write: (chunk: string) => void;
+  /**
+   * Registers a callback that runs when the underlying transport closes
+   * (HTTP `req.close`, Lambda response stream `close`, etc.). The callback
+   * stops the heartbeat and unsubscribes from the bus.
+   */
+  onClose: (handler: () => void) => void;
+};
+
+/**
+ * Wires a transport-agnostic SSE stream to the realtime bus.
+ *
+ * Steps performed:
+ *  1. Writes an initial `: connected` comment so an `EventSource` reaches OPEN.
+ *  2. Subscribes to the bus and writes `event: <type>` / `data: <json>` frames.
+ *  3. Sends a `: heartbeat` comment every `SSE_HEARTBEAT_INTERVAL_MS` to keep
+ *     intermediate proxies (CloudFront, Nginx, …) from idling out the stream.
+ *  4. Registers a single-shot cleanup with the supplied `onClose` hook.
+ *
+ * Returns the cleanup function so callers may invoke it explicitly (e.g. in a
+ * Lambda handler whose runtime ends the stream after the work is done).
+ */
+export function startSseStream(options: StartSseStreamOptions): () => void
+{
+  const { bus, tournamentIds, write, onClose } = options;
+
+  write(": connected\n\n");
+
+  const unsubscribe = bus.subscribe(
+    { tournamentIds },
+    (event: RealtimeEvent) =>
+    {
+      write(`event: ${event.type}\n`);
+      write(`data: ${JSON.stringify(event)}\n\n`);
+    }
+  );
+
+  const heartbeat = setInterval(() =>
+  {
+    write(": heartbeat\n\n");
+  }, SSE_HEARTBEAT_INTERVAL_MS);
+  if (typeof heartbeat.unref === "function")
+  {
+    heartbeat.unref();
+  }
+
+  let cleanedUp = false;
+  const cleanup = (): void =>
+  {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    clearInterval(heartbeat);
+    unsubscribe();
+  };
+
+  onClose(cleanup);
+  return cleanup;
 }
 
 /**
@@ -83,21 +157,19 @@ export function createSseHandler(bus: RealtimeEventBus): RequestHandler
 {
   return async function sseHandler(req: Request, res: Response): Promise<void>
   {
-    const parsed = querySchema.safeParse(req.query);
-    if (!parsed.success)
+    const parsed = parseSseQuery(req.query);
+    if (parsed.kind !== "ok")
     {
       res.status(400).end();
       return;
     }
 
-    const userId = await authenticate(parsed.data.token);
+    const userId = await authenticateSseToken(parsed.token);
     if (!userId)
     {
       res.status(401).end();
       return;
     }
-
-    const tournamentIds = parseTournamentIds(parsed.data.tournaments);
 
     res.status(200);
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
@@ -108,40 +180,20 @@ export function createSseHandler(bus: RealtimeEventBus): RequestHandler
     res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders?.();
 
-    // Initial comment so the EventSource client transitions to OPEN even when
-    // no realtime events have happened yet.
-    res.write(": connected\n\n");
-
-    const unsubscribe = bus.subscribe(
-      { tournamentIds },
-      (event) =>
+    startSseStream({
+      bus,
+      tournamentIds: parsed.tournamentIds,
+      write: (chunk) =>
       {
-        writeSseFrame(res, event);
-      }
-    );
-
-    const heartbeat = setInterval(() =>
-    {
-      // SSE comments keep intermediate proxies from idling-out the connection.
-      res.write(": heartbeat\n\n");
-    }, SSE_HEARTBEAT_INTERVAL_MS);
-    if (typeof heartbeat.unref === "function")
-    {
-      heartbeat.unref();
-    }
-
-    let cleanedUp = false;
-    const cleanup = (): void =>
-    {
-      if (cleanedUp) return;
-      cleanedUp = true;
-      clearInterval(heartbeat);
-      unsubscribe();
-    };
-
-    req.on("close", cleanup);
-    req.on("error", cleanup);
-    res.on("close", cleanup);
-    res.on("error", cleanup);
+        res.write(chunk);
+      },
+      onClose: (handler) =>
+      {
+        req.on("close", handler);
+        req.on("error", handler);
+        res.on("close", handler);
+        res.on("error", handler);
+      },
+    });
   };
 }

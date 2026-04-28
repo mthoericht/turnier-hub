@@ -261,11 +261,20 @@ Beide Modi nutzen **dieselbe Express-App** (`createApp()` in `server/src/app.ts`
 
 | | Schritt |
 | - | ------- |
-| ⬜ | `serverless-http` als Dependency hinzufügen. |
-| ⬜ | Neuer Ordner `server/src/lambda/`: `httpHandler.ts` (`serverless-http(createApp())`), `sseHandler.ts` (mit `awslambda.streamifyResponse`), `migrateHandler.ts` (optional). |
-| ⬜ | CDK initial: lokale `template.json` über `cdk synth` generieren; SAM-CLI nutzt diese. |
-| ⬜ | `npm run dev:lambda` Skript: startet Docker Compose, wartet auf Postgres-Health, läuft `prisma migrate deploy`, startet `sam local start-lambda` parallel. |
-| ⬜ | **PR-Grenze:** Lambda-Wrapper laufen lokal über SAM, REST + SSE end-to-end gegen lokale Postgres + DynamoDB-Local. |
+| ✅ | `serverless-http` (^3.2.0) + `@types/aws-lambda` als Dependencies in `server/`. |
+| ✅ | Neuer Ordner `server/src/lambda/`: `httpHandler.ts` (`serverless-http(createApp())` für Function URL → Express), `sseHandler.ts` (`awslambda.streamifyResponse` ruft die Phase-2-`startSseStream`-Helfer auf — gleiches Auth/Bus-Verhalten wie Express-SSE), `awslambda.d.ts` (ambient Types für `awslambda.HttpResponseStream` + `streamifyResponse`). |
+| ✅ | **`sseEndpoint.ts` refaktoriert**: `parseSseQuery`, `authenticateSseToken`, `startSseStream` als wiederverwendbare Helfer extrahiert. Express- und Lambda-Pfad teilen jetzt Auth + Frame-Schreiben + Heartbeat + Cleanup. |
+| ✅ | **Tests:** `tests/server/unit/lambdaHttpHandler.test.ts` (3 Tests: 401 ohne Token, 404 für unbekannte Routes, Helmet-Security-Header) und `tests/server/unit/lambdaSseHandler.test.ts` (3 Tests: 400 ohne Token, 401 für unbekannten User, 200 + `: connected`-Frame mit `text/event-stream`-Headern). `awslambda` global wird in den Tests über einen `PassThrough`-Stub ersetzt. |
+| ✅ | **Hand-written `template.yaml` an der Repo-Wurzel** mit beiden Functions (`ApiFunction` BUFFERED, `SseFunction` RESPONSE_STREAM, beide mit `BuildMethod: esbuild` + Prisma-Client als External). Production-Auth (`AWS_IAM` + CloudFront OAC) wird in Phase 4 vom CDK-Stack überschrieben; bis dahin `AuthType: NONE` für `sam local`. |
+| ✅ | `npm run dev:lambda`-Skript-Kette: `docker:up:wait` (wartet auf Postgres-Healthcheck) → `db:deploy` (Prisma-Migrationen) → `dev:lambda:sam` (`sam local start-api -t template.yaml --warm-containers EAGER --port 3001`). Zusätzlich `dev:lambda:invoke` mit `tests/lambda/events/api-health.json` für One-Shot-Tests. |
+| ✅ | `.gitignore`: `.aws-sam/` und `cdk.out/` ergänzt. |
+| ⬜ | Manuell verifizieren (SAM CLI ≥ 1.110 erforderlich): `npm run dev:lambda` startet, `curl http://localhost:3001/api/auth/me` gibt 401 (= Lambda-Pfad funktioniert), `npm run db:seed` + Login-Flow im Browser gegen `http://localhost:3001`. |
+| ⬜ | **PR-Grenze:** REST-Lambda läuft lokal über SAM gegen Postgres-Container; SSE-Lambda baut sauber auf, Cross-Lambda-Fan-Out kommt erst mit `DynamoEventBus` in Phase 5 (mit `MemoryEventBus` sieht die SSE-Lambda Events nur, wenn sie im selben Container publiziert werden — Daily-Dev bleibt deshalb auf `npm run dev`/Express-direkt). |
+
+> **SAM-Setup-Hinweise:**
+> - Installation: `brew install aws-sam-cli` (macOS) oder via [AWS-Doku](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html). Mindestversion **1.110** für Streaming-Response-Support in RIE.
+> - Postgres innerhalb des SAM-Containers wird über `host.docker.internal:5432` erreicht (siehe `Globals.Function.Environment.Variables.DATABASE_URL` im Template).
+> - `sam local start-api` puffert SSE-Antworten — der Endpoint kommt durch, aber Streaming sieht man dort nicht. Für echtes Streaming gegen den Lambda-Pfad muss man `sam local invoke SseFunction` mit RIE ≥ 1.16 benutzen oder auf den Cloud-Deploy in Phase 4 warten.
 
 ### Phase 4 — CDK-Stacks für Cloud-Deploy
 

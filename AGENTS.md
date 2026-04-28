@@ -4,26 +4,32 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 ## Repository shape
 
-- **npm workspaces** at the repo root: `client/` (Vue 3 + Vite + Tailwind), `server/` (Express + Prisma + SQLite), **`shared/`** (`@turnier-hub/shared` — TypeScript types and small helpers shared by client and server: catalog API shapes such as `Player`, `SchoolClass`, `CreatedBy`, `AuthUser`, `formatCreator`, `formatPlayerName` in `shared/src/catalog.ts`; tournament DTOs in `shared/src/tournament.ts`). Import from **`@turnier-hub/shared`** in app code (no client-only `types.ts` barrel).
+- **npm workspaces** at the repo root: `client/` (Vue 3 + Vite + Tailwind), `server/` (Express + Prisma + **PostgreSQL**), **`shared/`** (`@turnier-hub/shared` — TypeScript types and small helpers shared by client and server: catalog API shapes such as `Player`, `SchoolClass`, `CreatedBy`, `AuthUser`, `formatCreator`, `formatPlayerName` in `shared/src/catalog.ts`; tournament DTOs in `shared/src/tournament.ts`). Import from **`@turnier-hub/shared`** in app code (no client-only `types.ts` barrel).
 - Run **install and most scripts from the repository root**, not only inside `client` or `server`, unless you have a reason.
+- **AWS migration in flight:** the codebase is being moved to a fully serverless AWS stack (Lambda Function URLs + CloudFront + RDS PostgreSQL + DynamoDB). Status, decisions, and phase-by-phase plan live in [`MIGRATION_AWS.md`](MIGRATION_AWS.md). Phase 1 (Postgres) and Phase 2 (state adapters + WS→SSE) are merged; Phase 3+ is in progress.
 
 ## Commands (from repo root)
 
 | Goal | Command |
 | ---- | ------- |
 | Dev (API + Vite) | `npm run dev` |
+| Start local Postgres + DynamoDB-Local (Docker Compose) | `npm run docker:up` |
+| Stop containers (keep volumes) | `npm run docker:down` |
+| Stop containers + drop volumes | `npm run docker:reset` |
 | Production build (server + client) | `npm run build` |
 | Lint client (ESLint) | `npm run lint` / `npm run lint:fix` |
 | Prod: generate Prisma client + build | `npm run prod:prepare` |
 | Prod: start API + static SPA (`NODE_ENV=production`) | `npm run prod:start` |
 | Prod: prepare + start in one step | `npm run prod` |
-| Apply Prisma schema (dev `.env`) | `npm run db:push` |
-| Apply schema (production naming; uses current `DATABASE_URL`) | `npm run db:deploy` |
+| Apply Prisma migrations (dev `.env`) | `npm run db:push` (= `prisma migrate deploy`) |
+| Generate a new dev migration | `npm run db:migrate -- --name <slug>` |
+| Apply schema (production naming; uses current `DATABASE_URL`) | `npm run db:deploy` (= `prisma migrate deploy`) |
 | Prisma Studio | `npm run db:studio` |
 | Regenerate Prisma client | `npm run db:generate` |
 | Seed demo data (dev) | `npm run db:seed` |
 | Clear DB (dev, keep `User`) | `npm run db:clear -- --yes` |
 | Test DB schema + seed | `npm run db:push:test` / `npm run db:seed:test` |
+| Generate a new test migration (rare) | `npm run db:migrate:test` |
 | Clear DB (test, keep `User`) | `npm run db:clear:test -- --yes` |
 | API only, test env (`PORT` 3002) | `npm run dev:test` |
 | Vitest (all: server + client) | `npm run test` |
@@ -33,42 +39,42 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Security audit (policy wrapper) | `npm run security:audit` |
 | Clean install | `npm run clean:install` |
 
-- **Server** entry: `server/src/index.ts` creates an **HTTP** server from the Express app and attaches the **WebSocket** server on **`/api/ws`** (JWT via query `token=`). Production: `node server/dist/index.js` (`start` / `start:prod` in server workspace).
+- **Server** entry: `server/src/index.ts` creates an **HTTP** server from the Express app. The realtime push uses **Server-Sent Events** on **`GET /api/sse`** (JWT via query `token=`, optional `?tournaments=t1,t2` filter). The legacy `ws`-based hub was removed in the Phase-2 AWS migration step. Production (legacy single-VM): `node server/dist/index.js` (`start` / `start:prod` in server workspace). Production (AWS, in progress): the same Express app runs inside a Lambda via `serverless-http`; SSE has its own streaming Lambda handler.
 - **Client** dev server proxies **`/api`** to the backend (default `http://localhost:3001`); SSE on `/api/sse` works through that proxy as a regular long-lived HTTP response (no `ws: true` needed since the legacy WebSocket hub was removed).
 - **Client** ESLint: flat config in `client/eslint.config.js` (`typescript-eslint`, `eslint-plugin-vue`; stylistic rules include semicolons, Allman braces, 2-space indent).
 - Tests live in the repository root under `tests/` (`tests/server/**`, `tests/client/**`), executed via each workspace's Vitest config.
 - **Storybook** (`npm run storybook`): config under `tests/client/storybook/` — for **fixtures, mocks, router canvas, and Vitest integration** see [`tests/client/storybook/README.md`](tests/client/storybook/README.md). Name the primary CSF export **`Default`** when reasonable so URLs and tooling that expect `…--default` keep working; preview wraps the canvas with padding and uses **non-inline** docs stories for reliable Vue rendering. Example: `tests/client/storybook/stories/components/common/CatalogPageHeader.stories.ts`.
-- Realtime tests: `tests/server/unit/realtimeHub.test.ts` (hub/auth/subscriptions, `tournamentChanged` routing, **broadcast** `catalogChanged` / `tournamentsChanged`) and `tests/client/unit/realtimeClient.test.ts` (client adapter behavior).
+- Realtime tests: `tests/server/unit/eventBus.test.ts` (in-memory bus, subscription filtering, listener isolation) + `tests/server/unit/sseEndpoint.test.ts` (SSE handler over a real HTTP server: auth, frame routing, listener cleanup on disconnect) and `tests/client/unit/realtimeClient.test.ts` (EventSource adapter behaviour).
 - Client TypeScript config uses `tsconfig.base.json` + `tsconfig.app.json`/`tsconfig.node.json`; `*.tsbuildinfo` is cache-only and ignored.
 
 ## Environment and secrets
 
 - Copy `server/.env.example` → `server/.env` for local development. Do **not** commit `.env`.
-- `DATABASE_URL` in `.env` is resolved relative to `server/prisma/` (see `.env.example`).
-- **Test** profile: `server/.env.test` (separate SQLite file, e.g. `data/test.db`). Seed respects an already-set `DATABASE_URL` so `dotenv-cli` can target the test DB.
-- Typical keys: `JWT_SECRET`, `INVITE_CODE`, `PORT`, `DATABASE_URL`.
+- `DATABASE_URL` in `.env` is a Postgres connection string; default points at the local Docker Compose Postgres (`postgresql://turnier:turnier@localhost:5432/turnier_dev`).
+- **Test** profile: `server/.env.test` (separate Postgres database, default `turnier_test` on the same Docker container; created by the init script in `docker/postgres/init/01-create-test-database.sql`). Seed respects an already-set `DATABASE_URL` so `dotenv-cli` can target the test DB.
+- Typical keys: `JWT_SECRET`, `INVITE_CODE`, `PORT`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`.
 
 ## Database and Prisma
 
-- Schema: `server/prisma/schema.prisma`.
-- **`db:push` / `db:deploy`** update the **database** from the schema; **`db:generate`** regenerates the **Prisma Client** only (no DB writes). After changing `schema.prisma`, you typically need both push/deploy and a fresh client.
-- **Dev DB**: uses `server/.env` (SQLite file referenced by `DATABASE_URL`) and the root scripts:
-  - Apply schema: `npm run db:push`
+- Schema: `server/prisma/schema.prisma` (`provider = "postgresql"`).
+- Migration history lives at `server/prisma/migrations/`. Treat it as authoritative — both dev and prod apply migrations rather than the older `prisma db push` flow.
+- **`db:push` / `db:deploy`** both run **`prisma migrate deploy`** (apply existing migrations idempotently). **`db:migrate -- --name <slug>`** runs **`prisma migrate dev`** which creates a new migration from the current schema and applies it locally. **`db:generate`** regenerates the Prisma Client only (no DB writes). After changing `schema.prisma`, generate a migration with `db:migrate` and commit it.
+- **Local prerequisite:** start Postgres + DynamoDB-Local with `npm run docker:up` (defined in `docker-compose.yml` at the repo root). The compose file mounts `docker/postgres/init/` so the test database is created on first start.
+- **Dev DB**: uses `server/.env` and the root scripts:
+  - Apply migrations: `npm run db:push`
   - Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)
     - Under the hood: `server/package.json` configures Prisma seed (`prisma.seed`) to run `tsx scripts/seed.ts`.
   - Clear DB (keep `User`): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
     - Under the hood: `server/package.json` runs `tsx scripts/clearDbExceptUsers.ts`.
 - **Test DB**: uses `server/.env.test` and the root scripts:
-  - Apply schema: `npm run db:push:test`
+  - Apply migrations: `npm run db:push:test`
   - Seed demo data: `npm run db:seed:test` (same script: `server/scripts/seed.ts`)
     - Under the hood: same `tsx scripts/seed.ts`, but executed with `dotenv -e .env.test`.
   - Clear DB (keep `User`): `npm run db:clear:test -- --yes` (same script: `server/scripts/clearDbExceptUsers.ts`)
     - Under the hood: same `tsx scripts/clearDbExceptUsers.ts`, but executed with `dotenv -e .env.test`.
-- **Production**: uses host environment variables (especially `DATABASE_URL`) and the root scripts:
-  - Apply schema: `npm run db:deploy` (currently `prisma db push`; no migration history yet)
-  - Regenerate Prisma client if needed: `npm run db:generate`
-  - Seed/clear are not part of the standard production flow; avoid `db:clear` on production.
-- **Breaking schema changes:** if `prisma db push` refuses to add non-nullable columns to existing rows, use a **development-only** reset (destroys all local DB data), then `db:seed`. Prisma may require `prisma db push --force-reset` plus an explicit consent env var when run from tooling; running the same from your own terminal is fine for local SQLite.
+- **Production (legacy single-VM)**: uses host environment variables (especially `DATABASE_URL`) and runs `npm run db:deploy` to apply migrations.
+- **Production (AWS, in progress)**: a dedicated `migrate`-Lambda runs `prisma migrate deploy` against RDS Postgres on deploy (CDK custom resource — Phase 4).
+- **Schema iteration:** edit `schema.prisma`, run `npm run db:migrate -- --name <slug>` to generate a migration, run tests. Commit the new migration folder. For destructive iterations against an empty local DB, `npx prisma migrate reset --force` from `server/` is fine.
 
 ## API surface (high level)
 
@@ -77,14 +83,15 @@ This document helps humans and coding agents work effectively in **turnier-hub**
   - Schools: `GET/POST /schools`, `PATCH/DELETE /schools/:id`
   - Users: `GET /users`, `PATCH /users/:id/role`, `PATCH /users/:id/school`
   - Safety constraints: school delete is blocked while users are assigned; demoting the last remaining admin is blocked.
-- **WebSocket** at **`/api/ws`** (same origin/port as the API in production; query `?token=<JWT>`). Clients **subscribe** to tournament IDs; the server **pushes** `tournamentChanged` to those subscribers. After catalog or tournament-list mutations it **broadcasts** `catalogChanged` (players/classes) and `tournamentsChanged` to **all** connected sockets (`server/src/realtime/hub.ts`, `notify.ts`, route handlers).
+- **Realtime** uses **Server-Sent Events** at **`GET /api/sse`** (same origin/port as the API in production; query `?token=<JWT>` and optional `?tournaments=t1,t2`). The handler authenticates the JWT, registers a listener with the in-process `RealtimeEventBus`, and writes typed SSE frames (`event: tournamentChanged|catalogChanged|tournamentsChanged`). After catalog or tournament-list mutations the server **broadcasts** `catalogChanged` (players/classes) and `tournamentsChanged` to every subscriber; `tournamentChanged` only goes to subscribers that opted into that tournament id (`server/src/realtime/eventBus.ts`, `sseEndpoint.ts`, `notify.ts`, route handlers).
+- The realtime backend is bus-shaped on purpose: `MemoryEventBus` runs single-process (dev, tests, legacy VM), and the upcoming `DynamoEventBus` (Phase 5) will fan out events across REST-Lambda → SSE-Lambda via a DynamoDB event log.
 - Auth: `Authorization: Bearer <JWT>`; client stores token in **localStorage** key `turnier_hub_token`.
 
 ## Front end
 
 - **Pinia:** global **`auth`** and **`toast`**; domain stores in `client/src/stores/` — **`tournamentLayout`** (active tournament detail, standings, score draft, roster form state), **`playersManagement`**, **`classesManagement`**, **`tournamentsList`**, **`dashboard`**. **Global modal APIs (no local `EntityDialog` in views):** **`confirmDialog`** (`requestConfirm` → boolean) and **`textPromptDialog`** (`requestPrompt` → string or null); hosts in **`App.vue`** (`EntityDialog` + **`GlobalTextPromptDialog.vue`**). Feature composables mostly **delegate** to these stores (`storeToRefs` + `onMounted` loads); admin view state lives in `client/src/composables/admin/useAdminManagementState.ts`. **Vue Router**.
 - **Auth roles:** `AuthUser` now includes `role` (`admin` | `user`). Prisma stores roles as `ADMIN` / `USER` (`User.role`, default `USER`). The top navigation shows the `/admin` entry only for admins.
-- **Realtime client:** `client/src/realtime/realtimeClient.ts` — connects after login/hydrate, disconnects on logout; **subscribe/unsubscribe** tournament IDs from `useTournamentLayoutState`; dynamic `import()` of stores in the message dispatcher avoids circular deps with `auth` (prefer **relative** paths in those imports for `vue-tsc`).
+- **Realtime client:** `client/src/realtime/realtimeClient.ts` — opens an `EventSource` on `/api/sse?token=…&tournaments=…` after login/hydrate, closes it on logout; **subscribe/unsubscribe** tournament IDs from `useTournamentLayoutState` mutate the URL set and trigger a debounced (`queueMicrotask`) reconnect of the SSE stream. Dynamic `import()` of stores in the message dispatcher avoids circular deps with `auth` (prefer **relative** paths in those imports for `vue-tsc`).
 - **Realtime client tests:** `setRealtimeDispatchForTests(...)` exists only as a small test seam for unit tests; production code should keep using the default internal dispatch.
 - Styling: keep style decisions centralized. Use `client/src/style.css` for semantic UI color variables and shared utility classes (`.ui-card`, `.ui-btn-*`, `.ui-input-*`, etc.). Keep font and Tailwind token sources in `client/src/theme/designTokens.js` and `client/src/theme/fonts.css`.
 - **Catalog list / dashboard header:** `client/src/components/common/CatalogPageHeader.vue` — shared title row for **`DashboardView`** (signed-in dashboard), **`ClassesViewPreset`**, **`PlayersViewPreset`**, **`TournamentsView`**. Props: `title`; optional **`variant`**: `catalog` (default, includes `mb-6`) or **`hero`** (larger title, no bottom margin — parent supplies vertical spacing, e.g. `space-y-8`). Slots: **`description`** (optional intro copy; inner wrapper `max-w-3xl`), **`actions`** (e.g. `ScopeToggle`, filters, primary buttons).
@@ -95,7 +102,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - **Round-robin scheduling** uses the circle method with parallel rounds (`roundOrder` on Match); UI shows "Spielrunde N (X Spiele parallel)".
 - **KO bracket** generation: `server/src/services/knockoutBracket.ts` centralizes randomization + pairings and handles byes (null `awayTeamId`). Bye matches are created as `FINISHED` and auto-resolved when advancing.
 - **Tournament routes are modularized** under `server/src/routes/tournaments/` (`index.ts`, `core.ts`, `teams.ts`, `matches.ts`, `standings-advance.ts`, `shared.ts`). Route handlers are thin (validate → service → notify → respond); business logic lives in `server/src/services/tournamentRosterService.ts` and `tournamentMatchService.ts`.
-- **Score draft:** `buildScoreDraftFromMatches` / `mergeScoreDraftFromMatches` in `tournamentDerive.ts` — merge on **`load()`** (including **WebSocket-driven** refetches) avoids overwriting in-progress edits; draft defaults missing DB scores to **`"0"`**; **`parseScoreDraftForPatch`** requires **both** goals when saving (no partial PATCH). Tournament action errors use **toasts** from the layout store / `useTournamentLayoutState` (initial load failure still uses layout `error`). **Regenerate group / advance** confirm dialogs when existing results would be lost (`groupRegenerateRisksDataLoss`, `advanceTargetRisksDataLoss` in `tournamentDerive.ts`). "Freilos" replaces `—` for null awayTeam in KO matches.
+- **Score draft:** `buildScoreDraftFromMatches` / `mergeScoreDraftFromMatches` in `tournamentDerive.ts` — merge on **`load()`** (including **SSE-driven** refetches) avoids overwriting in-progress edits; draft defaults missing DB scores to **`"0"`**; **`parseScoreDraftForPatch`** requires **both** goals when saving (no partial PATCH). Tournament action errors use **toasts** from the layout store / `useTournamentLayoutState` (initial load failure still uses layout `error`). **Regenerate group / advance** confirm dialogs when existing results would be lost (`groupRegenerateRisksDataLoss`, `advanceTargetRisksDataLoss` in `tournamentDerive.ts`). "Freilos" replaces `—` for null awayTeam in KO matches.
 - **Delete all matches:** `DELETE /api/tournaments/:id/matches` removes every match and resets the phase to `GROUP`. In the Spielbetrieb view, a **"Danger zone"** section (visible when matches exist) offers a red **"Delete all matches and groups"** button with a `confirm()` dialog. Client: `deleteAllMatches` in `tournamentsApi.ts` / `useTournamentLayoutState`.
 - **Group generation guard:** `POST /api/tournaments/:id/generate-group-matches` only includes teams with at least one member; empty teams are excluded and their `groupLabel` stays/gets `null`.
 - **Group regeneration behavior:** `POST /api/tournaments/:id/generate-group-matches` removes existing KO matches before creating new group matches.
@@ -103,14 +110,14 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - **Auto-complete on final:** If final match(es) are finished, tournament phase is set to `COMPLETED`.
 - **K.O. randomness:** Direct-KO generation and qualifier-based KO creation both use randomized pairings.
 - **Server KO advancement:** `requireKnockoutWinnerTeamId` in `server/src/services/standings.ts` (used by `advancePhase.ts`) — winners come from **persisted** `homeScore`/`awayScore` only; timer **end** alone does not set them.
-- **Match stopwatch (UI):** `useMatchTimerDisplay` in `client/src/composables/tournaments/useMatchTimerDisplay.ts` drives `MatchTimer.vue` (used by `TournamentMatchCard.vue`); it calls `computeMatchElapsedMs` in `client/src/tournament/matchElapsed.ts` (same rules as `server/src/services/matchTimer.ts`) with ISO timer fields from the API. **LIVE** matches refresh the display on a **local** 1s interval; **no** per-second network polling. **PAUSED** / finished times need no ticking. Timer **state** still comes from REST/WebSocket when matches change.
+- **Match stopwatch (UI):** `useMatchTimerDisplay` in `client/src/composables/tournaments/useMatchTimerDisplay.ts` drives `MatchTimer.vue` (used by `TournamentMatchCard.vue`); it calls `computeMatchElapsedMs` in `client/src/tournament/matchElapsed.ts` (same rules as `server/src/services/matchTimer.ts`) with ISO timer fields from the API. **LIVE** matches refresh the display on a **local** 1s interval; **no** per-second network polling. **PAUSED** / finished times need no ticking. Timer **state** still comes from REST + SSE-driven refetches when matches change.
 - **Classes / players:** route `/classes`, `/players`; API `classesApi.ts`, `playersApi.ts` (query `scope=all|own` filters the list only). Player data uses `firstName` + `lastName` (no single `name` field). **Player** dialogs load **all** classes for the class dropdown (`schoolClassOptions` in `playersManagement` store). Players list UX: class filter + free-text search (`Vorname`, `Name`, combined full name, `Klasse`) and sortable columns (`Vorname`, `Name`, `Klasse`, asc/desc). On narrow layouts, creator attribution is shown as compact text below row action buttons instead of a dedicated table column. Players page has an **Import/Export** dialog: import via `POST /api/players/import` expects `Vorname`, `Name` (last name), `Klasse` and supports `append`, `replace_players` (diff by first/last/class; only missing rows deleted), and `reset_all` (clears tournaments, players, classes before import); export writes current players to XLSX with the same schema. Server: any authenticated user may PATCH/DELETE any class or player; tournament roster `POST …/members` accepts any catalog player id (`requireTournamentExists` replaces owner checks in `server/src/routes/tournaments/shared.ts`).
 - Prefer **responsive** patterns already used: mobile nav in `App.vue`, `sm:` / `md:` breakpoints elsewhere.
 
 ## Conventions for changes
 
 - Keep diffs **focused** on the requested task; match existing style, imports, and naming.
-- Do **not** commit SQLite files (`*.db`), `.env`, or generated `dist/` / `node_modules/`.
+- Do **not** commit `.env`, generated `dist/` / `node_modules/`, or any local Postgres data dirs (Docker volumes already keep them outside the repo).
 - **English** for `README.md` and this file; product UI strings may stay **German** unless the project moves to i18n.
 - If you add new env vars, update `server/.env.example` and [README.md](README.md) when relevant.
 - After substantive client edits, run **`npm run lint -w client`** (and `vue-tsc --build --noEmit` in `client/` if types are touched).
@@ -131,7 +138,8 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Area | Path |
 | ---- | ---- |
 | API routes | `server/src/routes/` |
-| WebSocket + push notify | `server/src/realtime/hub.ts`, `server/src/realtime/notify.ts` (`notifyCatalogChanged`, `notifyTournamentsListChanged` = broadcast; `notifyTournamentChanged` = per-tournament subscribers) |
+| Realtime backend (bus + SSE) | `server/src/realtime/eventBus.ts` (`RealtimeEventBus` interface + `MemoryEventBus`), `server/src/realtime/sseEndpoint.ts` (`createSseHandler` for `GET /api/sse`), `server/src/realtime/notify.ts` (`notifyCatalogChanged` / `notifyTournamentsListChanged` = broadcast, `notifyTournamentChanged` = per-tournament subscribers) |
+| State stores (Memory now, Dynamo in Phase 5) | `server/src/state/rateLimitStore.ts` (`RateLimitStore` + `MemoryRateLimitStore`), `server/src/state/lockoutStore.ts` (`LockoutStore` + `MemoryLockoutStore`); injection points `setRateLimitStore` (in `middleware/authRateLimit.ts`) and `setLockoutStore` (in `routes/auth.ts`) |
 | Tournament route modules | `server/src/routes/tournaments/` |
 | Auth middleware + token helpers | `server/src/middleware/auth.ts`, `server/src/auth/token.ts`, `server/src/types/express.d.ts` |
 | Error handling middleware | `server/src/middleware/asyncHandler.ts`, `server/src/middleware/error.ts` |
@@ -146,13 +154,15 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Pinia domain stores | `client/src/stores/tournamentLayout/` (`index.ts` main store, `rosterActions.ts`, `matchActions.ts`, `phaseActions.ts`), `playersManagement.ts`, `classesManagement.ts`, `tournamentsList.ts`, `dashboard.ts` (+ `auth`, `theme`, `toast`, **`confirmDialog`**, **`textPromptDialog`**) |
 | Realtime (client) | `client/src/realtime/realtimeClient.ts` |
 | Tournament domain (pure helpers + UI tokens) | `client/src/tournament/tournamentFormat.ts`, `tournamentDerive.ts`, `tournamentPhaseFlow.ts`, `matchElapsed.ts` (client stopwatch math), `tournamentUi.ts` |
-| Tournament composables (layout + phase UI) | `client/src/tournament/useTournamentLayoutState.ts` (route + WS subscribe → **`tournamentLayout`** store), `useTournamentPhaseStepper.ts` (re-exported from `client/src/composables/tournaments/`) |
+| Tournament composables (layout + phase UI) | `client/src/tournament/useTournamentLayoutState.ts` (route + SSE subscribe → **`tournamentLayout`** store), `useTournamentPhaseStepper.ts` (re-exported from `client/src/composables/tournaments/`) |
 | Tournament composables (roster + lists) | `client/src/composables/tournaments/` — `useTournamentRosterTransfer`, `useTournamentRosterAddMemberForm`, `useTournamentRosterGroupsDisplay`, `useTournamentRosterRenamePrompts`, `useTournamentRosterAddIndividual`, `useTournamentsListState`, `useMatchTimerDisplay` |
 | Feature composables (non-tournament) | `client/src/composables/dashboard/`, `admin/`, `classes/`, `players/` |
 | Modal dialog + focus trap | `client/src/components/common/EntityDialog.vue`, `client/src/composables/useDialogFocusTrap.ts` |
 | Global confirm + text prompt | `client/src/stores/confirmDialog.ts`, `textPromptDialog.ts`, `GlobalTextPromptDialog.vue`, mounted in `App.vue`; Storybook under `tests/client/storybook/stories/components/common/` (`GlobalTextPromptDialog.stories.ts`) |
 | Catalog page header (lists + dashboard) | `client/src/components/common/CatalogPageHeader.vue`; Storybook `tests/client/storybook/stories/components/common/CatalogPageHeader.stories.ts` |
-| Ansible production deploy | `ansible/README.md`, `ansible/playbooks/`, `ansible/roles/turnier_hub/` |
+| Local infra (Postgres + DynamoDB-Local) | `docker-compose.yml`, `docker/postgres/init/01-create-test-database.sql` |
+| AWS migration plan | [`MIGRATION_AWS.md`](MIGRATION_AWS.md) |
+| Legacy single-VM deployment | `ansible/README.md`, `ansible/playbooks/`, `ansible/roles/turnier_hub/` (will be retired in Phase 7) |
 | Tournament views | `client/src/views/tournament/` |
 | Tournament types + inject key | `client/src/tournament/tournamentContext.ts` (re-exports tournament types from `@turnier-hub/shared`; Vue `inject` key) |
 | Client API helper | `client/src/api/http.ts` |

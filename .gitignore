@@ -8,3 +8,5 @@ dist
 figma-preset
 *storybook.log
 storybook-static
+.aws-sam
+cdk.out

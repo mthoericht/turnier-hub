@@ -2,6 +2,8 @@
 
 Turnier-Hub is a small full-stack web application for managing school sports tournaments (for example volleyball, football, or two-field ball). It covers user registration with an invite code, a **shared catalog** of **school classes**, **players**, and **tournaments** (any signed-in user can edit; creator is shown for attribution), player rosters, tournament setup with **teams** (or individuals), three **tournament modes** (group stage → knockout, direct knockout, round-robin), multiple **groups**, knockout phases (round of 16 / quarter / semi / final), manual score entry, and a per-match stopwatch.
 
+> **AWS migration in flight.** The codebase is moving from the legacy single-VM deployment to a fully serverless AWS stack (Lambda Function URLs + CloudFront + RDS Postgres + DynamoDB). The phase plan and current status live in [`MIGRATION_AWS.md`](MIGRATION_AWS.md). At the time of writing, **Phase 1 (Postgres)** and **Phase 2 (state adapters + WS→SSE)** are merged; Phase 3+ is in progress. Local development now requires **Docker** (Postgres + DynamoDB-Local via Docker Compose).
+
 ## Table of Contents
 
 - [Features](#features)
@@ -31,7 +33,7 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - **Classes:** CRUD for **school classes** (names unique **per creator** in the DB — two users can each have a class named `10a`). Routes `/classes` (API `/api/classes`).
 - **Players:** CRUD for players with separate **`firstName`** and **`lastName`**; optional class is chosen from **all** classes in the catalog. Scoped list views (all vs. own) like tournaments. The players page provides text search (first name, last name, full name, class), sortable table columns (**Vorname**, **Name**, **Klasse**, asc/desc toggle), and an **Import/Export** dialog. Import accepts **XLS/XLSX** with columns **`Vorname`**, **`Name`** (last name), **`Klasse`** and offers modes to append, reset all data, or replace players by matching existing rows on **Vorname + Name + Klasse** (only missing rows are removed). Export writes current players to XLSX using the same column schema. For better mobile landscape fit, creator attribution is shown as compact text below each row's action buttons.
 - **Tournaments:** Create tournaments with one of three **modes**: **Group → K.O.** (classic group stage feeding knockout rounds), **Direct K.O.** (knockout only, supports arbitrary team counts with byes), or **Round-Robin** (everyone vs everyone, no knockout). Optionally mark **teams as individuals** (e.g. badminton — players become teams directly). In the **Operations** tab (`Spielbetrieb`), Group → K.O. lets you set **group count** directly next to "Generate group matches" and save **advancers per group** separately via "Save settings". Add **teams**, assign **any** catalog players to **team rosters** (optionally transfer rosters from **another** tournament in the **Teams** tab), generate **group / round-robin matches** (organized in parallel rounds), view **standings** (per group when applicable), then advance through **round of 16 → quarter → semi → final** with pairings computed on the server. K.O. pairings are randomized when generated. Group generation ignores teams without members and regenerating group matches removes existing knockout matches. Group and team names are editable in the roster UI. All matches can be **deleted at once** via "Delete all matches and groups" in the operations view. The tournament UI uses top tabs **Teams** (`Mannschaften`), **Matches** (`Spiele`), and **Operations** (`Spielbetrieb`).
-- **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. When the final is finished, the tournament phase is automatically set to **Ende** (`COMPLETED`). Matches with a **Freilos** are created directly as **beendet** (`FINISHED`). **Live updates** use a **WebSocket** (`/api/ws`): the server pushes **`tournamentChanged`** to clients subscribed to that tournament; **`catalogChanged`** (players/classes) and **`tournamentsChanged`** are **broadcast to every connected client**. The client refetches affected tournament detail and **merges** the score draft so unsaved typing is not wiped. **Stopwatch display:** while a match is **LIVE**, elapsed time is derived **locally** from server timestamps (`matchStartedAt`, `totalPausedMs`, …) on a one-second **UI** tick — no per-second HTTP or WebSocket traffic; timer **state** still updates only from the API/WebSocket when you use the controls or another client changes the match. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
+- **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. When the final is finished, the tournament phase is automatically set to **Ende** (`COMPLETED`). Matches with a **Freilos** are created directly as **beendet** (`FINISHED`). **Live updates** use **Server-Sent Events** (`GET /api/sse?token=…&tournaments=…`): the server pushes **`tournamentChanged`** to clients subscribed to that tournament; **`catalogChanged`** (players/classes) and **`tournamentsChanged`** are **broadcast to every connected client**. The client uses the browser's `EventSource` and refetches affected tournament detail, **merging** the score draft so unsaved typing is not wiped. **Stopwatch display:** while a match is **LIVE**, elapsed time is derived **locally** from server timestamps (`matchStartedAt`, `totalPausedMs`, …) on a one-second **UI** tick — no per-second HTTP or SSE traffic; timer **state** still updates only from the API or SSE-driven refetches when you use the controls or another client changes the match. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
 - **Feedback:** **Toasts** (global, bottom of the screen) surface validation hints and API errors for tournament actions (for example advance rules or save issues).
 - **UI:** Vue front end with a single light theme, **responsive** layout including a mobile navigation menu. **`CatalogPageHeader`** (`client/src/components/common/CatalogPageHeader.vue`) unifies title rows and action toolbars on **Classes**, **Players**, **Tournaments**, and the signed-in **home** (dashboard) view; optional intro text and controls use Vue slots.
 - **Theming (centralized):** fonts and semantic UI colors are configured centrally. Font tokens live in `client/src/theme/designTokens.js` + `client/src/theme/fonts.css`; semantic color variables (`--ui-primary`, `--ui-card-*`, `--ui-input-*`, `--ui-danger*`) and reusable UI classes (`.ui-card`, `.ui-btn-primary-*`, `.ui-input-*`, etc.) are defined in `client/src/style.css`.
@@ -106,13 +108,13 @@ For a detailed German-language explanation of the tournament logic, see **[`doc/
 | Layer    | Technology |
 | -------- | ---------- |
 | Client   | Vite, Vue 3, TypeScript, Pinia, Vue Router, Tailwind CSS |
-| Server   | Express, TypeScript, **`ws`** (WebSocket on `/api/ws`, same HTTP server as the API) |
+| Server   | Express, TypeScript, **Server-Sent Events** on `GET /api/sse` (same HTTP server as the API) |
 | Shared   | **`@turnier-hub/shared`** workspace: TypeScript types for catalog and tournament API payloads (e.g. `Player`, `CreatedBy`, `AuthUser`) plus helpers like `formatCreator` and `formatPlayerName`; consumed by client and server |
-| Database | SQLite via Prisma ORM |
+| Database | **PostgreSQL** via Prisma ORM (Docker Compose locally; RDS Postgres in the upcoming AWS deployment) |
 | Auth     | JWT, bcryptjs |
 | Lint     | ESLint 9 (flat config), `typescript-eslint`, `eslint-plugin-vue` (client) |
 
-The SQLite file lives under `data/` (for example `data/dev.db`). Database files are not committed to the repository.
+Local Postgres + DynamoDB-Local run in Docker (`docker-compose.yml` at the repo root); their data volumes live outside the repo. Prisma migrations are checked in under `server/prisma/migrations/`.
 
 Server error handling is centralized: route handlers should use `server/src/middleware/asyncHandler.ts`, and uncaught/domain errors are mapped in `server/src/middleware/error.ts` (for example `ServiceError` and Prisma conflict handling).
 
@@ -126,6 +128,7 @@ Server architecture (quick reference):
 
 - **Node.js** (>= 22)
 - **npm** (workspaces are used at the repo root)
+- **Docker** + **Docker Compose** (for local Postgres + DynamoDB-Local; matches the AWS-target stack)
 
 ## Quick Start
 
@@ -135,7 +138,15 @@ Server architecture (quick reference):
    npm install
    ```
 
-2. **Configure the server environment.** Copy the example file and adjust values if needed:
+2. **Start local Postgres + DynamoDB-Local** (defined in `docker-compose.yml`):
+
+   ```bash
+   npm run docker:up
+   ```
+
+   This launches a Postgres 16 container on `localhost:5432` (database `turnier_dev` and `turnier_test`, user `turnier`, password `turnier`) and DynamoDB-Local on `localhost:8000`. Data persists in named Docker volumes; use `npm run docker:reset` to drop them.
+
+3. **Configure the server environment.** Copy the example file and adjust values if needed:
 
    ```bash
    cp server/.env.example server/.env
@@ -143,30 +154,35 @@ Server architecture (quick reference):
 
    Important variables:
 
-   - `DATABASE_URL` — SQLite path relative to `server/prisma` (default points to `data/dev.db`).
+   - `DATABASE_URL` — Postgres connection string (default: `postgresql://turnier:turnier@localhost:5432/turnier_dev?schema=public`, matching the Docker Compose container).
    - `JWT_SECRET` — use a strong secret in production.
    - `INVITE_CODE` — required for new sign-ups (default in the example: `ballspiele2026`).
    - `DEFAULT_SCHOOL_NAME` — school name auto-created at startup (default: `defaultSchool`; may contain spaces, e.g. `"BBS Hannover"`).
    - `PORT` — API port (default `3001`).
-   - `AUTH_RATE_LIMIT_WINDOW_MS` / `AUTH_LOGIN_MAX_REQUESTS` / `AUTH_SIGNUP_MAX_REQUESTS` / `AUTH_IDENTIFIER_MAX_REQUESTS` — in-memory abuse protection for login/signup (window + max requests per IP and identifier).
-   - `LOGIN_LOCKOUT_START_AFTER_FAILURES` / `LOGIN_LOCKOUT_BASE_MS` / `LOGIN_LOCKOUT_MAX_MS` — progressive temporary lockout for repeated failed logins per email/identifier.
+   - `AUTH_RATE_LIMIT_WINDOW_MS` / `AUTH_LOGIN_MAX_REQUESTS` / `AUTH_SIGNUP_MAX_REQUESTS` / `AUTH_IDENTIFIER_MAX_REQUESTS` — auth-endpoint abuse protection (window + max requests per IP and identifier). Storage is pluggable: in-memory in dev/legacy single-VM, DynamoDB in the upcoming AWS deployment (Phase 5).
+   - `LOGIN_LOCKOUT_START_AFTER_FAILURES` / `LOGIN_LOCKOUT_BASE_MS` / `LOGIN_LOCKOUT_MAX_MS` — progressive temporary lockout for repeated failed logins per email/identifier (same pluggable storage as above).
    - `CORS_ALLOWED_ORIGINS` — comma-separated allowlist of browser origins that may call the API with credentials.
    - `TRUST_PROXY` — set to `1` (or the correct hop count) when running behind a reverse proxy so IP-based protections use the real client IP.
    - `JSON_BODY_LIMIT` — max JSON request payload size for `express.json` (default `100kb`).
-   - `WS_CONNECT_WINDOW_MS` / `WS_CONNECT_MAX_PER_IP` / `WS_MESSAGE_WINDOW_MS` / `WS_MESSAGE_MAX_PER_WINDOW` / `WS_MAX_SUBSCRIPTIONS_PER_CLIENT` — websocket abuse protection (upgrade/message rates + per-client subscription cap).
 
-3. **Apply the database schema** and optionally **seed** demo data:
+4. **Apply Prisma migrations** to the dev DB and optionally **seed** demo data:
 
    ```bash
-   npm run db:push
+   npm run db:push   # = prisma migrate deploy
    npm run db:seed
    ```
 
-   If `db:push` fails because of existing rows (e.g. after a breaking schema change), reset the **local** SQLite file (this deletes all data), then push and seed again — for example delete `data/dev.db` or use `npx prisma db push --force-reset` from `server/` (development only).
+   If you change `schema.prisma`, generate a new migration locally:
 
-  The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`) with role **`admin`**, twelve players, shared demo **school classes**, and four demo tournaments: **"Demo: Football School Cup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), **"Demo: Direct K.O. with 15 Teams"** (Direct K.O., 15 teams), and **"Demo: Badminton Round Robin"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
+   ```bash
+   npm run db:migrate -- --name <slug>
+   ```
 
-3.1. **Wipe demo data (dev/test) without deleting users**
+   Migration history lives at `server/prisma/migrations/` and is checked in. For destructive iteration against an empty local DB, `npx prisma migrate reset --force` (from `server/`) is fine.
+
+   The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`) with role **`admin`**, twelve players, shared demo **school classes**, and four demo tournaments: **"Demo: Football School Cup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), **"Demo: Direct K.O. with 15 Teams"** (Direct K.O., 15 teams), and **"Demo: Badminton Round Robin"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
+
+4.1. **Wipe demo data (dev/test) without deleting users**
 
 If you want to remove all demo content but keep `User` rows intact:
 
@@ -180,7 +196,7 @@ For the test database:
 npm run db:clear:test -- --yes
 ```
 
-4. **Run the app in development** (API + Vite dev server with proxy):
+5. **Run the app in development** (API + Vite dev server with proxy):
 
    ```bash
    npm run dev
@@ -188,26 +204,31 @@ npm run db:clear:test -- --yes
 
    - Front end: [http://localhost:5173](http://localhost:5173)
    - API: [http://localhost:3001](http://localhost:3001)
-   - The Vite dev server proxies **`/api`** to port 3001 for both **HTTP and WebSocket** (realtime uses `ws://` / `wss://` on the same host as the SPA in dev).
+   - The Vite dev server proxies **`/api`** to port 3001. SSE (`/api/sse`) goes through that proxy as a regular long-lived HTTP response — no special WebSocket pass-through is needed.
 
 ## NPM Scripts (repository root)
 
 | Script | Description |
 | ------ | ----------- |
 | `npm run dev` | Starts Express (with API) and the Vite dev server concurrently. |
+| `npm run docker:up` | Starts local Postgres + DynamoDB-Local via `docker-compose.yml`. |
+| `npm run docker:down` | Stops the containers (keeps named volumes). |
+| `npm run docker:reset` | Stops containers **and** drops their data volumes. |
 | `npm run build` | Builds server TypeScript output and the client production bundle. |
 | `npm run lint` | Runs ESLint on the client (`client/`). |
 | `npm run lint:fix` | ESLint with `--fix` (client workspace). |
 | `npm run prod:prepare` | `db:generate` + full `build` (typical after `npm ci` on a server). |
 | `npm run prod:start` | Starts the server with `NODE_ENV=production` (serves API + built SPA from `client/dist`). |
 | `npm run prod` | `prod:prepare` then `prod:start` in one step. |
-| `npm run db:push` | Pushes the Prisma schema to the database from `server/.env`. |
+| `npm run db:push` | Applies all pending Prisma migrations using `server/.env` (= `prisma migrate deploy`). |
+| `npm run db:migrate -- --name <slug>` | Generates a new dev migration and applies it locally (= `prisma migrate dev`). |
 | `npm run db:deploy` | Same as `db:push` — use on production hosts with the correct `DATABASE_URL` in the environment. |
 | `npm run db:studio` | Opens Prisma Studio against the database from `server/.env`. |
 | `npm run db:generate` | Generates the Prisma client. |
 | `npm run db:seed` | Runs the Prisma seed (dev database). |
 | `npm run db:clear` | Clears all tables except `User` (dev database). Pass `-- --yes` for confirmation. |
-| `npm run db:push:test` | Pushes schema using `server/.env.test` (test DB). |
+| `npm run db:push:test` | Applies migrations against `server/.env.test` (test DB). |
+| `npm run db:migrate:test` | Applies pending migrations against the test DB (rare; mostly mirrors `db:push:test`). |
 | `npm run db:seed:test` | Seeds the test database. |
 | `npm run db:clear:test` | Clears all tables except `User` (test DB). Pass `-- --yes` for confirmation. |
 | `npm run dev:test` | Runs the server with `NODE_ENV=test` (loads `server/.env.test`, default port `3002`). |
@@ -221,17 +242,19 @@ npm run db:clear:test -- --yes
 | `npm run storybook` | Starts Storybook for the client (port `6006`; config in `tests/client/storybook/`). See **[tests/client/storybook/README.md](tests/client/storybook/README.md)** for fixtures, mocks, and routed stories. |
 | `npm run build-storybook` | Static Storybook build (output under `client/storybook-static/`). |
 
-**Prisma — `db:push` / `db:deploy` vs `db:generate`:** `db:push` and `db:deploy` apply **`schema.prisma` to the database** (tables and columns). `db:generate` only **rebuilds the Prisma Client** under `node_modules` (typed API for your code) and does **not** modify the database. After schema edits you usually run a push (or deploy) and ensure the client is generated (`db:generate`, or rely on tooling that runs it — e.g. `prod:prepare` runs `db:generate` before the build).
+**Prisma — `db:push` / `db:migrate` / `db:deploy` vs `db:generate`:** `db:push`, `db:migrate`, and `db:deploy` all apply **migrations to the database**. `db:migrate` (= `prisma migrate dev`) is the only one that creates a new migration file from your current `schema.prisma`; the other two just apply what is already on disk. `db:generate` only **rebuilds the Prisma Client** under `node_modules` (typed API for your code) and does **not** modify the database. After schema edits you usually run `db:migrate -- --name <slug>` and ensure the client is generated (`db:generate`, or rely on tooling that runs it — e.g. `prod:prepare` runs `db:generate` before the build).
 
 Realtime test coverage (current baseline):
-- **Server WS hub:** `tests/server/unit/realtimeHub.test.ts` (auth, subscribe routing, `tournamentChanged` to subscribers, **broadcast** `catalogChanged` / `tournamentsChanged` to all connected sockets).
-- **Client WS adapter:** `tests/client/unit/realtimeClient.test.ts` (connect URL, subscribe flush/send, message dispatch hook, disconnect behavior).
+- **Server bus + SSE handler:** `tests/server/unit/eventBus.test.ts` (subscription filtering, listener isolation) and `tests/server/unit/sseEndpoint.test.ts` (SSE handler over a real HTTP server: token auth, `tournamentChanged` routed only to subscribers, `catalogChanged` broadcast, listener cleanup on disconnect).
+- **Client SSE adapter:** `tests/client/unit/realtimeClient.test.ts` (`EventSource` URL building, debounced reconnect on subscribe/unsubscribe, message dispatch hook, disconnect behavior).
 
 ## Database Profiles (dev / test / production)
 
 ### Dev DB
 - Environment file: `server/.env`
-- Apply schema: `npm run db:push`
+- Underlying database: Postgres 16 from `docker-compose.yml` (database `turnier_dev`)
+- Apply migrations: `npm run db:push` (= `prisma migrate deploy`)
+- Generate a new migration after editing `schema.prisma`: `npm run db:migrate -- --name <slug>`
 - Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)
 - Clear demo content (keep `User`): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
 - Internally, `db:seed` runs Prisma's configured seed script via `server/package.json` → `prisma.seed: "tsx scripts/seed.ts"`.
@@ -239,7 +262,8 @@ Realtime test coverage (current baseline):
 
 ### Test DB
 - Environment file: `server/.env.test`
-- Apply schema: `npm run db:push:test`
+- Underlying database: same Postgres container, separate database `turnier_test` (created by `docker/postgres/init/01-create-test-database.sql` on first container start)
+- Apply migrations: `npm run db:push:test`
 - Seed demo data: `npm run db:seed:test` (same script: `server/scripts/seed.ts`)
 - Clear demo content (keep `User`): `npm run db:clear:test -- --yes` (same script: `server/scripts/clearDbExceptUsers.ts`)
 - Internally, `db:seed:test` reuses the same seed file (`server/scripts/seed.ts`) but executes under `server/.env.test`.
@@ -247,12 +271,17 @@ Realtime test coverage (current baseline):
 
 ### Production
 - Environment variables: `DATABASE_URL` and other secrets are provided by the host (no local `.env` reliance)
-- Apply schema: `npm run db:deploy`
+- Apply migrations: `npm run db:deploy` (= `prisma migrate deploy`)
 - Seed/clear: not part of the standard flow; avoid `npm run db:clear` on production.
 
 ## Production
 
-For Ansible-based production automation (bootstrap, restart, update + deploy), see [`ansible/README.md`](ansible/README.md).
+The repository currently contains two production paths, switching from the first to the second over the course of the AWS migration:
+
+1. **Legacy single-VM (Ansible).** Documented in [`ansible/README.md`](ansible/README.md). To be retired in [`MIGRATION_AWS.md`](MIGRATION_AWS.md) Phase 7.
+2. **AWS serverless (in progress).** Lambda Function URLs (Express via `serverless-http`, plus a streaming SSE handler) behind CloudFront, with RDS Postgres and DynamoDB. CDK stacks land in Phase 4; see `MIGRATION_AWS.md` for status.
+
+Steps below describe the legacy single-VM path; both paths share the same Node.js entry points and Prisma migrations.
 
 1. Set environment variables on the host (`DATABASE_URL`, `JWT_SECRET`, `INVITE_CODE`, `PORT`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, etc.) — do not rely on committing `.env`.
 
@@ -263,13 +292,13 @@ For Ansible-based production automation (bootstrap, restart, update + deploy), s
    npm run prod:prepare
    ```
 
-3. Apply the schema to the production database (with production `DATABASE_URL` set):
+3. Apply migrations to the production database (with production `DATABASE_URL` set):
 
    ```bash
    npm run db:deploy
    ```
 
-   There are no Prisma migration files yet; deployment uses **`prisma db push`**. For larger production setups, consider adopting **migrations** later.
+   Migration history is tracked under `server/prisma/migrations/`; this command runs `prisma migrate deploy` (idempotent — applies only what has not been applied yet).
 
 4. Start the server (API + static SPA):
 
@@ -279,7 +308,7 @@ For Ansible-based production automation (bootstrap, restart, update + deploy), s
 
 Notes:
 - `db:seed` / `db:clear` are for development/test workflows. On production, use `db:deploy` only (and seed manually only if you explicitly want demo data).
-- **Reverse proxy (e.g. Nginx):** if TLS or a proxy sits in front of Node, enable **WebSocket pass-through** for paths that hit the API (at least **`/api/ws`**), e.g. `proxy_http_version 1.1`, `Upgrade`, and `Connection "upgrade"`, so realtime push keeps working.
+- **Reverse proxy (e.g. Nginx):** if TLS or a proxy sits in front of Node, the only realtime concern is that the proxy must **not** buffer responses on `/api/sse` (set `proxy_buffering off`). SSE is plain HTTP/1.1, so no WebSocket upgrade headers are required.
 - **Auth abuse protection:** login/signup are rate-limited per IP and per identifier (`email` / `username`) and return `429` + `Retry-After` when limits are exceeded.
 
    Or use `npm run prod` to run steps 2–4's build/start in one go after `npm ci` (run `db:deploy` separately when the database is ready).
@@ -289,20 +318,19 @@ Notes:
 ## Security Notes
 
 - **Security backlog + runbook:** see [`doc/SECURITY.md`](doc/SECURITY.md) for prioritized hardening tasks, production checks, and incident procedures.
-- **Auth endpoint throttling:** `POST /api/auth/login` and `POST /api/auth/signup` are protected by in-memory request limits.
+- **Auth endpoint throttling:** `POST /api/auth/login` and `POST /api/auth/signup` are rate-limited via the `RateLimitStore` adapter (`MemoryRateLimitStore` in dev/legacy single-VM; `DynamoRateLimitStore` in the upcoming AWS deployment — Phase 5).
 - **Security headers:** API responses include baseline HTTP security headers via `helmet`.
 - **CORS allowlist:** browser calls are accepted only from origins in `CORS_ALLOWED_ORIGINS` (comma-separated).
 - **Rate-limit env vars:** `AUTH_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_MAX_REQUESTS`, `AUTH_SIGNUP_MAX_REQUESTS`, `AUTH_IDENTIFIER_MAX_REQUESTS`.
-- **Progressive login lockout:** repeated failed logins per identifier trigger temporary backoff (`LOGIN_LOCKOUT_*`) and return `429` with `Retry-After`.
+- **Progressive login lockout:** repeated failed logins per identifier trigger temporary backoff (`LOGIN_LOCKOUT_*`) and return `429` with `Retry-After`. Storage uses the same `LockoutStore` adapter pattern as the rate limiter.
 - **Session invalidation:** JWTs carry per-user token version (`tv`). `POST /api/auth/revoke-sessions` rotates the caller's token version and invalidates all previously issued tokens for that account.
 - **Proxy/IP env var:** `TRUST_PROXY` (for example `1` behind Nginx) so `req.ip` is correct for rate limits and auditing.
 - **Payload-size env var:** `JSON_BODY_LIMIT` limits JSON request size globally (default `100kb`).
-- **WebSocket abuse controls:** configurable connection/message windows and a per-socket subscription cap (`WS_*` env vars).
-- **Structured security signals:** when thresholds are reached, the server emits JSON warning logs for `401/403/429` spikes and websocket connection/rate-limit spikes (`SECURITY_*` env vars).
+- **Structured security signals:** the server emits JSON warning logs for `401`/`403`/`429` responses (`category:"security"`, `type:"http_auth_status"`). In the AWS deployment, CloudWatch Metric Filters aggregate these into spike alarms; in dev they show up on stderr as one-line JSON events.
 - **How limits are applied:** both per-IP and per-identifier counters run in parallel; if either threshold is exceeded in the active window, the request is blocked (`429`).
-- **Current scope:** limits are process-local (single Node.js instance). For multi-instance deployments, add a shared store (e.g. Redis) and/or edge rate limits at the reverse proxy/load balancer.
+- **Current scope:** with the default in-memory adapters limits are process-local. The Phase-5 DynamoDB adapter makes them work across all Lambda instances; on the legacy single-VM that is not needed because there is only one process.
 - **Proxy setup:** if your app runs behind a reverse proxy, configure trusted proxy hops so `req.ip` reflects the real client IP and keep your allowed browser origins aligned with the public frontend URL(s).
-- **Secrets:** always set strong production values for `JWT_SECRET` and `INVITE_CODE` through host environment variables.
+- **Secrets:** always set strong production values for `JWT_SECRET` and `INVITE_CODE` through host environment variables. AWS deployment pulls these from Secrets Manager (Phase 4).
 
 ## Security Runbook
 
@@ -310,6 +338,7 @@ For operational procedures and the security checklist in one place, see [`doc/SE
 
 ## Additional Documentation
 
+- [`MIGRATION_AWS.md`](MIGRATION_AWS.md) - phase-by-phase AWS migration plan and current status.
 - [`doc/TURNIERLOGIK.md`](doc/TURNIERLOGIK.md) - detailed German-language tournament logic documentation.
 - [`doc/SECURITY.md`](doc/SECURITY.md) - consolidated security checklist and incident runbook.
 - [`doc/TODO.md`](doc/TODO.md) - historical tournament refactoring checklist.
@@ -318,7 +347,9 @@ For operational procedures and the security checklist in one place, see [`doc/SE
 
 ```
 turnier-hub/
-├── ansible/                   # Production playbooks + role (see ansible/README.md)
+├── ansible/                   # Legacy single-VM deployment (retiring in MIGRATION_AWS.md Phase 7)
+├── docker-compose.yml         # Local Postgres + DynamoDB-Local for dev/tests
+├── docker/postgres/init/      # First-run init SQL (creates the test database alongside dev)
 ├── tests/                     # Shared root test tree (server + client Vitest tests)
 │   ├── server/
 │   └── client/
@@ -329,22 +360,22 @@ turnier-hub/
 │   │   ├── api/               # authApi, adminApi, classesApi, playersApi, tournamentsApi, http (fetch + token)
 │   │   ├── components/        # Shared UI (e.g. CatalogPageHeader, EntityDialog, ScopeToggle); Storybook stories in tests/client/storybook/
 │   │   ├── composables/       # Feature composables (dashboard, admin, classes, players, tournaments)
-│   │   ├── realtime/          # WebSocket client (connect, tournament subscribe, dispatch to stores)
+│   │   ├── realtime/          # SSE client (EventSource on /api/sse, tournament subscribe, dispatch to stores)
 │   │   ├── stores/            # Pinia: auth, theme, toast + domain (tournamentLayout/ with rosterActions, matchActions, phaseActions; players/classes/tournaments list, dashboard)
 │   │   ├── theme/             # centralized design tokens and font import
 │   │   ├── tournament/        # Pure derive/format logic, layout bridge (useTournamentLayoutState → store), UI class tokens; DTO types from @turnier-hub/shared
 │   │   └── views/
 │   │       └── tournament/    # TournamentLayout, Matches (layout + overview + setup), Roster (thin; roster logic in composables)
 ├── server/                    # Express API, Prisma schema & scripts
-│   ├── prisma/
+│   ├── prisma/                # schema.prisma + migrations/ (Postgres)
 │   ├── scripts/
 │   └── src/
-│       ├── app.ts, index.ts   # Express app; HTTP server + WebSocket upgrade
-│       ├── realtime/          # WebSocket hub (/api/ws); tournament push to subscribers; catalog + list broadcast
+│       ├── app.ts, index.ts   # Express app; plain HTTP server (no WebSocket upgrade — SSE handler is a regular GET route)
+│       ├── realtime/          # eventBus.ts (RealtimeEventBus + MemoryEventBus), sseEndpoint.ts (createSseHandler for /api/sse), notify.ts (publish into bus from routes)
+│       ├── state/             # rateLimitStore.ts + lockoutStore.ts (transport-agnostic stores; Memory now, Dynamo in Phase 5)
 │       ├── routes/            # auth, classes, players, tournaments/…
 │       │   └── tournaments/   # Thin route handlers (validate → service → notify → respond)
 │       └── services/          # Pure logic (advancePhase, standings, matchTimer, knockoutBracket, roundRobinSchedule) + orchestration (tournamentRosterService, tournamentMatchService, ServiceError)
-├── data/                      # SQLite files (created locally; .gitignored)
 └── package.json               # npm workspaces + shared scripts
 ```
 
@@ -360,7 +391,7 @@ For a concise checklist, file paths, and how to reuse the focus trap in new dial
 
 ## Test Environment
 
-- `server/.env.test` defines a separate SQLite file (for example `data/test.db`) and port `3002`.
+- `server/.env.test` points at the `turnier_test` Postgres database in the local Docker Compose container; the API runs on port `3002`.
 - Use `npm run db:push:test` and `npm run db:seed:test` against that database.
 - Use `npm run db:clear:test -- --yes` to wipe demo content while keeping `User`.
 - If you run only the test API, point the client proxy at port `3002` or call the API directly.
