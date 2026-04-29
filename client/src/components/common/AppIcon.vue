@@ -35,8 +35,13 @@ withDefaults(
     aria-hidden="true"
   >
     <template v-if="name === 'trophy'">
+      <!-- Trophy / Pokal -->
       <path d="M8 21h8" />
       <path d="M12 17v4" />
+      <!-- Handles -->
+      <path d="M16 8h2a2 2 0 0 0 2-2V4h-4" />
+      <path d="M8 8H6a2 2 0 0 1-2-2V4h4" />
+      <!-- Cup -->
       <path d="M7 4h10v4a5 5 0 0 1-10 0V4z" />
     </template>
     <template v-else-if="name === 'classes'">

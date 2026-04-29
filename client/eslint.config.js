@@ -23,7 +23,14 @@ const styleRules = {
 };
 
 export default tseslint.config(
-  { ignores: ["dist/**", "node_modules/**", "storybook-static/**"] },
+  {
+    ignores: [
+      "dist/**",
+      "dev-dist/**",
+      "node_modules/**",
+      "storybook-static/**",
+    ],
+  },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   ...pluginVue.configs["flat/essential"],

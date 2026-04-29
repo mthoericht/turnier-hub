@@ -12,3 +12,9 @@ storybook-static
 cdk.out
 data/postgres/
 data/postgres.log
+
+# Local dev TLS certs (mkcert)
+**/.certs/
+
+# Local PWA dev SW temp dir (vite-plugin-pwa)
+client/dev-dist/

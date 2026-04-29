@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node ./scripts/print-lan-ip.mjs && vite --host 0.0.0.0",
+    "dev:https": "DEV_SCHEME=https node ./scripts/print-lan-ip.mjs && vite --host 0.0.0.0",
+    "mkcert:dev": "node ./scripts/mkcert-dev.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -47,6 +49,7 @@
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.57.2",
     "vite": "^8.0.10",
+    "vite-plugin-pwa": "^1.2.0",
     "vitest": "^3.2.4",
     "vue-tsc": "^2.2.2"
   }
