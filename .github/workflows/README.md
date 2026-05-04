@@ -87,7 +87,7 @@ Runs the same command as locally: `npm test` → server Vitest, then client Vite
 
 ### CI services and setup
 
-- **PostgreSQL 16** service container (`turnier` / `turnier_test`), reachable from the job as hostname **`postgres`**
+- **PostgreSQL 16** service container (`turnier` / `turnier_test`), published to the runner on **`localhost:5432`**
 - **`server/.env.test`** is generated in the workflow so `dotenv -e .env.test` matches local test runs
 - **`npm run test:prepare -w server`** applies the schema to the test DB (`prisma db push`)
 - **`npx playwright install chromium --with-deps`** in `client/` (Playwright dependency lives in the client workspace)

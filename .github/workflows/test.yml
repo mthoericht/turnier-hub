@@ -54,7 +54,7 @@ jobs:
       - name: Write server/.env.test for CI
         run: |
           cat <<'EOF' > server/.env.test
-          DATABASE_URL=postgresql://turnier:turnier@postgres:5432/turnier_test?schema=public
+          DATABASE_URL=postgresql://turnier:turnier@localhost:5432/turnier_test?schema=public
           JWT_SECRET=ci-jwt-secret-must-be-long-enough-for-sanity-32
           INVITE_CODE=ciinvitecode12
           DEFAULT_SCHOOL_NAME=defaultSchool
