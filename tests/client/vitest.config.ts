@@ -9,7 +9,8 @@ import { clientPlugins, clientAlias } from "../../client/vite.shared";
  * the wrong root and no `storybook:<configDir>` project.
  */
 export default defineConfig({
-  plugins: clientPlugins(),
+  // Vitest 3 pins Vite 7 types; client uses Vite 8 (Rolldown). Runtime is fine — `never` satisfies both plugin list types.
+  plugins: clientPlugins() as never,
   resolve: {
     alias: clientAlias,
   },

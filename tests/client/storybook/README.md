@@ -2,6 +2,16 @@
 
 Dieses Verzeichnis enthält Storybook-Konfiguration und -Stories, die über den Vitest-Addon `@storybook/addon-vitest` als “Render/Visual”-Tests ausgeführt werden.
 
+## Playwright-Browser (einmalig)
+
+`npm install` lädt **keine** Playwright-Browser herunter. Vor `npm run test -w client` / `npm run test:client` einmal im **Repository-Root** (oder im `client/`-Workspace) ausführen:
+
+```bash
+npx playwright install chromium
+```
+
+Nach einem **Upgrade** der `playwright`-Abhängigkeit denselben Befehl erneut ausführen. Alle Browser: `npx playwright install`.
+
 ## Wie werden die Tests ausgeführt?
 
 1. `client/vitest.config.ts` lädt das Storybook-Vitest-Project, wenn **`STORYBOOK_TESTS === "true"`** (npm-Testlauf) oder **`VITEST_STORYBOOK === "true"`** (Child-Prozess von `@storybook/addon-vitest` in der Storybook-UI). Fehlt das Project, meldet Vitest `No projects matched the filter "storybook:…"`.

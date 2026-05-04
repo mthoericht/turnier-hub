@@ -7,6 +7,7 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 ## Table of Contents
 
 - [Quick Paths](#quick-paths)
+- [npm and workspaces](#npm-and-workspaces)
 - [Quick Start](#quick-start)
 - [NPM Scripts (repository root)](#npm-scripts-repository-root)
 - [How To Use (Typical Workflow)](#how-to-use-typical-workflow)
@@ -116,6 +117,12 @@ Server architecture (quick reference):
 - **npm** (workspaces are used at the repo root)
 - **PostgreSQL 16** binaries (`initdb`, `pg_ctl`, `createdb`, optional `psql`)
 
+## npm and workspaces
+
+Always run **`npm install`** from the **repository root** (workspaces). The root **`.npmrc`** sets **`legacy-peer-deps=true`** because **`vite-plugin-pwa`** still peer-declares Vite only through v7 while the client uses **Vite 8**; without this, a clean install fails with **`ERESOLVE`**. See [vite-pwa/vite-plugin-pwa#923](https://github.com/vite-pwa/vite-plugin-pwa/issues/923). When a `vite-plugin-pwa` release adds Vite 8 to its peer range, try removing that setting and reinstalling.
+
+Root **`package.json`** also defines **`overrides`** for a safe **`serialize-javascript`** / Workbox toolchain so **`npm run security:audit`** stays green. Details for contributors: [`AGENTS.md`](AGENTS.md).
+
 ## Quick Start
 
 1. **Clone the repository** and install dependencies from the repository root:
@@ -181,7 +188,7 @@ Server architecture (quick reference):
    - The script auto-detects Homebrew Postgres (`postgresql@16/bin`) when available.
    - If binaries are still not in your PATH, set `PG_BIN` manually (example: `PG_BIN=/opt/homebrew/opt/postgresql@16/bin npm run db:start`).
 
-   If you run into role/permission issues (for example Prisma `P1010: User was denied access`), fix local ownership/rights once:
+   If you run into role/permission issues — for example Prisma `P1010: User was denied access`, a startup error like **User was denied access** with database **`(not available)`**, or Postgres **`FATAL: role "turnier" does not exist`** — fix local ownership/rights once with the same commands:
 
    ```bash
    PG_BIN="$(brew --prefix postgresql@16)/bin"
@@ -314,7 +321,7 @@ npm run dev
 | `npm run lint` | Runs ESLint on the client (`client/`). |
 | `npm run lint:fix` | ESLint with `--fix` (client workspace). |
 | `npm run test` | Runs Vitest suites for server + client. |
-| `npm run test:client` | Runs all client tests (unit + client-API integration). |
+| `npm run test:client` | Runs all client tests (unit, Storybook render tests in headless Chromium via Vitest+Playwright, and client-API integration). **One-time after `npm install` or a Playwright upgrade:** `npx playwright install chromium` from the repo root (see [tests/client/storybook/README.md](tests/client/storybook/README.md)). |
 | `npm run test:unit` | Runs server unit tests only (Vitest). |
 | `npm run test:integration` | Pushes test schema and runs client-API integration tests (Vitest, against test DB/API). |
 | `npm run security:audit` | Runs a policy-based audit wrapper across workspaces (fails on non-allowlisted high/critical vulnerabilities). |

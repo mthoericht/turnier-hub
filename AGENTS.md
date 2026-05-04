@@ -6,6 +6,8 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 - **npm workspaces** at the repo root: `client/` (Vue 3 + Vite + Tailwind), `server/` (Express + Prisma + local **PostgreSQL** for dev/test), **`shared/`** (`@turnier-hub/shared` — TypeScript types and small helpers shared by client and server: catalog API shapes such as `Player`, `SchoolClass`, `CreatedBy`, `AuthUser`, `formatCreator`, `formatPlayerName` in `shared/src/catalog.ts`; tournament DTOs in `shared/src/tournament.ts`). Import from **`@turnier-hub/shared`** in app code (no client-only `types.ts` barrel).
 - Run **install and most scripts from the repository root**, not only inside `client` or `server`, unless you have a reason.
+- **Root `.npmrc`:** `legacy-peer-deps=true` so npm can install **Vite 8** together with **`vite-plugin-pwa@1.2.0`**, whose `peerDependencies.vite` still ends at `^7.0.0` (clean install otherwise fails with `ERESOLVE`). Revisit when upstream adds Vite 8 — track [vite-pwa/vite-plugin-pwa#923](https://github.com/vite-pwa/vite-plugin-pwa/issues/923).
+- **Root `package.json` `overrides`:** `@rollup/plugin-terser@^1.0.0` and `serialize-javascript@^7.0.5` so the Workbox build chain does not pull vulnerable `serialize-javascript@6.x` (keeps **`npm run security:audit`** passing aside from the allowlisted **`xlsx`** advisory). With `legacy-peer-deps`, some ESLint peers are not auto-installed; **`client`** lists **`vue-eslint-parser`** explicitly for that reason.
 - **AWS migration in flight:** the codebase is being moved to a fully serverless AWS stack (Lambda Function URLs + CloudFront + RDS PostgreSQL + DynamoDB). Status, decisions, and phase-by-phase plan live in [`MIGRATION_AWS.md`](MIGRATION_AWS.md). Phase 1 (Postgres) and Phase 2 (state adapters + WS→SSE) are merged; Phase 3+ is in progress.
 
 ## Commands (from repo root)
@@ -51,6 +53,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - **Client** ESLint: flat config in `client/eslint.config.js` (`typescript-eslint`, `eslint-plugin-vue`; stylistic rules include semicolons, Allman braces, 2-space indent).
 - Tests live in the repository root under `tests/` (`tests/server/**`, `tests/client/**`), executed via each workspace's Vitest config.
 - **Storybook** (`npm run storybook`): config under `tests/client/storybook/` — for **fixtures, mocks, router canvas, and Vitest integration** see [`tests/client/storybook/README.md`](tests/client/storybook/README.md). Name the primary CSF export **`Default`** when reasonable so URLs and tooling that expect `…--default` keep working; preview wraps the canvas with padding and uses **non-inline** docs stories for reliable Vue rendering. Example: `tests/client/storybook/stories/components/common/CatalogPageHeader.stories.ts`.
+- **Playwright (client tests):** `npm run test` / `test:client` runs Storybook stories in headless Chromium via Vitest. Install browsers once after `npm install` or a Playwright version bump: **`npx playwright install chromium`** from the repo root (details in [`tests/client/storybook/README.md`](tests/client/storybook/README.md)).
 - Realtime tests: `tests/server/unit/eventBus.test.ts` (in-memory bus, subscription filtering, listener isolation) + `tests/server/unit/sseEndpoint.test.ts` (SSE handler over a real HTTP server: auth, frame routing, listener cleanup on disconnect) and `tests/client/unit/realtimeClient.test.ts` (EventSource adapter behaviour).
 - Client TypeScript config uses `tsconfig.base.json` + `tsconfig.app.json`/`tsconfig.node.json`; `*.tsbuildinfo` is cache-only and ignored.
 
@@ -73,7 +76,7 @@ npm run db:push
 npm run db:push:test
 ```
 
-If Prisma reports `P1010: User was denied access`, fix local role/db ownership once:
+If Prisma reports `P1010: User was denied access`, the server logs **User was denied access** / database **`(not available)`** on first query, or Postgres reports **`FATAL: role "turnier" does not exist`**, fix local role/db ownership once:
 
 ```bash
 PG_BIN="$(brew --prefix postgresql@16)/bin"
