@@ -7,6 +7,14 @@ on:
         description: "Target environment name (for GitHub Environments)"
         required: true
         default: "dev"
+      deploy_to_aws:
+        description: "Upload build artifacts to S3 via AWS OIDC"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
       invalidate_cloudfront:
         description: "Create CloudFront invalidation after upload"
         required: true
@@ -46,12 +54,14 @@ jobs:
         run: npm run build -w client
 
       - name: Configure AWS credentials (OIDC)
+        if: ${{ inputs.deploy_to_aws == 'true' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'eu-central-1' }}
 
       - name: Sync bundle to S3
+        if: ${{ inputs.deploy_to_aws == 'true' }}
         run: |
           aws s3 sync client/dist "s3://${{ secrets.AWS_SPA_BUCKET }}" \
             --delete \
@@ -62,8 +72,10 @@ jobs:
             --cache-control "public,max-age=60"
 
       - name: Invalidate CloudFront cache
-        if: ${{ inputs.invalidate_cloudfront == 'true' && secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID != '' }}
+        if: ${{ inputs.deploy_to_aws == 'true' && inputs.invalidate_cloudfront == 'true' && env.CLOUDFRONT_DISTRIBUTION_ID != '' }}
+        env:
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id "${{ secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
             --paths "/*"

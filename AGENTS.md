@@ -57,6 +57,19 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - Realtime tests: `tests/server/unit/eventBus.test.ts` (in-memory bus, subscription filtering, listener isolation) + `tests/server/unit/sseEndpoint.test.ts` (SSE handler over a real HTTP server: auth, frame routing, listener cleanup on disconnect) and `tests/client/unit/realtimeClient.test.ts` (EventSource adapter behaviour).
 - Client TypeScript config uses `tsconfig.base.json` + `tsconfig.app.json`/`tsconfig.node.json`; `*.tsbuildinfo` is cache-only and ignored.
 
+## GitHub Actions
+
+Workflow definitions live in [`.github/workflows/`](.github/workflows/). For triggers, inputs, environment secrets, and CI details (including the ephemeral Postgres service used by `test.yml`), see [`.github/workflows/README.md`](.github/workflows/README.md).
+
+| Workflow | Role |
+| -------- | ---- |
+| `client-build.yml` | On push/PR to `main` or `master`: `npm ci`, then `npm run build -w client` (no AWS). |
+| `test.yml` | On push/PR to `main` or `master`: `npm test` (server + client Vitest, including Playwright/Chromium; test DB in a job service container). |
+| `security-audit.yml` | On push/PR to `main` or `master`, plus weekly cron: `npm run security:audit`. |
+| `spa-deploy.yml` | Manual only: build client; optional S3 sync and CloudFront invalidation via inputs (`deploy_to_aws`, `invalidate_cloudfront`). |
+
+Runs use **GitHub-hosted runners**, not your production AWS resources, except when `spa-deploy.yml` is executed with AWS deploy enabled.
+
 ## Environment and secrets
 
 - Copy `server/.env.example` → `server/.env` for local development. Do **not** commit `.env`.
@@ -203,6 +216,7 @@ $PG_BIN/psql -d turnier_test -c "ALTER SCHEMA public OWNER TO turnier; GRANT ALL
 | Local DB (no Docker) | PostgreSQL on `localhost:5432` (`turnier_dev`, `turnier_test`), cluster files under `data/postgres` |
 | AWS CDK app + stacks | `infra/bin/infra.ts`, `infra/lib/network-stack.ts`, `infra/lib/data-stack.ts`, `infra/lib/lambda-stack.ts`, `infra/lib/edge-stack.ts`, `infra/lib/config.ts` |
 | AWS migration plan | [`MIGRATION_AWS.md`](MIGRATION_AWS.md) |
+| GitHub Actions (CI/CD) | [`.github/workflows/README.md`](.github/workflows/README.md) |
 | Tournament views | `client/src/views/tournament/` |
 | Tournament types + inject key | `client/src/tournament/tournamentContext.ts` (re-exports tournament types from `@turnier-hub/shared`; Vue `inject` key) |
 | Client API helper | `client/src/api/http.ts` |

@@ -14,6 +14,7 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Production](#production)
+- [GitHub Actions (CI/CD)](#github-actions-cicd)
 - [Additional Documentation](#additional-documentation)
 
 ## Quick Paths
@@ -22,6 +23,7 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - **Work on database:** use [Local Dev (no Docker DB)](#local-dev-no-docker-db) and [Database Profiles](#database-profiles-dev--test--production).
 - **Run Lambda locally:** use [Lambda Local (SAM)](#lambda-local-sam).
 - **Deploy AWS/CDK:** see [AWS / CDK](#aws--cdk) and migration status in [`MIGRATION_AWS.md`](MIGRATION_AWS.md).
+- **CI on GitHub:** [GitHub Actions (CI/CD)](#github-actions-cicd) — workflow reference in [`.github/workflows/README.md`](.github/workflows/README.md).
 - **Need contributor-level details?** Use [`AGENTS.md`](AGENTS.md) for deeper implementation notes.
 
 ## Features
@@ -397,7 +399,7 @@ Primary target is the AWS serverless stack (Lambda Function URLs + CloudFront + 
    npm run cdk:deploy
    ```
 3. Deploy SPA assets:
-   - use [`.github/workflows/spa-deploy.yml`](.github/workflows/spa-deploy.yml) with configured AWS role/bucket inputs
+   - use the **Deploy SPA to S3** workflow (`spa-deploy.yml`) documented in [`.github/workflows/README.md`](.github/workflows/README.md) with configured AWS role and bucket
    - or manually sync `client/dist` to the configured S3 bucket and invalidate CloudFront
 4. Validate runtime:
    - API endpoints via CloudFront domain (`/api/*`)
@@ -429,13 +431,24 @@ For Route53/domain switch and SSE edge verification, use [`doc/AWS_EDGE_CUTOVER_
 
 For operational procedures and the security checklist in one place, see [`doc/SECURITY.md`](doc/SECURITY.md).
 
+## GitHub Actions (CI/CD)
+
+Automated checks run on **GitHub-hosted runners** (not on your AWS instances):
+
+- **Client build** — [`client-build.yml`](.github/workflows/client-build.yml): `npm ci` and `npm run build -w client` on push/PR to `main` or `master`.
+- **Tests** — [`test.yml`](.github/workflows/test.yml): `npm test` (Vitest server + client; ephemeral PostgreSQL in the job; Playwright Chromium installed for Storybook browser tests).
+- **Security audit** — [`security-audit.yml`](.github/workflows/security-audit.yml): `npm run security:audit` on push/PR, plus a weekly schedule.
+- **Manual SPA deploy** — [`spa-deploy.yml`](.github/workflows/spa-deploy.yml): build the client and optionally sync to S3 / invalidate CloudFront (see workflow inputs).
+
+Triggers, secrets, inputs, and billing context: **[`.github/workflows/README.md`](.github/workflows/README.md)**. Contributor summary: **[`AGENTS.md`](AGENTS.md)** (section *GitHub Actions*).
+
 ## Additional Documentation
 
 - [`MIGRATION_AWS.md`](MIGRATION_AWS.md) - phase-by-phase AWS migration plan and current status.
 - [`infra/README.md`](infra/README.md) - AWS-CDK Infrastrukturdoku (Stacks, Konfiguration, Schritt-für-Schritt Deploy).
 - [`doc/AWS_PERF_CHECKLIST.md`](doc/AWS_PERF_CHECKLIST.md) - SSE + DynamoDB capacity probe checklist and on-demand vs provisioned decision guide.
 - [`doc/AWS_EDGE_CUTOVER_CHECKLIST.md`](doc/AWS_EDGE_CUTOVER_CHECKLIST.md) - Route53/domain cutover and SSE edge validation checklist.
-- [`.github/workflows/spa-deploy.yml`](.github/workflows/spa-deploy.yml) - manual GitHub Action to build `client` and sync SPA assets to S3 (with optional CloudFront invalidation).
+- [`.github/workflows/README.md`](.github/workflows/README.md) - GitHub Actions: CI (client build, full tests, security audit) and manual SPA deploy (`spa-deploy.yml`).
 - [`doc/TURNIERLOGIK.md`](doc/TURNIERLOGIK.md) - detailed German-language tournament logic documentation.
 - [`doc/SECURITY.md`](doc/SECURITY.md) - consolidated security checklist and incident runbook.
 - [`doc/TODO.md`](doc/TODO.md) - historical tournament refactoring checklist.
