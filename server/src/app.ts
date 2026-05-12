@@ -10,7 +10,7 @@ import {
   SECURITY_HTTP_STATUS_WINDOW_MS,
   TRUST_PROXY,
 } from "./config.js";
-import authRouter from "./routes/auth.js";
+import sessionRouter from "./routes/session.js";
 import classesRouter from "./routes/classes.js";
 import playersRouter from "./routes/players.js";
 import tournamentsRouter from "./routes/tournaments/index.js";
@@ -82,7 +82,7 @@ export function createApp()
   });
 
   // API routes.
-  app.use("/api/auth", authRouter);
+  app.use("/api", sessionRouter);
   app.use("/api/classes", classesRouter);
   app.use("/api/players", playersRouter);
   app.use("/api/tournaments", tournamentsRouter);

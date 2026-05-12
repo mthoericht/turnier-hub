@@ -16,7 +16,7 @@ Dieses Verzeichnis enthält Storybook-Konfiguration und -Stories, die über den 
 - `tests/client/storybook/preview.ts`:
   - klassisches `Preview` + `setup` aus `@storybook/vue3-vite`
   - erstellt einen kleinen `vue-router`-Stub, damit `RouterLink`/benannte Routen aus den Stories auflösbar sind
-  - enthält u.a. die Routen `/`, `/login`, `/signup`, `/players`, `/classes`, `/tournaments` und **geschachtelte** Tournament-Routen (`/tournaments/:id`, Kinder: `roster`, `matches` mit Overview/Setup — analog zur App in `client/src/router/index.ts`)
+  - enthält u.a. die Routen `/`, `/players`, `/classes`, `/tournaments` und **geschachtelte** Tournament-Routen (`/tournaments/:id`, Kinder: `roster`, `matches` mit Overview/Setup — analog zur App in `client/src/router/index.ts`)
   - unterstützt `parameters.route` pro Story (z.B. `"/classes"` oder `{ name: "tournament-roster", params: { id: "t1" } }`); der Route-Decorator ist **synchron** (`void applyRouteFromParameters`) — `async` + `await` vor `story()` bricht das Vue-Rendering im Canvas.
 - `tests/client/storybook/StorybookRouterCanvas.vue`: minimale Root-Komponente mit **einem** `<router-view />` für Stories, die wie in der echten App nur über den Router gerendert werden sollen (verhindert doppeltes Mounting von verschachtelten Layouts). Turnier-Stories nutzen diese Hülle als `component` und setzen `parameters.route` auf z. B. `/tournaments/<id>/roster`.
 - `tests/client/storybook/stubs/`: Hilfen für die Preview-Umgebung (z. B. Vue-Devtools-Globals).

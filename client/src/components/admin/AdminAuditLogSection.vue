@@ -10,7 +10,7 @@ defineProps<{
   <section class="ui-card p-5">
     <h2 class="font-display text-lg font-semibold text-slate-900">Aktivität</h2>
     <p class="mb-4 text-sm text-slate-600">
-      Letzte Admin-Änderungen mit Zeitstempel und Benutzer.
+      Letzte Admin-Änderungen mit Zeitstempel und Nutzerkennung.
     </p>
 
     <div v-if="logs.length === 0" class="ui-empty-card">
@@ -35,7 +35,7 @@ defineProps<{
             <td class="px-3 py-2 font-medium text-slate-900">{{ log.action }}</td>
             <td class="px-3 py-2 text-slate-700">{{ log.targetType }} / {{ log.targetId }}</td>
             <td class="px-3 py-2 text-slate-700">
-              {{ log.actor.username ? `@${log.actor.username}` : log.actor.email }}
+              {{ log.actor.subject }}
             </td>
           </tr>
         </tbody>

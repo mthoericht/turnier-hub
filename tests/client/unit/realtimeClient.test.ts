@@ -1,11 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const getTokenMock = vi.fn<() => string | null>();
-
-vi.mock("../../../client/src/api/http", () => ({
-  getToken: getTokenMock,
-}));
-
 class MockWebSocket
 {
   static readonly CONNECTING = 0;
@@ -70,8 +64,6 @@ describe("realtimeClient", () =>
   {
     vi.useFakeTimers();
     MockWebSocket.instances = [];
-    getTokenMock.mockReset();
-    getTokenMock.mockReturnValue("token-123");
 
     vi.stubGlobal("window", {
       location: {
@@ -86,20 +78,22 @@ describe("realtimeClient", () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
     mod.setRealtimeDispatchForTests(null);
+    mod.setRealtimeSessionActive(false);
     mod.disconnectRealtime();
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
-  it("connects with token and flushes queued subscriptions on open", async () =>
+  it("connects without JWT and flushes queued subscriptions on open", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
+    mod.setRealtimeSessionActive(true);
     mod.subscribeTournamentRealtime("t1");
     mod.connectRealtime();
 
     expect(MockWebSocket.instances).toHaveLength(1);
     const ws = MockWebSocket.instances[0]!;
-    expect(ws.url).toContain("/api/ws?token=token-123");
+    expect(ws.url).toBe("ws://localhost:5173/api/ws");
     expect(ws.sent).toEqual([]);
 
     ws.open();
@@ -108,10 +102,10 @@ describe("realtimeClient", () =>
     );
   });
 
-  it("does not connect when token is missing", async () =>
+  it("does not connect when session is inactive", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
-    getTokenMock.mockReturnValue(null);
+    mod.setRealtimeSessionActive(false);
     mod.connectRealtime();
     expect(MockWebSocket.instances).toHaveLength(0);
   });
@@ -119,10 +113,10 @@ describe("realtimeClient", () =>
   it("does not open duplicate socket while already connecting/open", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
+    mod.setRealtimeSessionActive(true);
     mod.connectRealtime();
     expect(MockWebSocket.instances).toHaveLength(1);
 
-    // still CONNECTING
     mod.connectRealtime();
     expect(MockWebSocket.instances).toHaveLength(1);
 
@@ -135,6 +129,7 @@ describe("realtimeClient", () =>
   it("sends subscribe/unsubscribe immediately when socket is open", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
+    mod.setRealtimeSessionActive(true);
     mod.connectRealtime();
     const ws = MockWebSocket.instances[0]!;
     ws.open();
@@ -155,6 +150,7 @@ describe("realtimeClient", () =>
     const mod = await import("../../../client/src/realtime/realtimeClient");
     const dispatchSpy = vi.fn();
     mod.setRealtimeDispatchForTests(dispatchSpy);
+    mod.setRealtimeSessionActive(true);
     mod.connectRealtime();
     const ws = MockWebSocket.instances[0]!;
     ws.open();
@@ -184,6 +180,7 @@ describe("realtimeClient", () =>
   it("disconnect clears subscriptions and closes active socket", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
+    mod.setRealtimeSessionActive(true);
     mod.subscribeTournamentRealtime("t1");
     mod.connectRealtime();
     const ws = MockWebSocket.instances[0]!;
@@ -196,6 +193,7 @@ describe("realtimeClient", () =>
     expect(ws.readyState).toBe(MockWebSocket.CLOSED);
 
     const previousCount = MockWebSocket.instances.length;
+    mod.setRealtimeSessionActive(true);
     mod.connectRealtime();
     const next = MockWebSocket.instances[MockWebSocket.instances.length - 1]!;
     next.open();
@@ -205,4 +203,3 @@ describe("realtimeClient", () =>
     );
   });
 });
-

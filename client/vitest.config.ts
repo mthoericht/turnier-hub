@@ -12,7 +12,7 @@ export default defineConfig({
   },
   test: {
     // Integration tests share one SQLite file (server/.env.test); parallel files
-    // would race on resetDatabase() and invalidate JWT user rows (P2003 / hangs).
+    // would race on resetDatabase().
     fileParallelism: false,
     projects: (() =>
     {

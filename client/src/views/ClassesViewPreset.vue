@@ -83,7 +83,7 @@ const inputClass =
               </p>
               <p
                 class="mt-2 text-xs text-slate-500 truncate"
-                :title="c.createdBy.email"
+                :title="c.createdBy.subject"
               >
                 Von {{ formatCreator(c.createdBy) }}
               </p>

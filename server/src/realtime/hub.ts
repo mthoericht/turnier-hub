@@ -1,9 +1,7 @@
 import type { IncomingMessage, Server } from "node:http";
-import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   CORS_ALLOWED_ORIGINS,
-  JWT_SECRET,
   SECURITY_WS_CONNECTIONS_THRESHOLD,
   SECURITY_WS_CONNECTIONS_WINDOW_MS,
   TRUST_PROXY,
@@ -14,8 +12,7 @@ import {
   WS_MESSAGE_MAX_PER_WINDOW,
   WS_MESSAGE_WINDOW_MS,
 } from "../config.js";
-import type { AuthPayload } from "../auth/token.js";
-import { prisma } from "../db.js";
+import { devRemoteUserFallback } from "../lib/devRemoteUser.js";
 import {
   onWsConnectionClosed,
   onWsConnectionOpened,
@@ -37,7 +34,7 @@ type ClientMessage =
   | { type: "unsubscribe"; tournamentId: string };
 
 type SocketMeta = {
-  userId: string;
+  remoteSubject: string;
   tournamentIds: Set<string>;
   messageCount: number;
   messageWindowStartedAtMs: number;
@@ -57,30 +54,17 @@ type UpgradeSocket = {
 // --- Upgrade/auth and rate-limit helpers ---
 
 /**
- * Extracts and verifies the JWT from websocket upgrade query params,
- * then confirms the user still exists and tokenVersion matches.
+ * Reads `Remote-User` from the upgrade request (set by Authelia / reverse proxy),
+ * or `DEV_REMOTE_USER` when the header is absent (non-production only).
  */
-async function parseTokenUserId(req: IncomingMessage): Promise<string | null>
+function parseRemoteSubject(req: IncomingMessage): string | null
 {
-  const host = req.headers.host ?? "127.0.0.1";
-  const url = new URL(req.url ?? "", `http://${host}`);
-  const token = url.searchParams.get("token");
-  if (!token) return null;
-  try
-  {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.sub },
-      select: { id: true, tokenVersion: true },
-    });
-    if (!user) return null;
-    if ((decoded.tv ?? 0) !== user.tokenVersion) return null;
-    return decoded.sub;
-  }
-  catch
-  {
-    return null;
-  }
+  const raw = req.headers["remote-user"];
+  const fromHeader = Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? "");
+  const trimmed = fromHeader.trim();
+  if (trimmed) return trimmed;
+  const fromEnv = devRemoteUserFallback();
+  return fromEnv || null;
 }
 
 /**
@@ -216,16 +200,16 @@ export class RealtimeHub
         return;
       }
 
-      this.authenticateUpgrade(request, socket).then((userId) =>
+      this.authenticateUpgrade(request, socket).then((remoteSubject) =>
       {
-        if (!userId)
+        if (!remoteSubject)
         {
           return;
         }
         this.wss.handleUpgrade(request, socket, head, (ws) =>
         {
           this.socketMeta.set(ws, {
-            userId,
+            remoteSubject,
             tournamentIds: new Set(),
             messageCount: 0,
             messageWindowStartedAtMs: Date.now(),
@@ -304,22 +288,22 @@ export class RealtimeHub
   }
 
   /**
-   * Verifies JWT auth during websocket upgrade.
+   * Verifies forwarded identity during websocket upgrade (`Remote-User`).
    */
-  private async authenticateUpgrade(
+  private authenticateUpgrade(
     request: IncomingMessage,
     socket: UpgradeSocket
   ): Promise<string | null>
   {
-    const userId = await parseTokenUserId(request);
-    if (userId)
+    const subject = parseRemoteSubject(request);
+    if (subject)
     {
-      return userId;
+      return Promise.resolve(subject);
     }
 
     socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
     socket.destroy();
-    return null;
+    return Promise.resolve(null);
   }
 
   /**

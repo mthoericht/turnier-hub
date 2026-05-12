@@ -178,10 +178,10 @@ export function filterAvailablePlayers(
 /** Any logged-in user may edit; `createdBy` on the tournament is display-only. */
 export function canUserEditTournament(
   tournament: TournamentDetail | null,
-  userId: string | undefined
-): boolean 
+  subject: string | undefined
+): boolean
 {
-  return Boolean(tournament && userId);
+  return Boolean(tournament && subject);
 }
 
 /** Keeps current team selection when still valid; otherwise first team or "". */

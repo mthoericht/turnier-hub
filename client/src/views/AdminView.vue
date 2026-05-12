@@ -1,31 +1,25 @@
 <script setup lang="ts">
 import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
 import AdminSchoolsSection from "@/components/admin/AdminSchoolsSection.vue";
-import AdminUsersSection from "@/components/admin/AdminUsersSection.vue";
 import AdminSchoolDialog from "@/components/admin/AdminSchoolDialog.vue";
 import AdminAuditLogSection from "@/components/admin/AdminAuditLogSection.vue";
 import { useAdminManagementState } from "@/composables/admin/useAdminManagementState";
 
 const {
-  auth,
   loading,
   error,
   schools,
-  users,
   auditLogs,
   schoolDialogOpen,
   schoolDialogId,
   schoolDialogName,
   isAdmin,
   inputClass,
-  selectClass,
   openCreateSchool,
   openEditSchool,
   closeSchoolDialog,
   submitSchoolDialog,
   removeSchool,
-  updateUserRole,
-  updateUserSchool,
 } = useAdminManagementState();
 </script>
 
@@ -62,15 +56,6 @@ const {
           @remove-school="removeSchool"
         />
 
-        <AdminUsersSection
-          :users="users"
-          :schools="schools"
-          :select-class="selectClass"
-          :current-user-id="auth.user?.id"
-          @update-user-school="({ user, schoolId }) => updateUserSchool(user, schoolId)"
-          @update-user-role="({ user, role }) => updateUserRole(user, role)"
-        />
-
         <AdminAuditLogSection :logs="auditLogs" />
       </div>
     </template>
@@ -78,9 +63,8 @@ const {
     <AdminSchoolDialog
       :open="schoolDialogOpen"
       :editing-id="schoolDialogId"
-      :model-value="schoolDialogName"
+      v-model="schoolDialogName"
       :input-class="inputClass"
-      @update:model-value="(value) => (schoolDialogName = value)"
       @close="closeSchoolDialog"
       @submit="submitSchoolDialog"
     />

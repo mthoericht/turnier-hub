@@ -286,7 +286,7 @@ function onImportChange(event: Event): void
                     </div>
                     <p
                       class="max-w-[11rem] text-xs font-normal text-slate-500 truncate"
-                      :title="p.createdBy.email"
+                      :title="p.createdBy.subject"
                     >
                       {{ formatCreator(p.createdBy) }}
                     </p>

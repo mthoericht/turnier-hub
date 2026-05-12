@@ -15,16 +15,8 @@ const schoolSchema = z.object({
   name: mediumNameSchema,
 }).strict();
 
-const userRoleSchema = z.object({
-  role: z.enum(["admin", "user"]),
-}).strict();
-
-const userSchoolSchema = z.object({
-  schoolId: idSchema,
-}).strict();
-
 async function logAdminAudit(payload: {
-  actorUserId: string;
+  actorSubject: string;
   action: string;
   targetType: string;
   targetId: string;
@@ -34,7 +26,7 @@ async function logAdminAudit(payload: {
 {
   await prisma.adminAuditLog.create({
     data: {
-      actorUserId: payload.actorUserId,
+      actorSubject: payload.actorSubject,
       action: payload.action,
       targetType: payload.targetType,
       targetId: payload.targetId,
@@ -50,14 +42,15 @@ router.get("/schools", asyncHandler(async (_req, res) =>
     orderBy: { name: "asc" },
     include: {
       _count: {
-        select: { users: true },
+        select: { players: true, schoolClasses: true, tournaments: true },
       },
     },
   });
   res.json(rows.map((row) => ({
     id: row.id,
     name: row.name,
-    userCount: row._count.users,
+    catalogCount:
+      row._count.players + row._count.schoolClasses + row._count.tournaments,
   })));
 }));
 
@@ -76,7 +69,7 @@ router.post("/schools", asyncHandler(async (req, res) =>
       select: { id: true, name: true },
     });
     await logAdminAudit({
-      actorUserId: req.userId!,
+      actorSubject: req.remoteSubject!,
       action: "school.create",
       targetType: "school",
       targetId: school.id,
@@ -84,7 +77,7 @@ router.post("/schools", asyncHandler(async (req, res) =>
     });
     res.status(201).json({
       ...school,
-      userCount: 0,
+      catalogCount: 0,
     });
   }
   catch (error)
@@ -121,17 +114,18 @@ router.patch("/schools/:id", asyncHandler(async (req, res) =>
       data: { name: parsed.data.name },
       include: {
         _count: {
-          select: { users: true },
+          select: { players: true, schoolClasses: true, tournaments: true },
         },
       },
     });
     res.json({
       id: school.id,
       name: school.name,
-      userCount: school._count.users,
+      catalogCount:
+        school._count.players + school._count.schoolClasses + school._count.tournaments,
     });
     await logAdminAudit({
-      actorUserId: req.userId!,
+      actorSubject: req.remoteSubject!,
       action: "school.update",
       targetType: "school",
       targetId: school.id,
@@ -160,20 +154,27 @@ router.delete("/schools/:id", asyncHandler(async (req, res) =>
   const schoolId = String(req.params.id);
   const school = await prisma.school.findUnique({
     where: { id: schoolId },
-    select: { id: true, _count: { select: { users: true } } },
+    select: {
+      id: true,
+      _count: { select: { players: true, schoolClasses: true, tournaments: true } },
+    },
   });
   if (!school)
   {
     res.status(404).json({ error: "Schule nicht gefunden" });
     return;
   }
-  if (school._count.users > 0)
+  const catalogCount =
+    school._count.players + school._count.schoolClasses + school._count.tournaments;
+  if (catalogCount > 0)
   {
-    res.status(409).json({ error: "Schule hat noch Benutzer und kann nicht gelöscht werden" });
+    res.status(409).json({
+      error: "Schule enthält noch Katalogdaten (Klassen, Spieler oder Turniere) und kann nicht gelöscht werden",
+    });
     return;
   }
   await logAdminAudit({
-    actorUserId: req.userId!,
+    actorSubject: req.remoteSubject!,
     action: "school.delete",
     targetType: "school",
     targetId: school.id,
@@ -190,11 +191,6 @@ router.get("/audit-logs", asyncHandler(async (req, res) =>
   const logs = await prisma.adminAuditLog.findMany({
     orderBy: { createdAt: "desc" },
     take,
-    include: {
-      actorUser: {
-        select: { id: true, username: true, email: true },
-      },
-    },
   });
   res.json(logs.map((log) => ({
     id: log.id,
@@ -202,175 +198,10 @@ router.get("/audit-logs", asyncHandler(async (req, res) =>
     targetType: log.targetType,
     targetId: log.targetId,
     createdAt: log.createdAt.toISOString(),
-    actor: log.actorUser,
+    actor: { subject: log.actorSubject },
     before: log.beforeJson ? JSON.parse(log.beforeJson) : null,
     after: log.afterJson ? JSON.parse(log.afterJson) : null,
   })));
-}));
-
-router.get("/users", asyncHandler(async (_req, res) =>
-{
-  const users = await prisma.user.findMany({
-    orderBy: [{ createdAt: "asc" }, { email: "asc" }],
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      role: true,
-      school: {
-        select: { id: true, name: true },
-      },
-    },
-  });
-  res.json(users.map((user) => ({
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    role: user.role === "ADMIN" ? "admin" : "user",
-    school: user.school,
-  })));
-}));
-
-router.patch("/users/:id/role", asyncHandler(async (req, res) =>
-{
-  const userId = String(req.params.id);
-  const parsed = userRoleSchema.safeParse(req.body);
-  if (!parsed.success)
-  {
-    res.status(400).json({ error: "Ungültige Eingaben" });
-    return;
-  }
-  try
-  {
-    const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true },
-    });
-    if (!existingUser)
-    {
-      res.status(404).json({ error: "Benutzer nicht gefunden" });
-      return;
-    }
-    const targetRole = parsed.data.role === "admin" ? "ADMIN" : "USER";
-    if (existingUser.role === "ADMIN" && targetRole === "USER")
-    {
-      const adminCount = await prisma.user.count({
-        where: { role: "ADMIN" },
-      });
-      if (adminCount <= 1)
-      {
-        res.status(409).json({ error: "Mindestens ein Admin muss erhalten bleiben" });
-        return;
-      }
-    }
-
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: { role: targetRole },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        role: true,
-        school: {
-          select: { id: true, name: true },
-        },
-      },
-    });
-    res.json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role === "ADMIN" ? "admin" : "user",
-      school: user.school,
-    });
-    await logAdminAudit({
-      actorUserId: req.userId!,
-      action: "user.role.update",
-      targetType: "user",
-      targetId: user.id,
-      before: { role: existingUser.role },
-      after: { role: user.role },
-    });
-  }
-  catch (error)
-  {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025")
-    {
-      res.status(404).json({ error: "Benutzer nicht gefunden" });
-      return;
-    }
-    throw error;
-  }
-}));
-
-router.patch("/users/:id/school", asyncHandler(async (req, res) =>
-{
-  const userId = String(req.params.id);
-  const parsed = userSchoolSchema.safeParse(req.body);
-  if (!parsed.success)
-  {
-    res.status(400).json({ error: "Ungültige Eingaben" });
-    return;
-  }
-
-  const targetSchool = await prisma.school.findUnique({
-    where: { id: parsed.data.schoolId },
-    select: { id: true },
-  });
-  if (!targetSchool)
-  {
-    res.status(404).json({ error: "Schule nicht gefunden" });
-    return;
-  }
-
-  try
-  {
-    const beforeUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        school: { select: { id: true, name: true } },
-      },
-    });
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: { schoolId: parsed.data.schoolId },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        role: true,
-        school: {
-          select: { id: true, name: true },
-        },
-      },
-    });
-    res.json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role === "ADMIN" ? "admin" : "user",
-      school: user.school,
-    });
-    await logAdminAudit({
-      actorUserId: req.userId!,
-      action: "user.school.update",
-      targetType: "user",
-      targetId: user.id,
-      before: beforeUser,
-      after: { id: user.id, school: user.school },
-    });
-  }
-  catch (error)
-  {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025")
-    {
-      res.status(404).json({ error: "Benutzer nicht gefunden" });
-      return;
-    }
-    throw error;
-  }
 }));
 
 export default router;

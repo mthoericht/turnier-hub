@@ -1,6 +1,6 @@
 # Turnier-Hub
 
-Turnier-Hub is a small full-stack web application for managing school sports tournaments (for example volleyball, football, or two-field ball). It covers user registration with an invite code, a **shared catalog** of **school classes**, **players**, and **tournaments** (any signed-in user can edit; creator is shown for attribution), player rosters, tournament setup with **teams** (or individuals), three **tournament modes** (group stage → knockout, direct knockout, round-robin), multiple **groups**, knockout phases (round of 16 / quarter / semi / final), manual score entry, and a per-match stopwatch.
+Turnier-Hub is a small full-stack web application for managing school sports tournaments (for example volleyball, football, or two-field ball). Identity is provided by a **reverse proxy** (for example **Authelia**) via the `Remote-User` header; the app exposes a **shared catalog** of **school classes**, **players**, and **tournaments** (any signed-in user can edit; creator is shown for attribution), player rosters, tournament setup with **teams** (or individuals), three **tournament modes** (group stage → knockout, direct knockout, round-robin), multiple **groups**, knockout phases (round of 16 / quarter / semi / final), manual score entry, and a per-match stopwatch.
 
 ## Table of Contents
 
@@ -12,8 +12,7 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - [NPM Scripts (repository root)](#npm-scripts-repository-root)
 - [Database Profiles (dev / test / production)](#database-profiles-dev--test--production)
 - [Production](#production)
-- [Security Notes](#security-notes)
-- [Security Runbook](#security-runbook)
+- [Security](#security)
 - [Additional Documentation](#additional-documentation)
 - [Project Layout](#project-layout)
 - [Accessibility (front end)](#accessibility-front-end)
@@ -21,14 +20,11 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 
 ## Features
 
-- **Authentication:** Sign-up requires a shared **invite code** (configurable). Login uses email and password. Sessions use **JWT** in the `Authorization: Bearer` header; the token is stored in the browser under the localStorage key `turnier_hub_token`.
-- **Users and roles:** Each account has a **username** (unique, normalized), email, and a role: **`user`** or **`admin`**. New accounts default to `user`. Admin-only actions are available in the **Admin** view.
-- **Admin area:** Admins can open `/admin` from the top navigation (next to tournaments) and manage:
-  - **Schools:** create, rename, delete (deletion only when no users are assigned).
-  - **User administration:** list users, change role (`user`/`admin`), and reassign users to a different school.
-  - **Safety rule:** the backend prevents demoting the last remaining admin account.
-- **Shared catalog:** **School classes**, **players**, and **tournaments** are visible and **fully editable** (create / update / delete) by **any authenticated user**. Database rows still store the **original creator** (`userId` on create); the API exposes this as **`createdBy`** for display only (“Von …” / “Erstellt von …”). List filters **Alle** vs. **Eigene** only narrow what you see, not who may edit. **Players** can be assigned to **any** class in the catalog. **Roster transfer** can use any tournament as the source.
-- **Classes:** CRUD for **school classes** (names unique **per creator** in the DB — two users can each have a class named `10a`). Routes `/classes` (API `/api/classes`).
+- **Authentication:** The API trusts **`Remote-User`** (and optional **`ADMIN_REMOTE_USERS`** and/or **`Remote-Groups`** vs **`ADMIN_REMOTE_GROUP`**) from the reverse proxy. The SPA calls **`GET /api/session`** (cookies / same-origin) and shows the subject plus **Abmelden** when `AUTHELIA_LOGOUT_URL` is configured. For local development you may set **`DEV_REMOTE_USER`** in `server/.env` when no proxy injects headers, and optionally **`DEV_REMOTE_ADMIN`** so every dev identity receives **admin** (navigation + `/api/admin/*`; ignored in production).
+- **Roles:** Admin UI is available when the current subject is listed in **`ADMIN_REMOTE_USERS`**, **or** when **`Remote-Groups`** (comma-separated) contains **`ADMIN_REMOTE_GROUP`** (default `admins`, case-insensitive; set `ADMIN_REMOTE_GROUP=` to disable the group check). There is no per-row user table in the app database.
+- **Admin area:** Admins can open `/admin` from the top navigation and manage **schools** (create, rename, delete). Deletion is blocked while the school still has classes, players, or tournaments.
+- **Shared catalog:** **School classes**, **players**, and **tournaments** are visible and **fully editable** (create / update / delete) by **any authenticated subject**. New rows store **`createdBySubject`** (the `Remote-User` value at creation time); the API exposes this as **`createdBy`** for display only (“Von …” / “Erstellt von …”). List filters **Alle** vs. **Eigene** only narrow what you see, not who may edit. **Players** can be assigned to **any** class in the catalog. **Roster transfer** can use any tournament as the source.
+- **Classes:** CRUD for **school classes** (names unique **per school** in the DB). Routes `/classes` (API `/api/classes`).
 - **Players:** CRUD for players with separate **`firstName`** and **`lastName`**; optional class is chosen from **all** classes in the catalog. Scoped list views (all vs. own) like tournaments. The players page provides text search (first name, last name, full name, class), sortable table columns (**Vorname**, **Name**, **Klasse**, asc/desc toggle), and an **Import/Export** dialog. Import accepts **XLS/XLSX** with columns **`Vorname`**, **`Name`** (last name), **`Klasse`** and offers modes to append, reset all data, or replace players by matching existing rows on **Vorname + Name + Klasse** (only missing rows are removed). Export writes current players to XLSX using the same column schema. For better mobile landscape fit, creator attribution is shown as compact text below each row's action buttons.
 - **Tournaments:** Create tournaments with one of three **modes**: **Group → K.O.** (classic group stage feeding knockout rounds), **Direct K.O.** (knockout only, supports arbitrary team counts with byes), or **Round-Robin** (everyone vs everyone, no knockout). Optionally mark **teams as individuals** (e.g. badminton — players become teams directly). In the **Operations** tab (`Spielbetrieb`), Group → K.O. lets you set **group count** directly next to "Generate group matches" and save **advancers per group** separately via "Save settings". Add **teams**, assign **any** catalog players to **team rosters** (optionally transfer rosters from **another** tournament in the **Teams** tab), generate **group / round-robin matches** (organized in parallel rounds), view **standings** (per group when applicable), then advance through **round of 16 → quarter → semi → final** with pairings computed on the server. K.O. pairings are randomized when generated. Group generation ignores teams without members and regenerating group matches removes existing knockout matches. Group and team names are editable in the roster UI. All matches can be **deleted at once** via "Delete all matches and groups" in the operations view. The tournament UI uses top tabs **Teams** (`Mannschaften`), **Matches** (`Spiele`), and **Operations** (`Spielbetrieb`).
 - **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. When the final is finished, the tournament phase is automatically set to **Ende** (`COMPLETED`). Matches with a **Freilos** are created directly as **beendet** (`FINISHED`). **Live updates** use a **WebSocket** (`/api/ws`): the server pushes **`tournamentChanged`** to clients subscribed to that tournament; **`catalogChanged`** (players/classes) and **`tournamentsChanged`** are **broadcast to every connected client**. The client refetches affected tournament detail and **merges** the score draft so unsaved typing is not wiped. **Stopwatch display:** while a match is **LIVE**, elapsed time is derived **locally** from server timestamps (`matchStartedAt`, `totalPausedMs`, …) on a one-second **UI** tick — no per-second HTTP or WebSocket traffic; timer **state** still updates only from the API/WebSocket when you use the controls or another client changes the match. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
@@ -49,15 +45,12 @@ For a detailed German-language explanation of the tournament logic, see **[`doc/
 
 ## How To Use (Typical Workflow)
 
-1. **Sign up / log in**
-   - Use the invite code configured on the server.
-   - After login, your JWT is stored in `localStorage` and sent to `/api/*` routes.
+1. **Access**
+   - Place the app behind a reverse proxy that sets **`Remote-User`** (Authelia) and forwards WebSocket upgrades for **`/api/ws`**.
+   - The browser uses **same-origin** `fetch` with **`credentials: "include"`**; no JWT in `localStorage`.
 
-2. **(Admin) Maintain schools and permissions**
-   - Open **Admin** (`/admin`) to create/rename/delete schools.
-   - Assign users to schools via select fields.
-   - Change user roles (`user` / `admin`).
-   - The API blocks role changes that would remove the last admin.
+2. **(Admin) Maintain schools**
+   - Open **Admin** (`/admin`) to create/rename/delete schools when your subject is in **`ADMIN_REMOTE_USERS`**.
 
 3. **Prepare master data**
    - In **Classes**, create school classes (optional but recommended). Any user can use classes created by others when assigning players.
@@ -107,9 +100,9 @@ For a detailed German-language explanation of the tournament logic, see **[`doc/
 | -------- | ---------- |
 | Client   | Vite, Vue 3, TypeScript, Pinia, Vue Router, Tailwind CSS |
 | Server   | Express, TypeScript, **`ws`** (WebSocket on `/api/ws`, same HTTP server as the API) |
-| Shared   | **`@turnier-hub/shared`** workspace: TypeScript types for catalog and tournament API payloads (e.g. `Player`, `CreatedBy`, `AuthUser`) plus helpers like `formatCreator` and `formatPlayerName`; consumed by client and server |
+| Shared   | **`@turnier-hub/shared`** workspace: TypeScript types for catalog and tournament API payloads (e.g. `Player`, `CreatedBy`, `SessionUser`) plus helpers like `formatCreator` and `formatPlayerName`; consumed by client and server |
 | Database | SQLite via Prisma ORM |
-| Auth     | JWT, bcryptjs |
+| Identity | Reverse-proxy headers (`Remote-User`, optional admin list); optional `AUTHELIA_LOGOUT_URL` for SPA logout |
 | Lint     | ESLint 9 (flat config), `typescript-eslint`, `eslint-plugin-vue` (client) |
 
 The SQLite file lives under `data/` (for example `data/dev.db`). Database files are not committed to the repository.
@@ -144,12 +137,14 @@ Server architecture (quick reference):
    Important variables:
 
    - `DATABASE_URL` — SQLite path relative to `server/prisma` (default points to `data/dev.db`).
-   - `JWT_SECRET` — use a strong secret in production.
-   - `INVITE_CODE` — required for new sign-ups (default in the example: `ballspiele2026`).
-   - `DEFAULT_SCHOOL_NAME` — school name auto-created at startup (default: `defaultSchool`; may contain spaces, e.g. `"BBS Hannover"`).
+   - `DEFAULT_SCHOOL_ID` — **required in production**: Prisma `id` of the school whose catalog (classes, players, tournaments) this instance serves. In development, the app falls back to the school named `DEFAULT_SCHOOL_NAME` (from seed).
+   - `DEFAULT_SCHOOL_NAME` — seed/bootstrap school name when resolving by name (default: `defaultSchool`).
+   - `ADMIN_REMOTE_USERS` — comma-separated `Remote-User` values allowed to call `/api/admin/*`.
+   - `ADMIN_REMOTE_GROUP` — name that must appear in Authelia’s comma-separated `Remote-Groups` header for admin (default `admins`, case-insensitive). Set to empty (`ADMIN_REMOTE_GROUP=`) to disable this check and rely only on `ADMIN_REMOTE_USERS`.
+   - `AUTHELIA_LOGOUT_URL` — full URL returned on `GET /api/session` as `logoutUrl` so the SPA can navigate the browser there on **Abmelden** (clears the SSO session cookie at the identity provider).
+   - `DEV_REMOTE_USER` — optional local fallback when no `Remote-User` header is present (never rely on this in production).
+   - `DEV_REMOTE_ADMIN` — when `1` / `true` / `yes`, grants **admin** to every authenticated subject in non-production only (for local Admin UI without listing users in `ADMIN_REMOTE_USERS`).
    - `PORT` — API port (default `3001`).
-   - `AUTH_RATE_LIMIT_WINDOW_MS` / `AUTH_LOGIN_MAX_REQUESTS` / `AUTH_SIGNUP_MAX_REQUESTS` / `AUTH_IDENTIFIER_MAX_REQUESTS` — in-memory abuse protection for login/signup (window + max requests per IP and identifier).
-   - `LOGIN_LOCKOUT_START_AFTER_FAILURES` / `LOGIN_LOCKOUT_BASE_MS` / `LOGIN_LOCKOUT_MAX_MS` — progressive temporary lockout for repeated failed logins per email/identifier.
    - `CORS_ALLOWED_ORIGINS` — comma-separated allowlist of browser origins that may call the API with credentials.
    - `TRUST_PROXY` — set to `1` (or the correct hop count) when running behind a reverse proxy so IP-based protections use the real client IP.
    - `JSON_BODY_LIMIT` — max JSON request payload size for `express.json` (default `100kb`).
@@ -164,11 +159,11 @@ Server architecture (quick reference):
 
    If `db:push` fails because of existing rows (e.g. after a breaking schema change), reset the **local** SQLite file (this deletes all data), then push and seed again — for example delete `data/dev.db` or use `npx prisma db push --force-reset` from `server/` (development only).
 
-  The seed creates a demo user (`seed@turnier-hub.local` / `seeduser`, password `seedseed12`) with role **`admin`**, twelve players, shared demo **school classes**, and four demo tournaments: **"Demo: Football School Cup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), **"Demo: Direct K.O. with 15 Teams"** (Direct K.O., 15 teams), and **"Demo: Badminton Round Robin"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players belonging to that demo user, then recreates the demo data (other accounts are untouched).
+  The seed creates two schools (`defaultSchool`, `secondSchool`), twelve players, shared demo **school classes**, and four demo tournaments: **"Demo: Football School Cup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), **"Demo: Direct K.O. with 15 Teams"** (Direct K.O., 15 teams), and **"Demo: Badminton Round Robin"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players for the default school, then recreates the demo data.
 
-3.1. **Wipe demo data (dev/test) without deleting users**
+3.1. **Wipe demo data (dev/test)**
 
-If you want to remove all demo content but keep `User` rows intact:
+If you want to remove catalog content (classes, players, tournaments) but keep schools:
 
 ```bash
 npm run db:clear -- --yes
@@ -206,10 +201,10 @@ npm run db:clear:test -- --yes
 | `npm run db:studio` | Opens Prisma Studio against the database from `server/.env`. |
 | `npm run db:generate` | Generates the Prisma client. |
 | `npm run db:seed` | Runs the Prisma seed (dev database). |
-| `npm run db:clear` | Clears all tables except `User` (dev database). Pass `-- --yes` for confirmation. |
+| `npm run db:clear` | Clears catalog data (classes, players, tournaments, audit log) but keeps `School` rows (dev database). Pass `-- --yes` for confirmation. |
 | `npm run db:push:test` | Pushes schema using `server/.env.test` (test DB). |
 | `npm run db:seed:test` | Seeds the test database. |
-| `npm run db:clear:test` | Clears all tables except `User` (test DB). Pass `-- --yes` for confirmation. |
+| `npm run db:clear:test` | Same as `db:clear` for the test DB. Pass `-- --yes` for confirmation. |
 | `npm run dev:test` | Runs the server with `NODE_ENV=test` (loads `server/.env.test`, default port `3002`). |
 | `npm run test` | Runs Vitest suites for server + client. |
 | `npm run test:client` | Runs all client tests (unit + client-API integration). |
@@ -233,7 +228,7 @@ Realtime test coverage (current baseline):
 - Environment file: `server/.env`
 - Apply schema: `npm run db:push`
 - Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)
-- Clear demo content (keep `User`): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
+- Clear catalog data (keeps `School` rows): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
 - Internally, `db:seed` runs Prisma's configured seed script via `server/package.json` → `prisma.seed: "tsx scripts/seed.ts"`.
 - Internally, `db:clear` runs `tsx scripts/clearDbExceptUsers.ts` from `server/package.json`.
 
@@ -241,7 +236,7 @@ Realtime test coverage (current baseline):
 - Environment file: `server/.env.test`
 - Apply schema: `npm run db:push:test`
 - Seed demo data: `npm run db:seed:test` (same script: `server/scripts/seed.ts`)
-- Clear demo content (keep `User`): `npm run db:clear:test -- --yes` (same script: `server/scripts/clearDbExceptUsers.ts`)
+- Clear catalog data (keeps `School` rows): `npm run db:clear:test -- --yes` (same script: `server/scripts/clearDbExceptUsers.ts`)
 - Internally, `db:seed:test` reuses the same seed file (`server/scripts/seed.ts`) but executes under `server/.env.test`.
 - Internally, `db:clear:test` runs the same clear file (`server/scripts/clearDbExceptUsers.ts`) but executes under `server/.env.test`.
 
@@ -254,7 +249,7 @@ Realtime test coverage (current baseline):
 
 For Ansible-based production automation (bootstrap, restart, update + deploy), see [`ansible/README.md`](ansible/README.md).
 
-1. Set environment variables on the host (`DATABASE_URL`, `JWT_SECRET`, `INVITE_CODE`, `PORT`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, etc.) — do not rely on committing `.env`.
+1. Set environment variables on the host (`DATABASE_URL`, **`DEFAULT_SCHOOL_ID`**, `PORT`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, optional `ADMIN_REMOTE_USERS`, `AUTHELIA_LOGOUT_URL`, etc.) — do not rely on committing `.env`.
 
 2. Install dependencies and prepare the build:
 
@@ -279,39 +274,30 @@ For Ansible-based production automation (bootstrap, restart, update + deploy), s
 
 Notes:
 - `db:seed` / `db:clear` are for development/test workflows. On production, use `db:deploy` only (and seed manually only if you explicitly want demo data).
-- **Reverse proxy (e.g. Nginx):** if TLS or a proxy sits in front of Node, enable **WebSocket pass-through** for paths that hit the API (at least **`/api/ws`**), e.g. `proxy_http_version 1.1`, `Upgrade`, and `Connection "upgrade"`, so realtime push keeps working.
-- **Auth abuse protection:** login/signup are rate-limited per IP and per identifier (`email` / `username`) and return `429` + `Retry-After` when limits are exceeded.
+- **Reverse proxy (e.g. Nginx / Authelia):** forward **`Remote-User`** to Node for both HTTP and WebSocket upgrades. Enable **WebSocket pass-through** for paths that hit the API (at least **`/api/ws`**), e.g. `proxy_http_version 1.1`, `Upgrade`, and `Connection "upgrade"`, so realtime push keeps working.
 
    Or use `npm run prod` to run steps 2–4's build/start in one go after `npm ci` (run `db:deploy` separately when the database is ready).
 
    Equivalent from the server workspace after a root build: `npm run start:prod -w server`.
 
-## Security Notes
+## Security
 
-- **Security backlog + runbook:** see [`doc/SECURITY.md`](doc/SECURITY.md) for prioritized hardening tasks, production checks, and incident procedures.
-- **Auth endpoint throttling:** `POST /api/auth/login` and `POST /api/auth/signup` are protected by in-memory request limits.
-- **Security headers:** API responses include baseline HTTP security headers via `helmet`.
-- **CORS allowlist:** browser calls are accepted only from origins in `CORS_ALLOWED_ORIGINS` (comma-separated).
-- **Rate-limit env vars:** `AUTH_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_MAX_REQUESTS`, `AUTH_SIGNUP_MAX_REQUESTS`, `AUTH_IDENTIFIER_MAX_REQUESTS`.
-- **Progressive login lockout:** repeated failed logins per identifier trigger temporary backoff (`LOGIN_LOCKOUT_*`) and return `429` with `Retry-After`.
-- **Session invalidation:** JWTs carry per-user token version (`tv`). `POST /api/auth/revoke-sessions` rotates the caller's token version and invalidates all previously issued tokens for that account.
-- **Proxy/IP env var:** `TRUST_PROXY` (for example `1` behind Nginx) so `req.ip` is correct for rate limits and auditing.
-- **Payload-size env var:** `JSON_BODY_LIMIT` limits JSON request size globally (default `100kb`).
-- **WebSocket abuse controls:** configurable connection/message windows and a per-socket subscription cap (`WS_*` env vars).
-- **Structured security signals:** when thresholds are reached, the server emits JSON warning logs for `401/403/429` spikes and websocket connection/rate-limit spikes (`SECURITY_*` env vars).
-- **How limits are applied:** both per-IP and per-identifier counters run in parallel; if either threshold is exceeded in the active window, the request is blocked (`429`).
-- **Current scope:** limits are process-local (single Node.js instance). For multi-instance deployments, add a shared store (e.g. Redis) and/or edge rate limits at the reverse proxy/load balancer.
-- **Proxy setup:** if your app runs behind a reverse proxy, configure trusted proxy hops so `req.ip` reflects the real client IP and keep your allowed browser origins aligned with the public frontend URL(s).
-- **Secrets:** always set strong production values for `JWT_SECRET` and `INVITE_CODE` through host environment variables.
+Identity and access are handled **outside** the app: a **reverse proxy** (for example Authelia) should terminate TLS, authenticate users, and set **`Remote-User`** (and optional group headers) on **HTTP and WebSocket** upgrades. The API does not issue JWTs to the browser; the SPA uses **same-origin** requests with **`credentials: "include"`**.
 
-## Security Runbook
+**Implemented server-side controls** (configure via `server/.env` / host env; see `server/.env.example`):
 
-For operational procedures and the security checklist in one place, see [`doc/SECURITY.md`](doc/SECURITY.md).
+- **`helmet`** — baseline HTTP security headers on API responses (`server/src/app.ts`).
+- **CORS** — only origins in **`CORS_ALLOWED_ORIGINS`** may call the API with credentials; preflight to **`/api/*`** from disallowed origins is answered with **`403`** (`server/src/app.ts`).
+- **`TRUST_PROXY`** — must match how many proxy hops you trust so **`req.ip`** and WebSocket client IP logic align with **`X-Forwarded-For`** (`server/src/config.ts`, `server/src/realtime/hub.ts`).
+- **`JSON_BODY_LIMIT`** — maximum size for JSON bodies parsed by **`express.json`**.
+- **WebSocket (`/api/ws`)** — upgrades require a non-empty **`Remote-User`** (or dev fallback); **`Origin`** must be in **`CORS_ALLOWED_ORIGINS`**; **`WS_*`** env vars cap upgrade bursts per IP, message rate per socket, **max payload**, and **max tournament subscriptions** per connection (`server/src/realtime/hub.ts`).
+- **Structured warning logs** — optional **`SECURITY_HTTP_STATUS_*`** thresholds on **`/api`** responses (`401`, `403`, `429`) and **`SECURITY_WS_CONNECTIONS_*`** for concurrent-connection peaks; WebSocket **rate-limit** hits log **`ws_rate_limit_triggered`** (JSON lines on **`console.warn`** for log shipping; `server/src/security/monitoring.ts`).
+- **Process scope** — rate limits and connection counters are **in-memory per Node process**; in front of multiple instances, add complementary limits at the **reverse proxy or load balancer**.
+- **Dependencies** — **`npm run security:audit`** wraps **`npm audit`** and fails the build on non-allowlisted **high/critical** findings (`scripts/security-audit.mjs`).
 
 ## Additional Documentation
 
 - [`doc/TURNIERLOGIK.md`](doc/TURNIERLOGIK.md) - detailed German-language tournament logic documentation.
-- [`doc/SECURITY.md`](doc/SECURITY.md) - consolidated security checklist and incident runbook.
 - [`doc/TODO.md`](doc/TODO.md) - historical tournament refactoring checklist.
 
 ## Project Layout
@@ -326,7 +312,7 @@ turnier-hub/
 ├── client/                    # Vue SPA (Vite)
 │   ├── eslint.config.js       # ESLint flat config
 │   ├── src/
-│   │   ├── api/               # authApi, adminApi, classesApi, playersApi, tournamentsApi, http (fetch + token)
+│   │   ├── api/               # sessionApi, adminApi, classesApi, playersApi, tournamentsApi, http (fetch + credentials)
 │   │   ├── components/        # Shared UI (e.g. CatalogPageHeader, EntityDialog, ScopeToggle); Storybook stories in tests/client/storybook/
 │   │   ├── composables/       # Feature composables (dashboard, admin, classes, players, tournaments)
 │   │   ├── realtime/          # WebSocket client (connect, tournament subscribe, dispatch to stores)
@@ -341,7 +327,7 @@ turnier-hub/
 │   └── src/
 │       ├── app.ts, index.ts   # Express app; HTTP server + WebSocket upgrade
 │       ├── realtime/          # WebSocket hub (/api/ws); tournament push to subscribers; catalog + list broadcast
-│       ├── routes/            # auth, classes, players, tournaments/…
+│       ├── routes/            # session, classes, players, tournaments/…, admin
 │       │   └── tournaments/   # Thin route handlers (validate → service → notify → respond)
 │       └── services/          # Pure logic (advancePhase, standings, matchTimer, knockoutBracket, roundRobinSchedule) + orchestration (tournamentRosterService, tournamentMatchService, ServiceError)
 ├── data/                      # SQLite files (created locally; .gitignored)
@@ -362,7 +348,7 @@ For a concise checklist, file paths, and how to reuse the focus trap in new dial
 
 - `server/.env.test` defines a separate SQLite file (for example `data/test.db`) and port `3002`.
 - Use `npm run db:push:test` and `npm run db:seed:test` against that database.
-- Use `npm run db:clear:test -- --yes` to wipe demo content while keeping `User`.
+- Use `npm run db:clear:test -- --yes` to wipe demo catalog content while keeping `School` rows.
 - If you run only the test API, point the client proxy at port `3002` or call the API directly.
 - Client integration tests (`tests/client/integration`) reset the test DB and seed a small minimal dataset per test for faster runs.
 

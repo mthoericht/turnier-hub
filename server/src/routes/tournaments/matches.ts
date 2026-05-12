@@ -1,6 +1,7 @@
 import type { Request, Response, Router } from "express";
 import { z } from "zod";
-import { getUserSchoolId, requireTournamentExists } from "./shared.js";
+import { getCatalogSchoolId } from "../../lib/catalogSchool.js";
+import { requireTournamentExists } from "./shared.js";
 import { notifyTournamentChanged } from "../../realtime/notify.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import {
@@ -26,11 +27,7 @@ const timerSchema = z.object({
 async function generateGroupMatchesHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const owned = await requireTournamentExists(res, tournamentId, schoolId);
   if (!owned) return;
   const detail = await generateGroupMatches(tournamentId);
@@ -42,11 +39,7 @@ async function generateGroupMatchesHandler(req: Request, res: Response): Promise
 async function generateKnockoutMatchesHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const owned = await requireTournamentExists(res, tournamentId, schoolId);
   if (!owned) return;
   const detail = await generateKnockoutMatches(tournamentId);
@@ -58,11 +51,7 @@ async function generateKnockoutMatchesHandler(req: Request, res: Response): Prom
 async function deleteAllMatchesHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const owned = await requireTournamentExists(res, tournamentId, schoolId);
   if (!owned) return;
   const detail = await deleteAllMatches(tournamentId);
@@ -75,11 +64,7 @@ async function patchMatchScoresHandler(req: Request, res: Response): Promise<voi
 {
   const tournamentId = String(req.params.id);
   const matchId = String(req.params.matchId);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const parsed = scoresSchema.safeParse(req.body);
   if (!parsed.success)
   {
@@ -102,11 +87,7 @@ async function handleTimerActionHandler(req: Request, res: Response): Promise<vo
 {
   const tournamentId = String(req.params.id);
   const matchId = String(req.params.matchId);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const parsed = timerSchema.safeParse(req.body);
   if (!parsed.success)
   {

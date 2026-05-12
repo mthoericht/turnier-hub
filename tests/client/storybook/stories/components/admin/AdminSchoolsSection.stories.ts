@@ -3,9 +3,9 @@ import AdminSchoolsSection from "@/components/admin/AdminSchoolsSection.vue";
 import type { AdminSchool } from "@/api/adminApi";
 
 const demoSchools: AdminSchool[] = [
-  { id: "s1", name: "BBS Hannover", userCount: 12 },
-  { id: "s2", name: "IGS Linden", userCount: 7 },
-  { id: "s3", name: "Gymnasium Nord", userCount: 3 },
+  { id: "s1", name: "BBS Hannover", catalogCount: 12 },
+  { id: "s2", name: "IGS Linden", catalogCount: 7 },
+  { id: "s3", name: "Gymnasium Nord", catalogCount: 3 },
 ];
 
 const meta: Meta<typeof AdminSchoolsSection> = {

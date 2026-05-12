@@ -220,7 +220,7 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
 
   /** Whether the signed-in user may edit the loaded tournament (currently any authenticated user when detail exists). */
   const canEdit = computed(() =>
-    canUserEditTournament(tournament.value, auth.user?.id)
+    canUserEditTournament(tournament.value, auth.user?.subject)
   );
 
   /** Catalog player ids already on a roster in the active tournament. */

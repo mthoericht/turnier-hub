@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { getCatalogSchoolId } from "../lib/catalogSchool.js";
 import {
   parseListScope,
   playerApiInclude,
@@ -41,24 +42,12 @@ const importSchema = z.object({
   ).min(1),
 }).strict();
 
-async function getRequestUserSchoolId(userId: string): Promise<string | null>
+router.get("/", asyncHandler(async (req, res) =>
 {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { schoolId: true },
-  });
-  return user?.schoolId ?? null;
-}
-
-router.get("/", asyncHandler(async (req, res) => {
-  const schoolId = await getRequestUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const scope = parseListScope(req.query.scope);
   const where = scope === "own"
-    ? { schoolId, userId: req.userId! }
+    ? { schoolId, createdBySubject: req.remoteSubject! }
     : { schoolId };
   const rows = await prisma.player.findMany({
     where,
@@ -68,24 +57,22 @@ router.get("/", asyncHandler(async (req, res) => {
   res.json(rows.map((row) => playerToApi(row)));
 }));
 
-router.post("/", asyncHandler(async (req, res) => {
+router.post("/", asyncHandler(async (req, res) =>
+{
   const parsed = createSchema.safeParse(req.body);
-  if (!parsed.success) {
+  if (!parsed.success)
+  {
     res.status(400).json({ error: "Ungültige Eingaben" });
     return;
   }
-  const schoolId = await getRequestUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   let schoolClassId: string | null = parsed.data.schoolClassId ?? null;
-  if (schoolClassId) 
+  if (schoolClassId)
   {
     const sc = await prisma.schoolClass.findFirst({
       where: { id: schoolClassId, schoolId },
     });
-    if (!sc) 
+    if (!sc)
     {
       res.status(400).json({ error: "Klasse nicht gefunden" });
       return;
@@ -96,7 +83,7 @@ router.post("/", asyncHandler(async (req, res) => {
       firstName: parsed.data.firstName.trim(),
       lastName: parsed.data.lastName.trim(),
       schoolClassId,
-      userId: req.userId!,
+      createdBySubject: req.remoteSubject!,
       schoolId,
     },
     include: playerApiInclude,
@@ -105,34 +92,33 @@ router.post("/", asyncHandler(async (req, res) => {
   res.status(201).json(playerToApi(row));
 }));
 
-router.patch("/:id", asyncHandler(async (req, res) => {
+router.patch("/:id", asyncHandler(async (req, res) =>
+{
   const playerId = String(req.params.id);
-  const schoolId = await getRequestUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const parsed = updateSchema.safeParse(req.body);
-  if (!parsed.success) {
+  if (!parsed.success)
+  {
     res.status(400).json({ error: "Ungültige Eingaben" });
     return;
   }
   const existing = await prisma.player.findFirst({
     where: { id: playerId, schoolId },
   });
-  if (!existing) {
+  if (!existing)
+  {
     res.status(404).json({ error: "Spieler nicht gefunden" });
     return;
   }
   if (
     parsed.data.schoolClassId !== undefined
     && parsed.data.schoolClassId
-  ) 
+  )
   {
     const sc = await prisma.schoolClass.findFirst({
       where: { id: parsed.data.schoolClassId, schoolId },
     });
-    if (!sc) 
+    if (!sc)
     {
       res.status(400).json({ error: "Klasse nicht gefunden" });
       return;
@@ -153,7 +139,8 @@ router.patch("/:id", asyncHandler(async (req, res) => {
   res.json(playerToApi(row));
 }));
 
-router.post("/import", asyncHandler(async (req, res) => {
+router.post("/import", asyncHandler(async (req, res) =>
+{
   const parsed = importSchema.safeParse(req.body);
   if (!parsed.success)
   {
@@ -162,12 +149,8 @@ router.post("/import", asyncHandler(async (req, res) => {
   }
 
   const mode = parsed.data.mode;
-  const schoolId = await getRequestUserSchoolId(req.userId!);
-  if (!schoolId)
-  {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
+  const subject = req.remoteSubject!;
 
   await prisma.$transaction(async (tx) =>
   {
@@ -187,7 +170,6 @@ router.post("/import", asyncHandler(async (req, res) => {
 
     const existingClasses = await tx.schoolClass.findMany({
       where: {
-        userId: req.userId!,
         schoolId,
         name: { in: classNames },
       },
@@ -201,7 +183,7 @@ router.post("/import", asyncHandler(async (req, res) => {
       const createdClasses = await Promise.all(
         missingClassNames.map((name) =>
           tx.schoolClass.create({
-            data: { name, userId: req.userId!, schoolId },
+            data: { name, createdBySubject: subject, schoolId },
             select: { id: true, name: true },
           })
         ),
@@ -218,7 +200,7 @@ router.post("/import", asyncHandler(async (req, res) => {
     if (mode === "replace_players")
     {
       const existingPlayers = await tx.player.findMany({
-        where: { schoolId, userId: req.userId! },
+        where: { schoolId, createdBySubject: subject },
         select: {
           id: true,
           firstName: true,
@@ -256,7 +238,7 @@ router.post("/import", asyncHandler(async (req, res) => {
             firstName: row.firstName,
             lastName: row.lastName,
             schoolClassId: row.schoolClassId,
-            userId: req.userId!,
+            createdBySubject: subject,
             schoolId,
           })),
         });
@@ -269,7 +251,7 @@ router.post("/import", asyncHandler(async (req, res) => {
         firstName: row.firstName,
         lastName: row.lastName,
         schoolClassId: row.schoolClassId,
-        userId: req.userId!,
+        createdBySubject: subject,
         schoolId,
       })),
     });
@@ -279,17 +261,15 @@ router.post("/import", asyncHandler(async (req, res) => {
   res.status(201).json({ imported: parsed.data.rows.length });
 }));
 
-router.delete("/:id", asyncHandler(async (req, res) => {
+router.delete("/:id", asyncHandler(async (req, res) =>
+{
   const playerId = String(req.params.id);
-  const schoolId = await getRequestUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const existing = await prisma.player.findFirst({
     where: { id: playerId, schoolId },
   });
-  if (!existing) {
+  if (!existing)
+  {
     res.status(404).json({ error: "Spieler nicht gefunden" });
     return;
   }

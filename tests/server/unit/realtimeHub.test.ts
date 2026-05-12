@@ -3,30 +3,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import WebSocket from "ws";
 import { createApp } from "../../../server/src/app.js";
 import { RealtimeHub } from "../../../server/src/realtime/hub.js";
-import { signToken } from "../../../server/src/auth/token.js";
 import {
   WS_CONNECT_MAX_PER_IP,
   WS_MAX_PAYLOAD_BYTES,
   WS_MAX_SUBSCRIPTIONS_PER_CLIENT,
   WS_MESSAGE_MAX_PER_WINDOW,
 } from "../../../server/src/config.js";
-
-/**
- * Mock Prisma so hub.ts DB lookups resolve without a real database.
- * By default every user id is treated as valid with tokenVersion 0.
- */
-const mockFindUnique = vi.fn().mockImplementation(
-  ({ where }: { where: { id: string } }) =>
-    Promise.resolve({ id: where.id, tokenVersion: 0 })
-);
-
-vi.mock("../../../server/src/db.js", () => ({
-  prisma: {
-    user: {
-      findUnique: (...args: unknown[]) => mockFindUnique(...args),
-    },
-  },
-}));
 
 type Push =
   | { type: "tournamentChanged"; tournamentId: string }
@@ -80,9 +62,9 @@ function connectExpectStatus(
   });
 }
 
-function connectExpect401(url: string): Promise<void>
+function connectExpect401(url: string, options?: WebSocket.ClientOptions): Promise<void>
 {
-  return connectExpectStatus(url, 401).then(() => {});
+  return connectExpectStatus(url, 401, options).then(() => {});
 }
 
 function waitForMessage<T>(ws: WebSocket): Promise<T>
@@ -104,16 +86,17 @@ function waitForMessage<T>(ws: WebSocket): Promise<T>
   });
 }
 
+function wsHeaders(remoteUser: string, extra?: Record<string, string>): WebSocket.ClientOptions
+{
+  return { headers: { "Remote-User": remoteUser, ...extra } };
+}
+
 describe("RealtimeHub (WebSocket)", () =>
 {
   afterEach(() =>
   {
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
-    // Restore the default mock after restoreAllMocks clears it.
-    mockFindUnique.mockImplementation(
-      ({ where }: { where: { id: string } }) =>
-        Promise.resolve({ id: where.id, tokenVersion: 0 })
-    );
   });
 
   let server: http.Server;
@@ -141,25 +124,24 @@ describe("RealtimeHub (WebSocket)", () =>
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
-  it("rejects missing token with 401", async () =>
+  it("rejects missing Remote-User with 401", async () =>
   {
+    // Isolate from shell / host env: dotenv-cli does not override existing DEV_REMOTE_USER.
+    vi.stubEnv("DEV_REMOTE_USER", "");
     await connectExpect401(baseUrl);
   });
 
   it("pushes tournamentChanged only to subscribed clients", async () =>
   {
-    const tokenA = signToken("user-a");
-    const wsA = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenA)}`);
+    const wsA = new WebSocket(baseUrl, wsHeaders("user-a"));
     await waitForOpen(wsA);
 
-    const tokenB = signToken("user-b");
-    const wsB = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenB)}`);
+    const wsB = new WebSocket(baseUrl, wsHeaders("user-b"));
     await waitForOpen(wsB);
     wsB.on("error", () => {});
 
     wsA.send(JSON.stringify({ type: "subscribe", tournamentId: "t1" }));
     wsB.send(JSON.stringify({ type: "subscribe", tournamentId: "t2" }));
-    // Give the server a tick to process subscribe messages.
     await sleep(10);
 
     hub.notifyTournamentChanged("t1");
@@ -178,8 +160,7 @@ describe("RealtimeHub (WebSocket)", () =>
 
   it("does not push after unsubscribe from tournament", async () =>
   {
-    const token = signToken("user-a");
-    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(baseUrl, wsHeaders("user-a"));
     await waitForOpen(ws);
 
     ws.send(JSON.stringify({ type: "subscribe", tournamentId: "t1" }));
@@ -199,8 +180,7 @@ describe("RealtimeHub (WebSocket)", () =>
 
   it("ignores malformed client messages without closing socket", async () =>
   {
-    const token = signToken("user-a");
-    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(baseUrl, wsHeaders("user-a"));
     await waitForOpen(ws);
 
     ws.send("{broken-json");
@@ -217,10 +197,8 @@ describe("RealtimeHub (WebSocket)", () =>
 
   it("closes socket when max subscriptions per client is exceeded", async () =>
   {
-    // This test intentionally triggers security warn logs; mute expected console output.
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    const token = signToken("user-limit-subs");
-    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(baseUrl, wsHeaders("user-limit-subs"));
     await waitForOpen(ws);
 
     for (let i = 0; i < WS_MAX_SUBSCRIPTIONS_PER_CLIENT; i += 1)
@@ -236,10 +214,8 @@ describe("RealtimeHub (WebSocket)", () =>
 
   it("closes socket when message rate limit is exceeded", async () =>
   {
-    // This test intentionally triggers security warn logs; mute expected console output.
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    const token = signToken("user-msg-limit");
-    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(baseUrl, wsHeaders("user-msg-limit"));
     await waitForOpen(ws);
 
     for (let i = 0; i <= WS_MESSAGE_MAX_PER_WINDOW; i += 1)
@@ -253,13 +229,11 @@ describe("RealtimeHub (WebSocket)", () =>
 
   it("pushes catalogChanged to all connected clients", async () =>
   {
-    const tokenA = signToken("user-a");
-    const wsA1 = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenA)}`);
-    const wsA2 = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenA)}`);
+    const wsA1 = new WebSocket(baseUrl, wsHeaders("user-a"));
+    const wsA2 = new WebSocket(baseUrl, wsHeaders("user-a"));
     await Promise.all([waitForOpen(wsA1), waitForOpen(wsA2)]);
 
-    const tokenB = signToken("user-b");
-    const wsB = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenB)}`);
+    const wsB = new WebSocket(baseUrl, wsHeaders("user-b"));
     await waitForOpen(wsB);
 
     hub.notifyCatalogChanged(["players"]);
@@ -281,12 +255,10 @@ describe("RealtimeHub (WebSocket)", () =>
 
   it("pushes tournamentsChanged to all connected clients", async () =>
   {
-    const tokenA = signToken("user-a");
-    const wsA = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenA)}`);
+    const wsA = new WebSocket(baseUrl, wsHeaders("user-a"));
     await waitForOpen(wsA);
 
-    const tokenB = signToken("user-b");
-    const wsB = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenB)}`);
+    const wsB = new WebSocket(baseUrl, wsHeaders("user-b"));
     await waitForOpen(wsB);
 
     hub.notifyTournamentsListChanged();
@@ -302,41 +274,25 @@ describe("RealtimeHub (WebSocket)", () =>
     await Promise.all([waitForClose(wsA), waitForClose(wsB)]);
   });
 
-  it("rejects token with mismatched tokenVersion (revoked session)", async () =>
-  {
-    // Token signed with tokenVersion 0, but DB says user is at version 1.
-    mockFindUnique.mockResolvedValueOnce({ id: "user-revoked", tokenVersion: 1 });
-    const token = signToken("user-revoked", 0);
-    await connectExpect401(`${baseUrl}?token=${encodeURIComponent(token)}`);
-  });
-
-  it("rejects token for deleted user", async () =>
-  {
-    mockFindUnique.mockResolvedValueOnce(null);
-    const token = signToken("user-deleted", 0);
-    await connectExpect401(`${baseUrl}?token=${encodeURIComponent(token)}`);
-  });
-
   it("rejects upgrade with disallowed Origin header (403)", async () =>
   {
-    const token = signToken("user-a");
-    const url = `${baseUrl}?token=${encodeURIComponent(token)}`;
-    await connectExpectStatus(url, 403, {
-      headers: { Origin: "https://evil.example.com" },
+    await connectExpectStatus(baseUrl, 403, {
+      headers: {
+        "Remote-User": "user-a",
+        Origin: "https://evil.example.com",
+      },
     });
   });
 
   it("disconnects client that sends oversized payload", async () =>
   {
-    const token = signToken("user-big");
-    // Disable client-side payload limit so the oversized frame actually reaches the server.
-    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`, {
+    const ws = new WebSocket(baseUrl, {
+      ...wsHeaders("user-big"),
       maxPayload: WS_MAX_PAYLOAD_BYTES * 10,
     });
     await waitForOpen(ws);
     ws.on("error", () => {});
 
-    // Send a payload larger than the server's WS_MAX_PAYLOAD_BYTES.
     const oversized = Buffer.alloc(WS_MAX_PAYLOAD_BYTES + 1, 0x41);
     ws.send(oversized);
 
@@ -350,16 +306,11 @@ describe("RealtimeHub connect rate limit", () =>
   afterEach(() =>
   {
     vi.restoreAllMocks();
-    mockFindUnique.mockImplementation(
-      ({ where }: { where: { id: string } }) =>
-        Promise.resolve({ id: where.id, tokenVersion: 0 })
-    );
   });
 
   it("returns 429 with Retry-After when connect rate limit is exceeded", async () =>
   {
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    // Fresh server so previous tests' connections don't pollute the counter.
     const app = createApp();
     const srv = http.createServer(app);
     const hub = new RealtimeHub();
@@ -369,20 +320,15 @@ describe("RealtimeHub connect rate limit", () =>
     const port = typeof addr === "object" && addr ? addr.port : 0;
     const url = `ws://127.0.0.1:${port}/api/ws`;
 
-    const token = signToken("user-rate");
     const sockets: WebSocket[] = [];
     for (let i = 0; i < WS_CONNECT_MAX_PER_IP; i += 1)
     {
-      const ws = new WebSocket(`${url}?token=${encodeURIComponent(token)}`);
+      const ws = new WebSocket(url, wsHeaders("user-rate"));
       await waitForOpen(ws);
       sockets.push(ws);
     }
 
-    // Next connection must be rate-limited.
-    const res = await connectExpectStatus(
-      `${url}?token=${encodeURIComponent(token)}`,
-      429
-    );
+    const res = await connectExpectStatus(url, 429, wsHeaders("user-rate"));
     expect(res).toBeTruthy();
     expect(Number(res.headers["retry-after"])).toBeGreaterThanOrEqual(1);
 
@@ -391,4 +337,3 @@ describe("RealtimeHub connect rate limit", () =>
     await new Promise<void>((resolve) => srv.close(() => resolve()));
   });
 });
-

@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../../server/src/app.js";
 import { CORS_ALLOWED_ORIGINS } from "../../../server/src/config.js";
 
+const REMOTE = "security-test-user";
+
 describe("app security middleware", () =>
 {
   afterEach(() =>
@@ -29,9 +31,9 @@ describe("app security middleware", () =>
 
     const app = createApp();
     const response = await request(app)
-      .options("/api/auth/login")
+      .options("/api/session")
       .set("Origin", allowedOrigin!)
-      .set("Access-Control-Request-Method", "POST");
+      .set("Access-Control-Request-Method", "GET");
 
     expect(response.status).toBe(204);
     expect(response.headers["access-control-allow-origin"]).toBe(allowedOrigin);
@@ -41,24 +43,25 @@ describe("app security middleware", () =>
   {
     const app = createApp();
     const response = await request(app)
-      .options("/api/auth/login")
+      .options("/api/session")
       .set("Origin", "https://not-allowed.example")
-      .set("Access-Control-Request-Method", "POST");
+      .set("Access-Control-Request-Method", "GET");
 
     expect(response.status).toBe(403);
   });
 
   it("enforces JSON request body size limits", async () =>
   {
-    // This test intentionally triggers body-parser size errors; mute expected error log noise.
     vi.spyOn(console, "error").mockImplementation(() => {});
     const app = createApp();
     const tooLargePayload = {
-      email: "large-body@example.com",
-      password: "x".repeat(200_000),
+      firstName: "x",
+      lastName: "y",
+      extra: "z".repeat(200_000),
     };
     const response = await request(app)
-      .post("/api/auth/login")
+      .post("/api/players")
+      .set("Remote-User", REMOTE)
       .send(tooLargePayload);
 
     expect(response.status).toBe(413);
@@ -69,13 +72,12 @@ describe("app security middleware", () =>
     vi.spyOn(console, "error").mockImplementation(() => {});
     const app = createApp();
 
-    // Trigger an internal error by sending a malformed content-type body.
     const response = await request(app)
-      .post("/api/auth/login")
+      .post("/api/players")
+      .set("Remote-User", REMOTE)
       .set("Content-Type", "application/json")
       .send("not-json{{{");
 
-    // The response should be a clean error without stack/details.
     expect(response.body).not.toHaveProperty("stack");
     expect(response.body).not.toHaveProperty("message");
   });

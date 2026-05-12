@@ -2,27 +2,28 @@ import type { CreatedBy, Player } from "@turnier-hub/shared";
 import type { TournamentTeam } from "@/tournament/tournamentContext";
 
 const createdBy: CreatedBy = {
-  id: "u-demo",
-  username: "lehrer",
-  email: "lehrer@schule.example",
+  subject: "lehrer",
 };
 
 export const demoPlayers: Player[] = [
   {
     id: "p1",
-    name: "Anna Schmidt",
+    firstName: "Anna",
+    lastName: "Schmidt",
     schoolClass: { id: "c1", name: "7a" },
     createdBy,
   },
   {
     id: "p2",
-    name: "Ben Müller",
+    firstName: "Ben",
+    lastName: "Müller",
     schoolClass: { id: "c1", name: "7a" },
     createdBy,
   },
   {
     id: "p3",
-    name: "Cleo ohne Klasse",
+    firstName: "Cleo",
+    lastName: "ohne Klasse",
     schoolClass: null,
     createdBy,
   },
@@ -39,14 +40,14 @@ export const demoTeamWithMembers: TournamentTeam = {
       tournamentId: "t-demo",
       teamId: "team-1",
       playerId: "p1",
-      player: demoPlayers[0],
+      player: demoPlayers[0]!,
     },
     {
       id: "m2",
       tournamentId: "t-demo",
       teamId: "team-1",
       playerId: "p2",
-      player: demoPlayers[1],
+      player: demoPlayers[1]!,
     },
   ],
 };

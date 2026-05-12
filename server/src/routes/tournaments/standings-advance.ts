@@ -1,10 +1,10 @@
 import type { Request, Response, Router } from "express";
 import { z } from "zod";
 import { prisma } from "../../db.js";
+import { getCatalogSchoolId } from "../../lib/catalogSchool.js";
 import { advanceTournamentPhase } from "../../services/advancePhase.js";
 import { computePoolStandings } from "../../services/standings.js";
 import {
-  getUserSchoolId,
   loadTournamentByIdForSchool,
   requireTournamentExists,
   serializeTournamentDetail,
@@ -20,12 +20,7 @@ const advanceSchema = z.object({
 async function getStandingsHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId)
-  {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const t = await loadTournamentByIdForSchool(tournamentId, schoolId);
   if (!t)
   {
@@ -72,12 +67,7 @@ async function getStandingsHandler(req: Request, res: Response): Promise<void>
 async function advanceTournamentHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId)
-  {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const parsed = advanceSchema.safeParse(req.body);
   if (!parsed.success)
   {

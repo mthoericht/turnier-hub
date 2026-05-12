@@ -6,18 +6,14 @@ const defaultSchoolClasses: SchoolClass[] = [
     id: "class-1",
     name: "10a",
     createdBy: {
-      id: "user-1",
-      username: "coach",
-      email: "coach@example.com",
+      subject: "coach",
     },
   },
   {
     id: "class-2",
     name: "9b",
     createdBy: {
-      id: "user-2",
-      username: "teacher",
-      email: "teacher@example.com",
+      subject: "teacher",
     },
   },
 ];
@@ -29,9 +25,7 @@ const defaultPlayers: Player[] = [
     lastName: "Meyer",
     schoolClass: { id: "class-1", name: "10a" },
     createdBy: {
-      id: "user-1",
-      username: "coach",
-      email: "coach@example.com",
+      subject: "coach",
     },
   },
   {
@@ -40,9 +34,7 @@ const defaultPlayers: Player[] = [
     lastName: "Schulz",
     schoolClass: { id: "class-2", name: "9b" },
     createdBy: {
-      id: "user-2",
-      username: "teacher",
-      email: "teacher@example.com",
+      subject: "teacher",
     },
   },
 ];

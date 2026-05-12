@@ -76,7 +76,7 @@ const { tournament, loading, error, formatPhaseLabel } = ctx;
       </p>
       <p
         class="mt-2 text-sm text-slate-500"
-        :title="tournament.createdBy.email"
+        :title="tournament.createdBy.subject"
       >
         Erstellt von {{ formatCreator(tournament.createdBy) }}
       </p>

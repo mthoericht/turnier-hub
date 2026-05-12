@@ -104,23 +104,13 @@ function navLinkClass(prefix: string): string
               <AppIcon v-else name="close" class="h-5 w-5" />
             </button>
             <div class="hidden items-center gap-2 md:flex">
-              <template v-if="auth.user">
-                <div class="max-w-[16rem] text-right leading-tight">
+              <template v-if="auth.ready && auth.user">
+                <div class="max-w-[20rem] text-right leading-tight">
                   <p
-                    class="truncate text-slate-700"
-                    :title="auth.user.email"
+                    class="truncate font-mono text-sm text-slate-700"
+                    :title="auth.user.subject"
                   >
-                    {{
-                      auth.user.username
-                        ? `@${auth.user.username}`
-                        : auth.user.email
-                    }}
-                  </p>
-                  <p
-                    class="truncate text-xs text-slate-500"
-                    :title="`Schule: ${auth.user.schoolName}`"
-                  >
-                    Schule: {{ auth.user.schoolName }}
+                    {{ auth.user.subject }}
                   </p>
                 </div>
                 <button
@@ -131,22 +121,19 @@ function navLinkClass(prefix: string): string
                   Abmelden
                 </button>
               </template>
-              <template v-else>
-                <RouterLink :class="linkClass" to="/login"> Login </RouterLink>
-                <RouterLink
-                  class="rounded-lg bg-blue-600 px-3 py-2 font-medium text-white transition hover:bg-blue-600/90"
-                  to="/signup"
-                >
-                  Registrieren
-                </RouterLink>
-              </template>
+              <p
+                v-else-if="auth.ready"
+                class="max-w-xs text-right text-xs text-amber-800"
+              >
+                Keine Sitzung: Reverse-Proxy muss <span class="font-mono">Remote-User</span> setzen (Authelia), oder in der Entwicklung <span class="font-mono">DEV_REMOTE_USER</span> in der Server-<span class="font-mono">.env</span>.
+              </p>
             </div>
           </div>
         </div>
       </div>
 
       <div
-        v-if="auth.user"
+        v-if="auth.ready && auth.user"
         class="hidden border-b border-slate-200 bg-white/70 backdrop-blur md:block"
       >
         <div class="mx-auto max-w-5xl px-3 sm:px-4">
@@ -174,7 +161,7 @@ function navLinkClass(prefix: string): string
         class="border-t border-slate-200 pb-3 pt-2 md:hidden"
       >
         <nav class="flex flex-col gap-1 px-3" aria-label="Mobile Navigation">
-          <template v-if="auth.user">
+          <template v-if="auth.ready && auth.user">
             <RouterLink
               v-for="item in mainNavItems"
               :key="item.to"
@@ -186,20 +173,10 @@ function navLinkClass(prefix: string): string
               {{ item.label }}
             </RouterLink>
             <p
-              class="truncate px-3 py-2 text-sm text-slate-500"
-              :title="auth.user.email"
+              class="truncate px-3 py-2 font-mono text-sm text-slate-600"
+              :title="auth.user.subject"
             >
-              {{
-                auth.user.username
-                  ? `@${auth.user.username}`
-                  : auth.user.email
-              }}
-            </p>
-            <p
-              class="truncate px-3 pb-2 text-xs text-slate-500"
-              :title="`Schule: ${auth.user.schoolName}`"
-            >
-              Schule: {{ auth.user.schoolName }}
+              {{ auth.user.subject }}
             </p>
             <button
               type="button"
@@ -209,18 +186,12 @@ function navLinkClass(prefix: string): string
               Abmelden
             </button>
           </template>
-          <template v-else>
-            <RouterLink :class="linkClass" to="/login" @click="navOpen = false">
-              Login
-            </RouterLink>
-            <RouterLink
-              class="rounded-lg bg-blue-600 px-3 py-3 text-center text-base font-medium text-white hover:bg-blue-600/90"
-              to="/signup"
-              @click="navOpen = false"
-            >
-              Registrieren
-            </RouterLink>
-          </template>
+          <p
+            v-else-if="auth.ready"
+            class="px-3 py-2 text-sm text-amber-800"
+          >
+            Keine Sitzung (siehe Desktop-Hinweis zu Remote-User / Authelia).
+          </p>
         </nav>
       </div>
     </header>

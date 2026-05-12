@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { getToken } from "../api/http";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -8,48 +7,30 @@ const router = createRouter({
       path: "/",
       name: "dashboard",
       component: () => import("@/views/DashboardView.vue"),
-      meta: { auth: true },
-    },
-    {
-      path: "/login",
-      name: "login",
-      component: () => import("@/views/LoginView.vue"),
-      meta: { guest: true },
-    },
-    {
-      path: "/signup",
-      name: "signup",
-      component: () => import("@/views/SignupView.vue"),
-      meta: { guest: true },
     },
     {
       path: "/players",
       name: "players",
       component: () => import("@/views/PlayersViewPreset.vue"),
-      meta: { auth: true },
     },
     {
       path: "/classes",
       name: "classes",
       component: () => import("@/views/ClassesViewPreset.vue"),
-      meta: { auth: true },
     },
     {
       path: "/tournaments",
       name: "tournaments",
       component: () => import("@/views/TournamentsView.vue"),
-      meta: { auth: true },
     },
     {
       path: "/admin",
       name: "admin",
       component: () => import("@/views/AdminView.vue"),
-      meta: { auth: true },
     },
     {
       path: "/tournaments/:id",
       component: () => import("@/views/tournament/TournamentLayout.vue"),
-      meta: { auth: true },
       children: [
         {
           path: "",
@@ -88,19 +69,6 @@ const router = createRouter({
       ],
     },
   ],
-});
-
-router.beforeEach((to) => 
-{
-  if (to.meta.auth && !getToken()) 
-  {
-    return { name: "login", query: { redirect: to.fullPath } };
-  }
-  if (to.meta.guest && getToken()) 
-  {
-    return { name: "dashboard" };
-  }
-  return true;
 });
 
 export default router;

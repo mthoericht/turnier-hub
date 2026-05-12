@@ -4,11 +4,10 @@ Diese README beschreibt das Backend im `server/`-Workspace im Detail: Architektu
 
 ## Überblick
 
-Das Backend ist eine Express-API mit Prisma (SQLite), JWT-Auth und WebSocket-Push.
+Das Backend ist eine Express-API mit Prisma (SQLite). Identität kommt vom **Reverse-Proxy** über den Header **`Remote-User`** (z. B. Authelia); Admin über **`ADMIN_REMOTE_USERS`** und/oder **`Remote-Groups`** (Gruppe **`ADMIN_REMOTE_GROUP`**, Standard `admins`).
 
-- REST-Basis: `/api/*`
-- Realtime: `/api/ws` (gleicher HTTP-Server wie die API)
-- Auth: `Authorization: Bearer <JWT>`
+- REST-Basis: `/api/*` (inkl. `GET /api/session` für Subjekt, Rolle und optional `logoutUrl`)
+- Realtime: `/api/ws` (gleicher HTTP-Server wie die API; Upgrade mit `Remote-User`)
 - Request-Validierung: `zod` in den Route-Modulen
 - Fehlerbehandlung: zentral über Error-Middleware
 
@@ -32,14 +31,13 @@ server/
 └── src/
     ├── app.ts               # Express-App
     ├── index.ts             # HTTP-Server + WS-Anbindung
-    ├── auth/                # Token-Helfer
     ├── config.ts            # ENV-Konfiguration
     ├── db.ts                # Prisma-Client
     ├── middleware/          # auth, asyncHandler, error
     ├── realtime/            # WS-Hub + Notify-Helfer
-    ├── routes/              # REST-Routen
+    ├── routes/              # REST-Routen (session, classes, players, tournaments, admin)
     ├── services/            # Domänenlogik
-    ├── lib/                 # gemeinsame Mapper/Select-Helper
+    ├── lib/                 # Mapper, catalogSchool, Select-Helper
     └── types/               # globale TS-Augmentations
 ```
 
@@ -47,10 +45,11 @@ server/
 
 In `src/app.ts` gemountet:
 
-- `/api/auth` -> `src/routes/auth.ts`
+- `/api/session` -> `src/routes/session.ts`
 - `/api/classes` -> `src/routes/classes.ts`
 - `/api/players` -> `src/routes/players.ts`
 - `/api/tournaments` -> `src/routes/tournaments/index.ts`
+- `/api/admin` -> `src/routes/admin.ts`
 
 ### Tournament-Route-Module
 
@@ -66,15 +65,14 @@ In `src/app.ts` gemountet:
 
 ### `src/middleware/auth.ts`
 
-- liest `Bearer`-Token aus dem Header
-- validiert JWT
-- setzt `req.userId`
-- liefert `401` bei fehlendem/ungültigem Token
+- liest **`Remote-User`** (normalisiert); optional Fallback **`DEV_REMOTE_USER`** nur für Entwicklung/Test; optional **`DEV_REMOTE_ADMIN`** setzt für jede Identität die Rolle Admin (nur non-production); **`Remote-Groups`** für Admin gemäß **`ADMIN_REMOTE_GROUP`**
+- setzt `req.remoteSubject` und `req.userRole` (`ADMIN` bei Treffer in `ADMIN_REMOTE_USERS`, bei Gruppe in `Remote-Groups` laut `ADMIN_REMOTE_GROUP`, sonst `USER`; non-production: `DEV_REMOTE_ADMIN`)
+- liefert `401`, wenn kein Subjekt ermittelt werden kann
 
 ### `src/types/express.d.ts`
 
-- erweitert `Express.Request` um `userId?: string`
-- wird von Auth-geschützten Routen genutzt
+- erweitert `Express.Request` um `remoteSubject` und `userRole`
+- wird von geschützten Routen genutzt
 
 ### `src/middleware/asyncHandler.ts`
 
@@ -98,7 +96,6 @@ Zentrale Fehlerbehandlung:
 
 Beispiele:
 
-- Auth (`signup`, `login`) in `src/routes/auth.ts`
 - Team-/Match-Payloads in `src/routes/tournaments/*.ts`
 
 ## Service-Schicht
@@ -129,21 +126,17 @@ Wichtige Bausteine:
 
 ## Gemeinsame Mapper / Select-Helper
 
-`src/lib/createdBy.ts` enthält wiederverwendbare API-Mapping-Logik:
+`src/lib/createdBy.ts` enthält wiederverwendbare API-Mapping-Logik; `src/lib/catalogSchool.ts` löst die Katalog-Schule (`DEFAULT_SCHOOL_ID` oder Name) auf.
 
-- `createdBySelect`
-- `toCreatedBy(...)`
-- `playerToApi(...)`
-- `schoolClassToApi(...)`
+- `toCreatedBy(...)` (from `createdBySubject`)
+- `playerToApi(...)`, `schoolClassToApi(...)`
 - `parseListScope(...)` (`own` vs. `all`)
-
-Dadurch bleiben Prisma-Selects und DTO-Mapping zentral konsistent.
 
 ## Realtime (WebSocket)
 
 - Hub: `src/realtime/hub.ts`
 - Notify-Funktionen: `src/realtime/notify.ts`
-- Endpoint: `/api/ws?token=<JWT>`
+- Endpoint: `/api/ws` (Identität wie HTTP über **`Remote-User`** beim Upgrade)
 
 Push-Typen:
 
@@ -181,17 +174,19 @@ Hinweis: Im Projekt werden diese Skripte meist vom Repo-Root aus via Workspace-S
 
 Siehe `server/.env.example`. Typisch relevant:
 
-- `PORT`
-- `DATABASE_URL`
-- `JWT_SECRET`
-- `INVITE_CODE`
+- `PORT`, `DATABASE_URL`
+- `DEFAULT_SCHOOL_ID` / `DEFAULT_SCHOOL_NAME` (Katalog-Zuordnung)
+- `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`
+- `ADMIN_REMOTE_USERS`, `ADMIN_REMOTE_GROUP`, `AUTHELIA_LOGOUT_URL`, `DEV_REMOTE_USER`, `DEV_REMOTE_ADMIN` (nur lokal / non-production)
+- `JSON_BODY_LIMIT`, `WS_*`, `SECURITY_*`
 
 ## Response- und Fehlerkonventionen
 
 - Erfolg: JSON (oder `204` ohne Body bei Delete)
 - Validierungsfehler: `400`
 - Nicht gefunden: `404`
-- Auth-Fehler: `401`
+- Nicht angemeldet / fehlende Identität: `401`
+- Verboten (z. B. Admin-only): `403`
 - Konflikte: `409` (z. B. eindeutige Constraints)
 - Unbekannt: `500` (globaler Error-Handler)
 
@@ -215,4 +210,3 @@ npm run test:unit -w server
 - Domänenfehler bevorzugt als `ServiceError` modellieren
 - gemeinsame Mapper/Selects in `lib/` statt Duplikaten in Routen
 - keine sensiblen Dateien committen (`.env`, DB-Dateien, `dist/`)
-

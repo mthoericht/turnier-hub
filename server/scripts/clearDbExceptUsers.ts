@@ -30,6 +30,7 @@ async function main(): Promise<void> {
   }
 
   // Reihenfolge: Fremdschlüssel zuerst, dann Container.
+  await prisma.adminAuditLog.deleteMany();
   await prisma.match.deleteMany();
   await prisma.tournamentTeamMember.deleteMany();
   await prisma.tournamentTeam.deleteMany();
@@ -38,7 +39,7 @@ async function main(): Promise<void> {
   await prisma.schoolClass.deleteMany();
 
   // eslint-disable-next-line no-console
-  console.log("DB cleared (except User).");
+  console.log("DB cleared (catalog data).");
 }
 
 main()

@@ -8,7 +8,7 @@ const props = defineProps<{
   inputClass: string;
 }>();
 
-const emit = defineEmits<{
+defineEmits<{
   (e: "update:modelValue", value: string): void;
   (e: "close"): void;
   (e: "submit"): void;

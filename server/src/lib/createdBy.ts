@@ -1,38 +1,24 @@
-import type { SchoolClass } from "@prisma/client";
 import type { CreatedBy, Player, SchoolClass as SchoolClassApi } from "@turnier-hub/shared";
 
-/**
- * Reusable Prisma select for the user fields exposed as `createdBy`.
- */
-export const createdBySelect = {
-  id: true,
-  username: true,
-  email: true,
-} as const;
-
-export type CreatedByUser = {
+/** Fields read from Prisma `SchoolClass` for catalog API mapping. */
+export type SchoolClassRow = {
   id: string;
-  username: string | null;
-  email: string;
+  name: string;
+  createdBySubject: string;
 };
 
 /**
- * Maps a database user shape to the shared API `CreatedBy` DTO.
+ * Maps persisted `createdBySubject` (Authelia / `Remote-User`) to the shared API `CreatedBy` DTO.
  */
-export function toCreatedBy(user: CreatedByUser): CreatedBy {
-  return {
-    id: user.id,
-    username: user.username,
-    email: user.email,
-  };
+export function toCreatedBy(createdBySubject: string): CreatedBy
+{
+  return { subject: createdBySubject };
 }
 
 /**
- * Prisma include used for player list/detail API responses
- * with creator data and optional class data.
+ * Prisma include used for player list/detail API responses with optional class data.
  */
 export const playerApiInclude = {
-  user: { select: createdBySelect },
   schoolClass: { select: { id: true, name: true } },
 } as const;
 
@@ -40,34 +26,33 @@ export type PlayerApiRow = {
   id: string;
   firstName: string;
   lastName: string;
-  user: CreatedByUser;
+  createdBySubject: string;
   schoolClass: { id: string; name: string } | null;
 };
 
 /**
  * Converts a Prisma player row (including relations) to the shared API `Player` DTO.
  */
-export function playerToApi(p: PlayerApiRow): Player {
+export function playerToApi(p: PlayerApiRow): Player
+{
   return {
     id: p.id,
     firstName: p.firstName,
     lastName: p.lastName,
     schoolClass: p.schoolClass,
-    createdBy: toCreatedBy(p.user),
+    createdBy: toCreatedBy(p.createdBySubject),
   };
 }
-
-export type SchoolClassWithUser = SchoolClass & { user: CreatedByUser };
 
 /**
  * Converts a Prisma school class row to the shared API `SchoolClass` DTO.
  */
-export function schoolClassToApi(row: SchoolClassWithUser): SchoolClassApi {
-  const { user, userId, ...rest } = row;
+export function schoolClassToApi(row: SchoolClassRow): SchoolClassApi
+{
   return {
-    id: rest.id,
-    name: rest.name,
-    createdBy: toCreatedBy(user),
+    id: row.id,
+    name: row.name,
+    createdBy: toCreatedBy(row.createdBySubject),
   };
 }
 
@@ -75,6 +60,7 @@ export function schoolClassToApi(row: SchoolClassWithUser): SchoolClassApi {
  * Parses the catalog list scope query parameter.
  * Defaults to `"all"` for unknown values.
  */
-export function parseListScope(q: unknown): "own" | "all" {
+export function parseListScope(q: unknown): "own" | "all"
+{
   return q === "own" ? "own" : "all";
 }

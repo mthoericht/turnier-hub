@@ -36,7 +36,7 @@ const emit = defineEmits<{
         <span
           v-if="showCreator"
           class="ml-2 text-xs text-slate-500"
-          :title="mem.player.createdBy.email"
+          :title="mem.player.createdBy.subject"
         >
           · {{ formatCreator(mem.player.createdBy) }}
         </span>

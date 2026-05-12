@@ -1,15 +1,10 @@
-import "express";
-import type { UserRole } from "@prisma/client";
-
-/**
- * Global Express request augmentation used by auth middleware.
- * `userId` is set after successful JWT verification.
- */
 declare global {
   namespace Express {
     interface Request {
-      userId?: string;
-      userRole?: UserRole;
+      /** Authelia / proxy subject (`Remote-User`). */
+      remoteSubject?: string;
+      /** From `ADMIN_REMOTE_USERS`, `Remote-Groups` + `ADMIN_REMOTE_GROUP`, or `DEV_REMOTE_ADMIN` (non-prod). */
+      userRole?: "ADMIN" | "USER";
     }
   }
 }

@@ -13,9 +13,7 @@ export function useTournamentsListState()
       mode: "GROUP_KO" as TournamentMode,
       phase: "GROUP",
       createdBy: {
-        id: "u1",
-        username: "demo",
-        email: "demo@example.com",
+        subject: "demo",
       },
       _count: { teams: 6, matches: 10 },
     },

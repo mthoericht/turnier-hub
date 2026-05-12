@@ -2,18 +2,17 @@
 
 import { execFileSync } from "node:child_process";
 
+/** Known high/critical allowlist — document why when adding entries. */
 const ALLOWLIST = new Set(["xlsx"]);
-const FAIL_ON = new Set(["critical", "high"]);
 
-function runAuditJson()
+function npmAuditJson()
 {
   try
   {
-    return execFileSync(
-      "npm",
-      ["audit", "--json", "--include-workspace-root", "--workspaces"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }
-    );
+    return execFileSync("npm", ["audit", "--json"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
   }
   catch (error)
   {
@@ -28,52 +27,28 @@ function runAuditJson()
   }
 }
 
-function main()
+const { vulnerabilities = {} } = JSON.parse(npmAuditJson());
+const allowlisted = [];
+const blocking = [];
+
+for (const [pkg, row] of Object.entries(vulnerabilities))
 {
-  const raw = runAuditJson();
-  const report = JSON.parse(raw);
-  const vulnerabilities = report.vulnerabilities ?? {};
-
-  const blocking = [];
-  const allowlisted = [];
-
-  for (const [pkg, details] of Object.entries(vulnerabilities))
+  const severity = String(row?.severity ?? "");
+  if (severity !== "high" && severity !== "critical")
   {
-    const severity = String(details?.severity ?? "unknown");
-    if (!FAIL_ON.has(severity))
-    {
-      continue;
-    }
-
-    if (ALLOWLIST.has(pkg))
-    {
-      allowlisted.push({ pkg, severity });
-      continue;
-    }
-
-    blocking.push({ pkg, severity });
+    continue;
   }
-
-  if (allowlisted.length > 0)
-  {
-    console.log("Allowed audit exceptions:");
-    for (const item of allowlisted)
-    {
-      console.log(`- ${item.pkg} (${item.severity})`);
-    }
-  }
-
-  if (blocking.length > 0)
-  {
-    console.error("Blocking vulnerabilities detected:");
-    for (const item of blocking)
-    {
-      console.error(`- ${item.pkg} (${item.severity})`);
-    }
-    process.exit(1);
-  }
-
-  console.log("Security audit passed (allowlist applied).");
+  (ALLOWLIST.has(pkg) ? allowlisted : blocking).push(`${pkg} (${severity})`);
 }
 
-main();
+if (allowlisted.length > 0)
+{
+  console.log(`Allowlisted:\n${allowlisted.map((l) => `- ${l}`).join("\n")}`);
+}
+if (blocking.length > 0)
+{
+  console.error(`Blocking:\n${blocking.map((l) => `- ${l}`).join("\n")}`);
+  process.exit(1);
+}
+
+console.log("Security audit passed.");

@@ -14,9 +14,7 @@ const meta: Meta<typeof TournamentsList> = {
         mode: "GROUP_KO",
         phase: "GROUP",
         createdBy: {
-          id: "u1",
-          username: "demo",
-          email: "demo@example.com",
+          subject: "demo",
         },
         _count: { teams: 6, matches: 10 },
       },

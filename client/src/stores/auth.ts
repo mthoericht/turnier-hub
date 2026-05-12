@@ -1,81 +1,59 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import {
-  fetchAuthMe,
-  postAuthLogin,
-  postAuthSignup,
-} from "@/api/authApi";
-import { getToken, setToken } from "../api/http";
+import { fetchSession } from "@/api/sessionApi";
 import {
   connectRealtime,
   disconnectRealtime,
+  setRealtimeSessionActive,
 } from "@/realtime/realtimeClient";
-import type { AuthUser } from "@turnier-hub/shared";
-import router from "@/router";
+import type { SessionUser } from "@turnier-hub/shared";
 
-export const useAuthStore = defineStore("auth", () => 
+export const useAuthStore = defineStore("auth", () =>
 {
-  const user = ref<AuthUser | null>(null);
+  const user = ref<SessionUser | null>(null);
   const ready = ref(false);
 
   const isAuthenticated = computed(() => !!user.value);
   const isAdmin = computed(() => user.value?.role === "admin");
 
-  async function hydrate(): Promise<void> 
+  /**
+   * Fetches the session user from the API and sets the realtime session active if successful.
+   */
+  async function hydrate(): Promise<void>
   {
-    if (!getToken()) 
+    try
     {
-      ready.value = true;
-      return;
-    }
-    try 
-    {
-      user.value = await fetchAuthMe();
+      user.value = await fetchSession();
+      setRealtimeSessionActive(true);
       connectRealtime();
     }
-    catch 
+    catch
     {
-      setToken(null);
       user.value = null;
+      setRealtimeSessionActive(false);
       disconnectRealtime();
     }
-    finally 
+    finally
     {
       ready.value = true;
     }
   }
 
-  async function login(email: string, password: string): Promise<void> 
+  /**
+   * Ends the Authelia session when `logoutUrl` was provided by the API;
+   * otherwise this is a no-op (identity is enforced by the reverse proxy).
+   */
+  function logout(): void
   {
-    const res = await postAuthLogin(email, password);
-    setToken(res.token);
-    user.value = res.user;
-    connectRealtime();
-    await router.push("/");
-  }
-
-  async function signup(payload: {
-    username: string;
-    email: string;
-    password: string;
-    inviteCode: string;
-    schoolId: string;
-  }): Promise<void> 
-  {
-    const res = await postAuthSignup(payload);
-    setToken(res.token);
-    user.value = res.user;
-    connectRealtime();
-    await router.push("/");
-  }
-
-  function logout(): void 
-  {
+    const url = user.value?.logoutUrl;
     disconnectRealtime();
-    setToken(null);
+    setRealtimeSessionActive(false);
     user.value = null;
-    void router.push("/login");
+    if (url)
+    {
+      window.location.assign(url);
+    }
   }
 
-  return { user, ready, isAuthenticated, isAdmin, hydrate, login, signup, logout };
+  return { user, ready, isAuthenticated, isAdmin, hydrate, logout };
 });

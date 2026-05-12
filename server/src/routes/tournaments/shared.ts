@@ -3,7 +3,6 @@ import type { MatchPhase, MatchStatus, TournamentPhase, Match } from "@prisma/cl
 import type { MatchRow, TournamentDetail } from "@turnier-hub/shared";
 import { prisma } from "../../db.js";
 import {
-  createdBySelect,
   playerApiInclude,
   playerToApi,
   toCreatedBy,
@@ -70,7 +69,6 @@ export async function loadTournamentById(id: string)
   return prisma.tournament.findFirst({
     where: { id },
     include: {
-      user: { select: createdBySelect },
       teams: {
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         include: {
@@ -97,7 +95,6 @@ export async function loadTournamentByIdForSchool(id: string, schoolId: string)
   return prisma.tournament.findFirst({
     where: { id, schoolId },
     include: {
-      user: { select: createdBySelect },
       teams: {
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         include: {
@@ -124,10 +121,10 @@ export function serializeTournamentDetail(
   t: NonNullable<Awaited<ReturnType<typeof loadTournamentById>>>
 ): TournamentDetail
 {
-  const { user, matches, teams, ...rest } = t;
+  const { matches, teams, createdBySubject, ...rest } = t;
   return {
     ...rest,
-    createdBy: toCreatedBy(user),
+    createdBy: toCreatedBy(createdBySubject),
     teams: teams.map((team) => ({
       id: team.id,
       name: team.name,
@@ -170,7 +167,7 @@ export async function completeTournamentIfFinalFinished(tournamentId: string): P
   });
 }
 
-/** Any authenticated user may mutate tournaments; `userId` on the row is the original creator (display only). */
+/** Any authenticated user may mutate tournaments; `createdBySubject` is display-only attribution. */
 export async function requireTournamentExists(
   res: Response,
   tournamentId: string,
@@ -186,13 +183,4 @@ export async function requireTournamentExists(
     return null;
   }
   return t;
-}
-
-export async function getUserSchoolId(userId: string): Promise<string | null>
-{
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { schoolId: true },
-  });
-  return user?.schoolId ?? null;
 }

@@ -29,7 +29,7 @@ defineProps<{
       </p>
       <p
         class="mt-1 text-xs text-slate-500"
-        :title="t.createdBy.email"
+        :title="t.createdBy.subject"
       >
         Von {{ formatCreator(t.createdBy) }}
       </p>

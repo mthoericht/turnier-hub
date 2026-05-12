@@ -23,9 +23,7 @@ function createManyAuditLogs(count: number)
     targetId: index % 2 === 0 ? `user-${(index % 4) + 1}` : `school-${(index % 3) + 1}`,
     createdAt: new Date(Date.UTC(2026, 3, 27, 8, index)).toISOString(),
     actor: {
-      id: "user-1",
-      username: "admincoach",
-      email: "admin@example.com",
+      subject: "admincoach",
     },
     before: index % 2 === 0 ? { role: "USER" } : { name: `School ${index + 1}` },
     after: index % 2 === 0 ? { role: "ADMIN" } : { name: `School ${index + 1} Updated` },
@@ -59,7 +57,6 @@ export const Error: Story = buildStory({
 
 export const NonAdmin: Story = buildStory({
   isAdmin: false,
-  authUserId: "user-2",
 });
 
 export const ManyAuditLogs: Story = buildStory({

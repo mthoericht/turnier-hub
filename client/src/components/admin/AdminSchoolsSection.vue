@@ -38,14 +38,14 @@ defineEmits<{
         <thead class="border-b border-slate-200 text-slate-600">
           <tr>
             <th scope="col" class="px-3 py-2">Name</th>
-            <th scope="col" class="px-3 py-2">Benutzer</th>
+            <th scope="col" class="px-3 py-2">Klassen / Spieler / Turniere</th>
             <th scope="col" class="px-3 py-2 text-right">Aktionen</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="school in schools" :key="school.id" class="border-b border-slate-100">
             <td class="px-3 py-2 font-medium text-slate-900">{{ school.name }}</td>
-            <td class="px-3 py-2 text-slate-600">{{ school.userCount }}</td>
+            <td class="px-3 py-2 text-slate-600">{{ school.catalogCount }}</td>
             <td class="px-3 py-2">
               <div class="flex justify-end gap-2">
                 <button type="button" class="rounded-lg p-2 text-slate-700 hover:bg-slate-100" title="Bearbeiten" aria-label="Schule bearbeiten" @click="$emit('edit-school', school)">

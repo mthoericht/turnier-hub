@@ -1,6 +1,7 @@
 import type { Request, Response, Router } from "express";
 import { z } from "zod";
-import { getUserSchoolId, requireTournamentExists } from "./shared.js";
+import { getCatalogSchoolId } from "../../lib/catalogSchool.js";
+import { requireTournamentExists } from "./shared.js";
 import { notifyTournamentChanged } from "../../realtime/notify.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import {
@@ -50,11 +51,7 @@ const transferTeamBodySchema = z.object({
 async function createTeamHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const owned = await requireTournamentExists(res, tournamentId, schoolId);
   if (!owned) return;
 
@@ -78,11 +75,7 @@ async function patchTeamHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
   const teamId = String(req.params.teamId);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const owned = await requireTournamentExists(res, tournamentId, schoolId);
   if (!owned) return;
 
@@ -102,11 +95,7 @@ async function deleteTeamHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
   const teamId = String(req.params.teamId);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const owned = await requireTournamentExists(res, tournamentId, schoolId);
   if (!owned) return;
 
@@ -123,11 +112,7 @@ async function deleteTeamHandler(req: Request, res: Response): Promise<void>
 async function renameGroupHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const owned = await requireTournamentExists(res, tournamentId, schoolId);
   if (!owned) return;
 
@@ -158,11 +143,7 @@ async function addMemberHandler(req: Request, res: Response): Promise<void>
     return;
   }
 
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const owned = await requireTournamentExists(res, tournamentId, schoolId);
   if (!owned) return;
 
@@ -181,11 +162,7 @@ async function removeMemberHandler(req: Request, res: Response): Promise<void>
   const tournamentId = String(req.params.id);
   const teamId = String(req.params.teamId);
   const playerId = String(req.params.playerId);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const owned = await requireTournamentExists(res, tournamentId, schoolId);
   if (!owned) return;
   await removeMember(tournamentId, teamId, playerId);
@@ -198,11 +175,7 @@ async function transferTeamHandler(req: Request, res: Response): Promise<void>
 {
   const targetTournamentId = String(req.params.id);
   const sourceTournamentId = String(req.params.sourceTournamentId);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
+  const schoolId = await getCatalogSchoolId();
   const parsed = transferTeamBodySchema.safeParse(req.body);
   if (!parsed.success)
   {

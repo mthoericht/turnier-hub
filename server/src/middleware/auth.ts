@@ -1,38 +1,61 @@
 import type { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-import { JWT_SECRET } from "../config.js";
-import type { AuthPayload } from "../auth/token.js";
-import { prisma } from "../db.js";
+import { devRemoteAdminEnabled, devRemoteUserFallback } from "../lib/devRemoteUser.js";
+import { remoteGroupsHeaderGrantsAdmin } from "../lib/remoteAdminGroups.js";
 
-export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void>
+export type GateUserRole = "ADMIN" | "USER";
+
+/**
+ * Splits comma-separated values into a trimmed string array.
+ */
+function splitCsv(value: string | undefined): string[]
 {
-  const header = req.headers.authorization;
-  const token =
-    header?.startsWith("Bearer ") ? header.slice(7) : undefined;
-  if (!token) {
+  if (!value)
+  {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function normalizeRemoteHeader(value: string | string[] | undefined): string
+{
+  if (Array.isArray(value))
+  {
+    return (value[0] ?? "").trim();
+  }
+  return (value ?? "").trim();
+}
+
+/**
+ * Trusts reverse-proxy identity: `Remote-User` (see Authelia forward header).
+ * Admin role if `Remote-User` is in `ADMIN_REMOTE_USERS` **or** `Remote-Groups` contains
+ * `ADMIN_REMOTE_GROUP` (default `admins`, case-insensitive; set `ADMIN_REMOTE_GROUP=` to disable group check).
+ * In non-production, falls back to `DEV_REMOTE_USER` when the header is absent.
+ * `DEV_REMOTE_USER` is ignored when `NODE_ENV` is `production`.
+ * Optional `DEV_REMOTE_ADMIN` (non-production): grants `ADMIN` to every authenticated subject.
+ */
+export function authMiddleware(req: Request, res: Response, next: NextFunction): void
+{
+  const fromHeader = normalizeRemoteHeader(req.headers["remote-user"]);
+  const subject = fromHeader || devRemoteUserFallback();
+  if (!subject)
+  {
     res.status(401).json({ error: "Nicht angemeldet" });
     return;
   }
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.sub },
-      select: { id: true, role: true, tokenVersion: true },
-    });
-    if (!user)
-    {
-      res.status(401).json({ error: "Ungültiges Token" });
-      return;
-    }
-    if ((decoded.tv ?? 0) !== user.tokenVersion)
-    {
-      res.status(401).json({ error: "Ungültiges Token" });
-      return;
-    }
-    req.userId = user.id;
-    req.userRole = user.role;
-    next();
-  } catch {
-    res.status(401).json({ error: "Ungültiges Token" });
+  req.remoteSubject = subject;
+  const admins = new Set(splitCsv(process.env.ADMIN_REMOTE_USERS));
+  const fromGroups = remoteGroupsHeaderGrantsAdmin(
+    req.headers["remote-groups"],
+    process.env.ADMIN_REMOTE_GROUP,
+  );
+  let role: GateUserRole = (admins.has(subject) || fromGroups) ? "ADMIN" : "USER";
+  if (devRemoteAdminEnabled())
+  {
+    role = "ADMIN";
   }
+  req.userRole = role;
+  next();
 }

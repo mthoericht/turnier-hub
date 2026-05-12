@@ -7,84 +7,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id            String        @id @default(cuid())
-  username      String?       @unique
-  email         String        @unique
-  passwordHash  String
-  tokenVersion  Int           @default(0)
-  role          UserRole      @default(USER)
-  schoolId      String
-  school        School        @relation(fields: [schoolId], references: [id], onDelete: Restrict)
-  createdAt     DateTime      @default(now())
-  players       Player[]
-  schoolClasses SchoolClass[]
-  tournaments   Tournament[]
-  adminAuditLogs AdminAuditLog[] @relation("AdminAuditActor")
-
-  @@index([schoolId])
-}
-
-enum UserRole {
-  ADMIN
-  USER
-}
-
 model AdminAuditLog {
-  id          String   @id @default(cuid())
-  actorUserId String
-  action      String
-  targetType  String
-  targetId    String
-  beforeJson  String?
-  afterJson   String?
-  createdAt   DateTime @default(now())
-  actorUser   User     @relation("AdminAuditActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  actorSubject String
+  action       String
+  targetType   String
+  targetId     String
+  beforeJson   String?
+  afterJson    String?
+  createdAt    DateTime @default(now())
 
   @@index([createdAt])
-  @@index([actorUserId])
+  @@index([actorSubject])
 }
 
 model School {
   id            String        @id @default(cuid())
   name          String        @unique
   createdAt     DateTime      @default(now())
-  users         User[]
   schoolClasses SchoolClass[]
   players       Player[]
   tournaments   Tournament[]
 }
 
-/// Eine Schulklasse (Name pro Benutzer eindeutig); Spieler verweisen optional darauf.
+/// Eine Schulklasse; Spieler verweisen optional darauf.
 model SchoolClass {
-  id        String   @id @default(cuid())
-  userId    String
-  schoolId  String
-  name      String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  players   Player[]
-  createdAt DateTime @default(now())
+  id                String   @id @default(cuid())
+  schoolId          String
+  name              String
+  createdBySubject  String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  players           Player[]
+  createdAt         DateTime @default(now())
 
   @@unique([schoolId, name])
-  @@index([userId])
   @@index([schoolId])
 }
 
 model Player {
   id                    String                 @id @default(cuid())
-  userId                String
   schoolId              String
+  createdBySubject      String
   firstName             String
   lastName              String
   schoolClassId         String?
   schoolClass           SchoolClass?           @relation(fields: [schoolClassId], references: [id], onDelete: SetNull)
-  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   school                School                 @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   tournamentMemberships TournamentTeamMember[]
   createdAt             DateTime               @default(now())
 
-  @@index([userId])
   @@index([schoolId])
   @@index([schoolClassId])
 }
@@ -97,8 +68,8 @@ enum TournamentMode {
 
 model Tournament {
   id                  String                 @id @default(cuid())
-  userId              String
   schoolId            String
+  createdBySubject    String
   name                String
   sport               String
   mode                TournamentMode         @default(GROUP_KO)
@@ -106,7 +77,6 @@ model Tournament {
   groupCount          Int                    @default(1)
   advancesPerGroup    Int                    @default(2)
   teamsAreIndividuals Boolean                @default(false)
-  user                User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   school              School                 @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   teams               TournamentTeam[]
   teamMembers         TournamentTeamMember[]
@@ -114,7 +84,6 @@ model Tournament {
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
 
-  @@index([userId])
   @@index([schoolId])
 }
 

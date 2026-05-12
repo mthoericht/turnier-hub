@@ -7,7 +7,7 @@ describe("AdminSchoolsSection", () =>
 {
   it("emits create, edit and remove events", async () =>
   {
-    const school = { id: "s1", name: "School 1", userCount: 2 };
+    const school = { id: "s1", name: "School 1", catalogCount: 2 };
     const wrapper = mount(AdminSchoolsSection, {
       props: {
         schools: [school],

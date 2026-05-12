@@ -1,9 +1,4 @@
-import { getToken } from "../api/http";
-
-type ServerPushMessage =
-  | { type: "tournamentChanged"; tournamentId: string }
-  | { type: "catalogChanged"; kinds: Array<"players" | "classes"> }
-  | { type: "tournamentsChanged" };
+import type { ServerPushMessage } from "./realtimeTypes";
 
 let socket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -11,13 +6,23 @@ const tournamentSubs = new Set<string>();
 const RECONNECT_MS = 4000;
 let dispatchMessage: (msg: ServerPushMessage) => Promise<void> = dispatch;
 
+/** Set by the auth store after a successful `/api/session` (no JWT). */
+let sessionActive = false;
+
+export function setRealtimeSessionActive(active: boolean): void
+{
+  sessionActive = active;
+  if (!active)
+  {
+    disconnectRealtime();
+  }
+}
+
 function wsUrl(): string | null
 {
-  const token = getToken();
-  if (!token) return null;
+  if (!sessionActive) return null;
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
-  const enc = encodeURIComponent(token);
-  return `${proto}://${window.location.host}/api/ws?token=${enc}`;
+  return `${proto}://${window.location.host}/api/ws`;
 }
 
 async function dispatch(msg: ServerPushMessage): Promise<void>
@@ -73,7 +78,7 @@ function flushSubscriptions(): void
 function scheduleReconnect(): void
 {
   if (reconnectTimer) return;
-  if (!getToken()) return;
+  if (!sessionActive) return;
   reconnectTimer = setTimeout(() =>
   {
     reconnectTimer = null;

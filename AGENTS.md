@@ -4,7 +4,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 ## Repository shape
 
-- **npm workspaces** at the repo root: `client/` (Vue 3 + Vite + Tailwind), `server/` (Express + Prisma + SQLite), **`shared/`** (`@turnier-hub/shared` — TypeScript types and small helpers shared by client and server: catalog API shapes such as `Player`, `SchoolClass`, `CreatedBy`, `AuthUser`, `formatCreator`, `formatPlayerName` in `shared/src/catalog.ts`; tournament DTOs in `shared/src/tournament.ts`). Import from **`@turnier-hub/shared`** in app code (no client-only `types.ts` barrel).
+- **npm workspaces** at the repo root: `client/` (Vue 3 + Vite + Tailwind), `server/` (Express + Prisma + SQLite), **`shared/`** (`@turnier-hub/shared` — TypeScript types and small helpers shared by client and server: catalog API shapes such as `Player`, `SchoolClass`, `CreatedBy`, `SessionUser`, `formatCreator`, `formatPlayerName` in `shared/src/catalog.ts`; tournament DTOs in `shared/src/tournament.ts`). Import from **`@turnier-hub/shared`** in app code (no client-only `types.ts` barrel).
 - Run **install and most scripts from the repository root**, not only inside `client` or `server`, unless you have a reason.
 
 ## Commands (from repo root)
@@ -22,9 +22,9 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Prisma Studio | `npm run db:studio` |
 | Regenerate Prisma client | `npm run db:generate` |
 | Seed demo data (dev) | `npm run db:seed` |
-| Clear DB (dev, keep `User`) | `npm run db:clear -- --yes` |
+| Clear DB (dev, keep `School`; clears catalog + audit) | `npm run db:clear -- --yes` |
 | Test DB schema + seed | `npm run db:push:test` / `npm run db:seed:test` |
-| Clear DB (test, keep `User`) | `npm run db:clear:test -- --yes` |
+| Clear DB (test, keep `School`) | `npm run db:clear:test -- --yes` |
 | API only, test env (`PORT` 3002) | `npm run dev:test` |
 | Vitest (all: server + client) | `npm run test` |
 | Vitest (client tests: unit + integration) | `npm run test:client` |
@@ -33,7 +33,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Security audit (policy wrapper) | `npm run security:audit` |
 | Clean install | `npm run clean:install` |
 
-- **Server** entry: `server/src/index.ts` creates an **HTTP** server from the Express app and attaches the **WebSocket** server on **`/api/ws`** (JWT via query `token=`). Production: `node server/dist/index.js` (`start` / `start:prod` in server workspace).
+- **Server** entry: `server/src/index.ts` creates an **HTTP** server from the Express app and attaches the **WebSocket** server on **`/api/ws`** (same identity as HTTP: trusted **`Remote-User`** on the upgrade). Production: `node server/dist/index.js` (`start` / `start:prod` in server workspace).
 - **Client** dev server proxies **`/api`** to the backend (default `http://localhost:3001`) with **`ws: true`** so WebSockets work through Vite in development.
 - **Client** ESLint: flat config in `client/eslint.config.js` (`typescript-eslint`, `eslint-plugin-vue`; stylistic rules include semicolons, Allman braces, 2-space indent).
 - Tests live in the repository root under `tests/` (`tests/server/**`, `tests/client/**`), executed via each workspace's Vitest config.
@@ -46,7 +46,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - Copy `server/.env.example` → `server/.env` for local development. Do **not** commit `.env`.
 - `DATABASE_URL` in `.env` is resolved relative to `server/prisma/` (see `.env.example`).
 - **Test** profile: `server/.env.test` (separate SQLite file, e.g. `data/test.db`). Seed respects an already-set `DATABASE_URL` so `dotenv-cli` can target the test DB.
-- Typical keys: `JWT_SECRET`, `INVITE_CODE`, `PORT`, `DATABASE_URL`.
+- Typical keys: `DATABASE_URL`, **`DEFAULT_SCHOOL_ID`** (production), `DEFAULT_SCHOOL_NAME`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, `ADMIN_REMOTE_USERS`, `ADMIN_REMOTE_GROUP`, `AUTHELIA_LOGOUT_URL`, `DEV_REMOTE_USER`, `DEV_REMOTE_ADMIN` (non-production dev flags), `PORT`.
 
 ## Database and Prisma
 
@@ -56,13 +56,13 @@ This document helps humans and coding agents work effectively in **turnier-hub**
   - Apply schema: `npm run db:push`
   - Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)
     - Under the hood: `server/package.json` configures Prisma seed (`prisma.seed`) to run `tsx scripts/seed.ts`.
-  - Clear DB (keep `User`): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
+  - Clear DB (keep `School`, wipe catalog + audit): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
     - Under the hood: `server/package.json` runs `tsx scripts/clearDbExceptUsers.ts`.
 - **Test DB**: uses `server/.env.test` and the root scripts:
   - Apply schema: `npm run db:push:test`
   - Seed demo data: `npm run db:seed:test` (same script: `server/scripts/seed.ts`)
     - Under the hood: same `tsx scripts/seed.ts`, but executed with `dotenv -e .env.test`.
-  - Clear DB (keep `User`): `npm run db:clear:test -- --yes` (same script: `server/scripts/clearDbExceptUsers.ts`)
+  - Clear DB (keep `School`): `npm run db:clear:test -- --yes` (same script: `server/scripts/clearDbExceptUsers.ts`)
     - Under the hood: same `tsx scripts/clearDbExceptUsers.ts`, but executed with `dotenv -e .env.test`.
 - **Production**: uses host environment variables (especially `DATABASE_URL`) and the root scripts:
   - Apply schema: `npm run db:deploy` (currently `prisma db push`; no migration history yet)
@@ -72,24 +72,24 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 ## API surface (high level)
 
-- REST under `/api`: `/api/auth`, `/api/admin`, `/api/classes`, `/api/players`, `/api/tournaments` (nested routes for teams, roster members, matches, timer, advance, standings, delete all matches, etc.).
+- REST under `/api`: `/api/session`, `/api/admin`, `/api/classes`, `/api/players`, `/api/tournaments` (nested routes for teams, roster members, matches, timer, advance, standings, delete all matches, etc.).
 - **Admin API (`/api/admin`, admin-only):**
   - Schools: `GET/POST /schools`, `PATCH/DELETE /schools/:id`
-  - Users: `GET /users`, `PATCH /users/:id/role`, `PATCH /users/:id/school`
-  - Safety constraints: school delete is blocked while users are assigned; demoting the last remaining admin is blocked.
-- **WebSocket** at **`/api/ws`** (same origin/port as the API in production; query `?token=<JWT>`). Clients **subscribe** to tournament IDs; the server **pushes** `tournamentChanged` to those subscribers. After catalog or tournament-list mutations it **broadcasts** `catalogChanged` (players/classes) and `tournamentsChanged` to **all** connected sockets (`server/src/realtime/hub.ts`, `notify.ts`, route handlers).
-- Auth: `Authorization: Bearer <JWT>`; client stores token in **localStorage** key `turnier_hub_token`.
+  - Audit log listing (read-only)
+  - Safety constraints: school delete is blocked while the school still has catalog rows (players, classes, or tournaments).
+- **WebSocket** at **`/api/ws`** (same origin/port as the API in production; trusted **`Remote-User`** on upgrade, same as HTTP). Clients **subscribe** to tournament IDs; the server **pushes** `tournamentChanged` to those subscribers. After catalog or tournament-list mutations it **broadcasts** `catalogChanged` (players/classes) and `tournamentsChanged` to **all** connected sockets (`server/src/realtime/hub.ts`, `notify.ts`, route handlers).
+- Identity: reverse proxy sets **`Remote-User`**; **`ADMIN_REMOTE_USERS`** and/or **`Remote-Groups`** (with **`ADMIN_REMOTE_GROUP`**, default `admins`) grant `admin` on `GET /api/session` and for `requireAdmin` routes. In non-production, **`DEV_REMOTE_ADMIN`** (`1` / `true` / `yes`) grants `admin` to every authenticated subject. SPA uses **`GET /api/session`** with **`credentials: "include"`** (no JWT in `localStorage`).
 
 ## Front end
 
 - **Pinia:** global **`auth`** and **`toast`**; domain stores in `client/src/stores/` — **`tournamentLayout`** (active tournament detail, standings, score draft, roster form state), **`playersManagement`**, **`classesManagement`**, **`tournamentsList`**, **`dashboard`**. **Global modal APIs (no local `EntityDialog` in views):** **`confirmDialog`** (`requestConfirm` → boolean) and **`textPromptDialog`** (`requestPrompt` → string or null); hosts in **`App.vue`** (`EntityDialog` + **`GlobalTextPromptDialog.vue`**). Feature composables mostly **delegate** to these stores (`storeToRefs` + `onMounted` loads); admin view state lives in `client/src/composables/admin/useAdminManagementState.ts`. **Vue Router**.
-- **Auth roles:** `AuthUser` now includes `role` (`admin` | `user`). Prisma stores roles as `ADMIN` / `USER` (`User.role`, default `USER`). The top navigation shows the `/admin` entry only for admins.
-- **Realtime client:** `client/src/realtime/realtimeClient.ts` — connects after login/hydrate, disconnects on logout; **subscribe/unsubscribe** tournament IDs from `useTournamentLayoutState`; dynamic `import()` of stores in the message dispatcher avoids circular deps with `auth` (prefer **relative** paths in those imports for `vue-tsc`).
+- **Auth roles:** `SessionUser` from `GET /api/session` includes `role` (`admin` | `user`) from **`ADMIN_REMOTE_USERS`**, **`Remote-Groups`** + **`ADMIN_REMOTE_GROUP`**, or in non-production from **`DEV_REMOTE_ADMIN`**. The top navigation shows the `/admin` entry only for admins.
+- **Realtime client:** `client/src/realtime/realtimeClient.ts` — connects when a session is active, disconnects when inactive; **subscribe/unsubscribe** tournament IDs from `useTournamentLayoutState`; dynamic `import()` of stores in the message dispatcher avoids circular deps with `auth` (prefer **relative** paths in those imports for `vue-tsc`).
 - **Realtime client tests:** `setRealtimeDispatchForTests(...)` exists only as a small test seam for unit tests; production code should keep using the default internal dispatch.
 - Styling: keep style decisions centralized. Use `client/src/style.css` for semantic UI color variables and shared utility classes (`.ui-card`, `.ui-btn-*`, `.ui-input-*`, etc.). Keep font and Tailwind token sources in `client/src/theme/designTokens.js` and `client/src/theme/fonts.css`.
 - **Catalog list / dashboard header:** `client/src/components/common/CatalogPageHeader.vue` — shared title row for **`DashboardView`** (signed-in dashboard), **`ClassesViewPreset`**, **`PlayersViewPreset`**, **`TournamentsView`**. Props: `title`; optional **`variant`**: `catalog` (default, includes `mb-6`) or **`hero`** (larger title, no bottom margin — parent supplies vertical spacing, e.g. `space-y-8`). Slots: **`description`** (optional intro copy; inner wrapper `max-w-3xl`), **`actions`** (e.g. `ScopeToggle`, filters, primary buttons).
 - **Toasts:** `client/src/stores/toast.ts` (`showError` / `showSuccess` / `showInfo`); **`ToastHost.vue`** is mounted in `App.vue` (fixed overlay, no `Teleport` + `TransitionGroup` together — known Vue pitfall).
-- **Tournaments:** parent layout `TournamentLayout.vue` syncs the route id to **`tournamentLayout`** Pinia store, `provide`s `tournamentLayoutKey` from `client/src/tournament/tournamentContext.ts`; child routes **Mannschaften** (`TournamentRosterView.vue`) and **Spiele** (`TournamentMatchesLayout.vue` with overview/setup views), top tabs **Mannschaften**, **Spiele**, and **Spielbetrieb** (any signed-in user may edit; `canUserEditTournament` in `tournamentDerive.ts` is true when a tournament is loaded and the user is logged in). Default redirect is **roster**. In `GROUP_KO`, `groupCount` is configured in Spielbetrieb next to "Gruppenspiele erzeugen"; `advancesPerGroup` is saved via "Einstellungen speichern". **Core tournament logic** lives under `client/src/tournament/` (API, pure derive/format helpers, UI class tokens, **`useTournamentLayoutState`** as a thin bridge to the store, `useTournamentPhaseStepper`). **Roster-specific behavior** (transfer from another tournament — source list uses **all** tournaments, add-member form state, grouped team display, rename prompts, add individual as team) lives in `client/src/composables/tournaments/useTournamentRoster*.ts` and is composed in `TournamentRosterView.vue`. Paths `roster`, `matches`, `matches/setup`.
+- **Tournaments:** parent layout `TournamentLayout.vue` syncs the route id to **`tournamentLayout`** Pinia store, `provide`s `tournamentLayoutKey` from `client/src/tournament/tournamentContext.ts`; child routes **Mannschaften** (`TournamentRosterView.vue`) and **Spiele** (`TournamentMatchesLayout.vue` with overview/setup views), top tabs **Mannschaften**, **Spiele**, and **Spielbetrieb** (any signed-in user may edit; `canUserEditTournament` in `tournamentDerive.ts` is true when a tournament is loaded and the session has a subject). Default redirect is **roster**. In `GROUP_KO`, `groupCount` is configured in Spielbetrieb next to "Gruppenspiele erzeugen"; `advancesPerGroup` is saved via "Einstellungen speichern". **Core tournament logic** lives under `client/src/tournament/` (API, pure derive/format helpers, UI class tokens, **`useTournamentLayoutState`** as a thin bridge to the store, `useTournamentPhaseStepper`). **Roster-specific behavior** (transfer from another tournament — source list uses **all** tournaments, add-member form state, grouped team display, rename prompts, add individual as team) lives in `client/src/composables/tournaments/useTournamentRoster*.ts` and is composed in `TournamentRosterView.vue`. Paths `roster`, `matches`, `matches/setup`.
 - **Tournament modes** (`TournamentMode` enum): `GROUP_KO` (classic group stage → knockout), `DIRECT_KO` (direct knockout, supports arbitrary team counts with byes), `ROUND_ROBIN` (everyone vs everyone, no knockout). Mode is set at tournament creation. `teamsAreIndividuals` flag makes players into teams directly (e.g. Badminton). `groupCount` distributes teams into N groups for GROUP_KO mode.
 - **Phase flow** is mode-aware and displays concrete rounds: GROUP_KO / DIRECT_KO show `Achtelfinale`, `Viertelfinale`, `Halbfinale`, `Finale` (as applicable), then `Ende`; ROUND_ROBIN shows `Spiele → Ende`.
 - **Round-robin scheduling** uses the circle method with parallel rounds (`roundOrder` on Match); UI shows "Spielrunde N (X Spiele parallel)".
@@ -104,7 +104,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - **K.O. randomness:** Direct-KO generation and qualifier-based KO creation both use randomized pairings.
 - **Server KO advancement:** `requireKnockoutWinnerTeamId` in `server/src/services/standings.ts` (used by `advancePhase.ts`) — winners come from **persisted** `homeScore`/`awayScore` only; timer **end** alone does not set them.
 - **Match stopwatch (UI):** `useMatchTimerDisplay` in `client/src/composables/tournaments/useMatchTimerDisplay.ts` drives `MatchTimer.vue` (used by `TournamentMatchCard.vue`); it calls `computeMatchElapsedMs` in `client/src/tournament/matchElapsed.ts` (same rules as `server/src/services/matchTimer.ts`) with ISO timer fields from the API. **LIVE** matches refresh the display on a **local** 1s interval; **no** per-second network polling. **PAUSED** / finished times need no ticking. Timer **state** still comes from REST/WebSocket when matches change.
-- **Classes / players:** route `/classes`, `/players`; API `classesApi.ts`, `playersApi.ts` (query `scope=all|own` filters the list only). Player data uses `firstName` + `lastName` (no single `name` field). **Player** dialogs load **all** classes for the class dropdown (`schoolClassOptions` in `playersManagement` store). Players list UX: class filter + free-text search (`Vorname`, `Name`, combined full name, `Klasse`) and sortable columns (`Vorname`, `Name`, `Klasse`, asc/desc). On narrow layouts, creator attribution is shown as compact text below row action buttons instead of a dedicated table column. Players page has an **Import/Export** dialog: import via `POST /api/players/import` expects `Vorname`, `Name` (last name), `Klasse` and supports `append`, `replace_players` (diff by first/last/class; only missing rows deleted), and `reset_all` (clears tournaments, players, classes before import); export writes current players to XLSX with the same schema. Server: any authenticated user may PATCH/DELETE any class or player; tournament roster `POST …/members` accepts any catalog player id (`requireTournamentExists` replaces owner checks in `server/src/routes/tournaments/shared.ts`).
+- **Classes / players:** route `/classes`, `/players`; API `classesApi.ts`, `playersApi.ts` (query `scope=all|own` filters the list only). Player data uses `firstName` + `lastName` (no single `name` field). **Player** dialogs load **all** classes for the class dropdown (`schoolClassOptions` in `playersManagement` store). Players list UX: class filter + free-text search (`Vorname`, `Name`, combined full name, `Klasse`) and sortable columns (`Vorname`, `Name`, `Klasse`, asc/desc). On narrow layouts, creator attribution is shown as compact text below row action buttons instead of a dedicated table column. Players page has an **Import/Export** dialog: import via `POST /api/players/import` expects `Vorname`, `Name` (last name), `Klasse` and supports `append`, `replace_players` (diff by first/last/class; only missing rows deleted), and `reset_all` (clears tournaments, players, classes before import); export writes current players to XLSX with the same schema. Server: any authenticated subject may PATCH/DELETE any class or player; tournament roster `POST …/members` accepts any catalog player id (`requireTournamentExists` in `server/src/routes/tournaments/shared.ts`).
 - Prefer **responsive** patterns already used: mobile nav in `App.vue`, `sm:` / `md:` breakpoints elsewhere.
 
 ## Conventions for changes
@@ -120,7 +120,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 - **Skip link:** `App.vue` — first focusable control skips to `#main-content` (`<main id="main-content" tabindex="-1">`).
 - **Landmarks / navigation:** `<header>`, `<main>`, `<nav>` with `aria-label` where needed; tournament breadcrumb uses `<nav aria-label="Brotkrumen">` with an ordered list; main nav and tournament tabs use `aria-current="page"` on the active route.
-- **Forms:** `AuthFormField` wires `label`/`for`, optional `aria-describedby` for help text, and `aria-invalid` when appropriate; destructive or global errors often use `role="alert"`.
+- **Forms:** Prefer explicit `label`/`for`, optional `aria-describedby` for help text, and `aria-invalid` when appropriate; destructive or global errors often use `role="alert"`.
 - **Modal dialogs:** `EntityDialog.vue` sets `role="dialog"`, `aria-modal="true"`, `aria-labelledby` (title), optional `aria-describedby` (description), and uses **`useDialogFocusTrap`** (`client/src/composables/useDialogFocusTrap.ts`) — ref on the dialog root, Tab cycles inside the overlay, Escape closes, focus returns to the opener. New modal UIs that are not `EntityDialog` should call the same composable (or equivalent behavior) for keyboard users.
 - **Dialog pointer behavior:** `EntityDialog` closes on explicit backdrop press/release. Text selection drags that start inside dialog content no longer accidentally close the modal.
 - **Tables:** Prefer `scope="col"` on headers and a `caption` (visually hidden with `sr-only` if redundant on screen).
@@ -133,16 +133,16 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | API routes | `server/src/routes/` |
 | WebSocket + push notify | `server/src/realtime/hub.ts`, `server/src/realtime/notify.ts` (`notifyCatalogChanged`, `notifyTournamentsListChanged` = broadcast; `notifyTournamentChanged` = per-tournament subscribers) |
 | Tournament route modules | `server/src/routes/tournaments/` |
-| Auth middleware + token helpers | `server/src/middleware/auth.ts`, `server/src/auth/token.ts`, `server/src/types/express.d.ts` |
+| Auth middleware | `server/src/middleware/auth.ts`, `server/src/types/express.d.ts` |
 | Error handling middleware | `server/src/middleware/asyncHandler.ts`, `server/src/middleware/error.ts` |
 | Tournament logic (pure) | `server/src/services/` (`advancePhase`, `standings`, `matchTimer`, `roundRobinSchedule`, `knockoutBracket`) |
 | Tournament services (orchestration) | `server/src/services/tournamentRosterService.ts` (teams, members, team transfer), `server/src/services/tournamentMatchService.ts` (group/KO generation, scores, timer, delete-all); `ServiceError.ts` for typed errors |
 | DB seed | `server/scripts/seed.ts` |
-| DB clear (keep User) | `server/scripts/clearDbExceptUsers.ts` |
+| DB clear (keep `School`) | `server/scripts/clearDbExceptUsers.ts` |
 | Client views | `client/src/views/` |
 | Match card + stopwatch | `client/src/components/tournament/TournamentMatchCard.vue`, `MatchTimer.vue`; `client/src/composables/tournaments/useMatchTimerDisplay.ts` |
-| Shared types + helpers (client + server) | `shared/src/catalog.ts` (catalog DTOs, `formatCreator`, `formatPlayerName`, `AuthUser`), `shared/src/tournament.ts` — package **`@turnier-hub/shared`** |
-| HTTP API (resource modules) | `client/src/api/authApi.ts`, `adminApi.ts`, `classesApi.ts`, `playersApi.ts`, `tournamentsApi.ts` (use `http.ts` for `getToken` / `setToken` / low-level `api`; types from `@turnier-hub/shared`) |
+| Shared types + helpers (client + server) | `shared/src/catalog.ts` (catalog DTOs, `formatCreator`, `formatPlayerName`, `SessionUser`), `shared/src/tournament.ts` — package **`@turnier-hub/shared`** |
+| HTTP API (resource modules) | `client/src/api/sessionApi.ts`, `adminApi.ts`, `classesApi.ts`, `playersApi.ts`, `tournamentsApi.ts` (use `http.ts` for `credentials: "include"` / low-level `api`; types from `@turnier-hub/shared`) |
 | Pinia domain stores | `client/src/stores/tournamentLayout/` (`index.ts` main store, `rosterActions.ts`, `matchActions.ts`, `phaseActions.ts`), `playersManagement.ts`, `classesManagement.ts`, `tournamentsList.ts`, `dashboard.ts` (+ `auth`, `theme`, `toast`, **`confirmDialog`**, **`textPromptDialog`**) |
 | Realtime (client) | `client/src/realtime/realtimeClient.ts` |
 | Tournament domain (pure helpers + UI tokens) | `client/src/tournament/tournamentFormat.ts`, `tournamentDerive.ts`, `tournamentPhaseFlow.ts`, `matchElapsed.ts` (client stopwatch math), `tournamentUi.ts` |
@@ -162,4 +162,4 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 ## Product context (short)
 
-School-style tournaments on a **shared catalog**: **school classes**, **players**, and **tournaments** are readable and fully editable by **any authenticated user**; Prisma `userId` on create records the **original creator** for `createdBy` in API responses (display only). Users also have a system role (`ADMIN`/`USER`, exposed as `admin`/`user`) used for admin-only management features (schools + user role/school assignment). **School class** names are unique per creator in the DB (`@@unique([userId, name])`). **Players** optionally link to any class; they are assigned to **team rosters** per tournament. **Matches are team vs. team** (or player vs. player with `teamsAreIndividuals`). Three **tournament modes**: `GROUP_KO` (group stage → knockout), `DIRECT_KO` (knockout only, 2+ teams), `ROUND_ROBIN` (everyone vs everyone). GROUP_KO supports multiple groups (`groupCount`); top **`advancesPerGroup`** per group feed knockout pairings. KO supports `ROUND_OF_16`/`QUARTER`/`SEMI`/`FINAL` with byes for non-power-of-2 counts. Round-robin matches are organized in parallel rounds. **Manual scores**; **match timer** (including **end** from scheduled state without starting the clock). Sign-up requires the configured **invite code** (shared gate; not multi-tenant isolation).
+School-style tournaments on a **shared catalog**: **school classes**, **players**, and **tournaments** are readable and fully editable by **any authenticated subject**; rows store **`createdBySubject`** at creation time and the API exposes **`createdBy`** for display only. **Admin** subjects (`ADMIN_REMOTE_USERS`, **`Remote-Groups`** matching **`ADMIN_REMOTE_GROUP`** (default `admins`), or any subject when **`DEV_REMOTE_ADMIN`** is enabled outside production) manage **schools** and can view audit logs. **School class** names are unique per school in the DB. **Players** optionally link to any class; they are assigned to **team rosters** per tournament. **Matches are team vs. team** (or player vs. player with `teamsAreIndividuals`). Three **tournament modes**: `GROUP_KO` (group stage → knockout), `DIRECT_KO` (knockout only, 2+ teams), `ROUND_ROBIN` (everyone vs everyone). GROUP_KO supports multiple groups (`groupCount`); top **`advancesPerGroup`** per group feed knockout pairings. KO supports `ROUND_OF_16`/`QUARTER`/`SEMI`/`FINAL` with byes for non-power-of-2 counts. Round-robin matches are organized in parallel rounds. **Manual scores**; **match timer** (including **end** from scheduled state without starting the clock). Access control is delegated to the reverse proxy / IdP (**`Remote-User`**); the app does not implement login or registration.

@@ -1,79 +1,36 @@
 import type { Server } from "node:http";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import bcrypt from "bcryptjs";
 import { createApp } from "../../../server/src/app.js";
 import { prisma } from "../../../server/src/db.js";
-import {
-  SEED_EMAIL,
-  SEED_PASSWORD,
-} from "../../../server/src/seed/demoSeed.js";
-import {
-  postAuthLogin,
-} from "../../../client/src/api/authApi";
 import {
   addTeamMember,
   createTournamentTeam,
   deleteAllMatches,
   deleteTournamentTeam,
   fetchTournamentDetail,
-  fetchTournaments,
   postAdvancePhase,
   postGenerateGroupMatches,
   postTournament,
 } from "../../../client/src/api/tournamentsApi";
-import { prisma } from "../../../server/src/db.js";
 import { fetchPlayersAll } from "../../../client/src/api/playersApi";
-import { setToken } from "../../../client/src/api/http";
 import { resetDatabase } from "../../server/helpers/db.js";
+import { wrapFetchForTestApi } from "../helpers/remoteUserFetch.js";
+
+const REMOTE_USER = "tournament-tester";
 
 const app = createApp();
 let server: Server | null = null;
 let apiBaseUrl = "";
 const originalFetch = globalThis.fetch;
 
-type StorageLike = {
-  getItem: (key: string) => string | null;
-  setItem: (key: string, value: string) => void;
-  removeItem: (key: string) => void;
-  clear: () => void;
-};
-
-function installLocalStorageMock(): void
+async function seedPlayers(): Promise<void>
 {
-  const map = new Map<string, string>();
-  const storage: StorageLike = {
-    getItem: (k) => map.get(k) ?? null,
-    setItem: (k, v) => { map.set(k, v); },
-    removeItem: (k) => { map.delete(k); },
-    clear: () => { map.clear(); },
-  };
-  Object.defineProperty(globalThis, "localStorage", {
-    configurable: true,
-    value: storage,
-  });
-}
-
-async function seedMinimalAuthAndPlayers(): Promise<void>
-{
-  const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
-  const school = await prisma.school.upsert({
-    where: { name: "defaultSchool" },
-    create: { name: "defaultSchool" },
-    update: {},
-  });
-  const user = await prisma.user.create({
-    data: {
-      email: SEED_EMAIL,
-      username: "seeduser",
-      passwordHash,
-      schoolId: school.id,
-    },
-  });
+  const school = await prisma.school.findFirstOrThrow({ where: { name: "defaultSchool" } });
   await prisma.player.createMany({
     data: Array.from({ length: 16 }, (_, i) => ({
       firstName: "Test",
       lastName: `Player ${i + 1}`,
-      userId: user.id,
+      createdBySubject: REMOTE_USER,
       schoolId: school.id,
       schoolClassId: null,
     })),
@@ -84,7 +41,6 @@ describe("tournaments API integration (via client API)", () =>
 {
   beforeAll(async () =>
   {
-    installLocalStorageMock();
     await new Promise<void>((resolve) =>
     {
       server = app.listen(0, () => resolve());
@@ -95,25 +51,13 @@ describe("tournaments API integration (via client API)", () =>
       throw new Error("Could not determine test server port");
     }
     apiBaseUrl = `http://127.0.0.1:${address.port}`;
-    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
-    {
-      if (typeof input === "string" && input.startsWith("/"))
-      {
-        return originalFetch(`${apiBaseUrl}${input}`, init);
-      }
-      if (input instanceof URL && input.pathname.startsWith("/"))
-      {
-        return originalFetch(new URL(`${apiBaseUrl}${input.pathname}${input.search}`), init);
-      }
-      return originalFetch(input as RequestInfo, init);
-    }) as typeof fetch;
   });
 
   beforeEach(async () =>
   {
     await resetDatabase();
-    await seedMinimalAuthAndPlayers();
-    setToken(null);
+    await seedPlayers();
+    globalThis.fetch = wrapFetchForTestApi(originalFetch, apiBaseUrl, REMOTE_USER);
   });
 
   afterAll(async () =>
@@ -131,9 +75,6 @@ describe("tournaments API integration (via client API)", () =>
 
   it("deletes team and removes related group matches", async () =>
   {
-    const auth = await postAuthLogin(SEED_EMAIL, SEED_PASSWORD);
-    setToken(auth.token);
-
     const created = await postTournament({
       name: "Delete Team Test",
       sport: "Badminton",
@@ -175,9 +116,6 @@ describe("tournaments API integration (via client API)", () =>
 
   it("delete-all-matches removes matches and clears team group labels", async () =>
   {
-    const auth = await postAuthLogin(SEED_EMAIL, SEED_PASSWORD);
-    setToken(auth.token);
-
     const created = await postTournament({
       name: "Delete Matches Test",
       sport: "Fußball",
@@ -208,9 +146,6 @@ describe("tournaments API integration (via client API)", () =>
 
   it("returns tie-break notice when points are equal on qualification boundary", async () =>
   {
-    const auth = await postAuthLogin(SEED_EMAIL, SEED_PASSWORD);
-    setToken(auth.token);
-
     const created = await postTournament({
       name: "Tie-Break Test Turnier",
       sport: "Fußball",
@@ -230,7 +165,7 @@ describe("tournaments API integration (via client API)", () =>
     const teamIds = detail.teams.map((team) => team.id);
     for (let i = 0; i < teamIds.length; i++)
     {
-      await addTeamMember(created.id, teamIds[i], players[i].id);
+      await addTeamMember(created.id, teamIds[i], players[i]!.id);
     }
 
     const afterGenerate = await postGenerateGroupMatches(created.id);
@@ -249,26 +184,13 @@ describe("tournaments API integration (via client API)", () =>
 
   it("turnier-ersteller kann fremden Spieler in ein Team aufnehmen", async () =>
   {
-    const auth = await postAuthLogin(SEED_EMAIL, SEED_PASSWORD);
-    setToken(auth.token);
-
-    const otherUser = await prisma.user.create({
-      data: {
-        email: "other@turnier-hub.test",
-        username: "othercoach",
-        passwordHash: await bcrypt.hash("x", 10),
-        schoolId: (await prisma.user.findUniqueOrThrow({
-          where: { id: auth.user.id },
-          select: { schoolId: true },
-        })).schoolId,
-      },
-    });
+    const school = await prisma.school.findFirstOrThrow({ where: { name: "defaultSchool" } });
     const otherPlayer = await prisma.player.create({
       data: {
         firstName: "Spieler",
         lastName: "anderer Nutzer",
-        userId: otherUser.id,
-        schoolId: otherUser.schoolId,
+        createdBySubject: "other-subject",
+        schoolId: school.id,
         schoolClassId: null,
       },
     });
@@ -286,6 +208,4 @@ describe("tournaments API integration (via client API)", () =>
     const after = await fetchTournamentDetail(created.id);
     expect(after.teams[0]?.members.some((m) => m.playerId === otherPlayer.id)).toBe(true);
   });
-
-  // Hinweis: Gruppen-Generierung berücksichtigt nun auch Teams ohne Spieler.
 });
