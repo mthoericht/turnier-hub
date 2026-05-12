@@ -8,3 +8,4 @@ dist
 figma-preset
 *storybook.log
 storybook-static
+data/postgres
