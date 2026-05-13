@@ -34,7 +34,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Clean install | `npm run clean:install` |
 
 - **Server** entry: `server/src/index.ts` creates an **HTTP** server from the Express app and attaches the **WebSocket** server on **`/api/ws`** (same identity as HTTP: trusted **`Remote-User`** on the upgrade). Production: `node server/dist/index.js` (`start` / `start:prod` in server workspace).
-- **Client** dev server proxies **`/api`** to the backend (default `http://localhost:3000`) with **`ws: true`** so WebSockets work through Vite in development.
+- **Client** dev server proxies **`/api`** to `VITE_API_PROXY_TARGET` from `server/.env` when set, otherwise to `http://127.0.0.1:${PORT}` from `server/.env`, with **`ws: true`** so WebSockets work through Vite in development.
 - **Client** ESLint: flat config in `client/eslint.config.js` (`typescript-eslint`, `eslint-plugin-vue`; stylistic rules include semicolons, Allman braces, 2-space indent).
 - Tests live in the repository root under `tests/` (`tests/server/**`, `tests/client/**`), executed via each workspace's Vitest config.
 - **Storybook** (`npm run storybook`): config under `tests/client/storybook/` — for **fixtures, mocks, router canvas, and Vitest integration** see [`tests/client/storybook/README.md`](tests/client/storybook/README.md). Name the primary CSF export **`Default`** when reasonable so URLs and tooling that expect `…--default` keep working; preview wraps the canvas with padding and uses **non-inline** docs stories for reliable Vue rendering. Example: `tests/client/storybook/stories/components/common/CatalogPageHeader.stories.ts`.
@@ -46,7 +46,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - Copy `server/.env.example` → `server/.env` for local development. Do **not** commit `.env`.
 - `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_NAME` in `.env` are composed into Prisma's `DATABASE_URL` when `DATABASE_URL` is not set explicitly.
 - **Test** profile: `server/.env.test` (separate MySQL database name). Seed/clear scripts run through `server/scripts/withDatabaseUrl.mjs` so split DB settings work with Prisma CLI commands.
-- Typical keys: `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`, optional `DATABASE_URL`, **`DEFAULT_SCHOOL_ID`** (production), `DEFAULT_SCHOOL_NAME`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, `AUTHELIA_LOGOUT_URL`, `DEV_REMOTE_USER`, `DEV_REMOTE_GROUPS` (non-production dev fallbacks), `PORT`, `STATIC_DIR`.
+- Typical keys: `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`, optional `DATABASE_URL`, **`DEFAULT_SCHOOL_ID`** (production), `DEFAULT_SCHOOL_NAME`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, `AUTHELIA_LOGOUT_URL`, `DEV_REMOTE_USER`, `DEV_REMOTE_GROUPS` (non-production dev fallbacks), `PORT`, `STATIC_DIR`, optional `VITE_API_PROXY_TARGET`.
 
 ## Database and Prisma
 

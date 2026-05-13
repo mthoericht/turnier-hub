@@ -170,6 +170,7 @@ Server architecture (quick reference):
    - `DEV_REMOTE_GROUPS` — optional local fallback when no `Remote-Groups` header is present, for example `admins` to enable the Admin UI in local development (never relied on in production).
    - `PORT` — API port (default `3000`).
    - `STATIC_DIR` — path to the built client files, resolved relative to `server/` (default `../client/dist`).
+   - `VITE_API_PROXY_TARGET` — optional target for the Vite dev proxy (`/api` + WebSocket). If unset, Vite uses `http://127.0.0.1:${PORT}` from `server/.env`.
    - `CORS_ALLOWED_ORIGINS` — comma-separated allowlist of browser origins that may call the API with credentials.
    - `TRUST_PROXY` — set to `1` (or the correct hop count) when running behind a reverse proxy so IP-based protections use the real client IP.
    - `JSON_BODY_LIMIT` — max JSON request payload size for `express.json` (default `100kb`).
@@ -230,7 +231,7 @@ npm run db:clear:test -- --yes
 
    - Front end: [http://localhost:5173](http://localhost:5173)
    - API: [http://localhost:3000](http://localhost:3000)
-   - The Vite dev server proxies **`/api`** to port 3000 for both **HTTP and WebSocket** (realtime uses `ws://` / `wss://` on the same host as the SPA in dev).
+   - The Vite dev server proxies **`/api`** to `VITE_API_PROXY_TARGET` when set; otherwise it derives `http://127.0.0.1:${PORT}` from `server/.env`. The proxy covers both **HTTP and WebSocket** (realtime uses `ws://` / `wss://` on the same host as the SPA in dev).
 
 ## NPM Scripts (repository root)
 
