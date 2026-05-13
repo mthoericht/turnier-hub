@@ -12,15 +12,14 @@ export function devRemoteUserFallback(): string
 }
 
 /**
- * When set (e.g. `1` / `true`), every authenticated subject gets `ADMIN` for API + session.
- * Ignored in production — use `ADMIN_REMOTE_USERS` with real proxy identity there.
+ * When no reverse proxy sets `Remote-Groups`, local dev/test can use `DEV_REMOTE_GROUPS`.
+ * Never honored in production (must use real proxy groups).
  */
-export function devRemoteAdminEnabled(): boolean
+export function devRemoteGroupsFallback(): string
 {
   if (process.env.NODE_ENV === "production")
   {
-    return false;
+    return "";
   }
-  const v = (process.env.DEV_REMOTE_ADMIN ?? "").trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes";
+  return (process.env.DEV_REMOTE_GROUPS ?? "").trim();
 }

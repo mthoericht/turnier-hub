@@ -1,12 +1,5 @@
-import { config } from "dotenv";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import "../src/config.js";
 import { PrismaClient } from "@prisma/client";
-
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-if (!process.env.DATABASE_URL) {
-  config({ path: path.join(root, ".env") });
-}
 
 const prisma = new PrismaClient();
 

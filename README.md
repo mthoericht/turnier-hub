@@ -20,19 +20,44 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 
 ## Features
 
-- **Authentication:** The API trusts **`Remote-User`** (and optional **`ADMIN_REMOTE_USERS`** and/or **`Remote-Groups`** vs **`ADMIN_REMOTE_GROUP`**) from the reverse proxy. The SPA calls **`GET /api/session`** (cookies / same-origin) and shows the subject plus **Abmelden** when `AUTHELIA_LOGOUT_URL` is configured. For local development you may set **`DEV_REMOTE_USER`** in `server/.env` when no proxy injects headers, and optionally **`DEV_REMOTE_ADMIN`** so every dev identity receives **admin** (navigation + `/api/admin/*`; ignored in production).
-- **Roles:** Admin UI is available when the current subject is listed in **`ADMIN_REMOTE_USERS`**, **or** when **`Remote-Groups`** (comma-separated) contains **`ADMIN_REMOTE_GROUP`** (default `admins`, case-insensitive; set `ADMIN_REMOTE_GROUP=` to disable the group check). There is no per-row user table in the app database.
-- **Admin area:** Admins can open `/admin` from the top navigation and manage **schools** (create, rename, delete). Deletion is blocked while the school still has classes, players, or tournaments.
-- **Shared catalog:** **School classes**, **players**, and **tournaments** are visible and **fully editable** (create / update / delete) by **any authenticated subject**. New rows store **`createdBySubject`** (the `Remote-User` value at creation time); the API exposes this as **`createdBy`** for display only (“Von …” / “Erstellt von …”). List filters **Alle** vs. **Eigene** only narrow what you see, not who may edit. **Players** can be assigned to **any** class in the catalog. **Roster transfer** can use any tournament as the source.
-- **Classes:** CRUD for **school classes** (names unique **per school** in the DB). Routes `/classes` (API `/api/classes`).
-- **Players:** CRUD for players with separate **`firstName`** and **`lastName`**; optional class is chosen from **all** classes in the catalog. Scoped list views (all vs. own) like tournaments. The players page provides text search (first name, last name, full name, class), sortable table columns (**Vorname**, **Name**, **Klasse**, asc/desc toggle), and an **Import/Export** dialog. Import accepts **XLS/XLSX** with columns **`Vorname`**, **`Name`** (last name), **`Klasse`** and offers modes to append, reset all data, or replace players by matching existing rows on **Vorname + Name + Klasse** (only missing rows are removed). Export writes current players to XLSX using the same column schema. For better mobile landscape fit, creator attribution is shown as compact text below each row's action buttons.
-- **Tournaments:** Create tournaments with one of three **modes**: **Group → K.O.** (classic group stage feeding knockout rounds), **Direct K.O.** (knockout only, supports arbitrary team counts with byes), or **Round-Robin** (everyone vs everyone, no knockout). Optionally mark **teams as individuals** (e.g. badminton — players become teams directly). In the **Operations** tab (`Spielbetrieb`), Group → K.O. lets you set **group count** directly next to "Generate group matches" and save **advancers per group** separately via "Save settings". Add **teams**, assign **any** catalog players to **team rosters** (optionally transfer rosters from **another** tournament in the **Teams** tab), generate **group / round-robin matches** (organized in parallel rounds), view **standings** (per group when applicable), then advance through **round of 16 → quarter → semi → final** with pairings computed on the server. K.O. pairings are randomized when generated. Group generation ignores teams without members and regenerating group matches removes existing knockout matches. Group and team names are editable in the roster UI. All matches can be **deleted at once** via "Delete all matches and groups" in the operations view. The tournament UI uses top tabs **Teams** (`Mannschaften`), **Matches** (`Spiele`), and **Operations** (`Spielbetrieb`).
-- **Matches:** **Start / pause / resume / end / cancel** timer; **scores** editable at any time. Score fields default to **0**; **Save** sends **both** home and away goals in one request so the database never ends up with only one side set (required for knockout advancement). **Ending the timer** marks the match finished but does **not** substitute for saved scores — use **Save** so winners can be determined from stored values. When the final is finished, the tournament phase is automatically set to **Ende** (`COMPLETED`). Matches with a **Freilos** are created directly as **beendet** (`FINISHED`). **Live updates** use a **WebSocket** (`/api/ws`): the server pushes **`tournamentChanged`** to clients subscribed to that tournament; **`catalogChanged`** (players/classes) and **`tournamentsChanged`** are **broadcast to every connected client**. The client refetches affected tournament detail and **merges** the score draft so unsaved typing is not wiped. **Stopwatch display:** while a match is **LIVE**, elapsed time is derived **locally** from server timestamps (`matchStartedAt`, `totalPausedMs`, …) on a one-second **UI** tick — no per-second HTTP or WebSocket traffic; timer **state** still updates only from the API/WebSocket when you use the controls or another client changes the match. Regenerating the **group stage** or **KO rounds** asks for confirmation if existing results would be deleted.
-- **Feedback:** **Toasts** (global, bottom of the screen) surface validation hints and API errors for tournament actions (for example advance rules or save issues).
-- **UI:** Vue front end with a single light theme, **responsive** layout including a mobile navigation menu. **`CatalogPageHeader`** (`client/src/components/common/CatalogPageHeader.vue`) unifies title rows and action toolbars on **Classes**, **Players**, **Tournaments**, and the signed-in **home** (dashboard) view; optional intro text and controls use Vue slots.
-- **Theming (centralized):** fonts and semantic UI colors are configured centrally. Font tokens live in `client/src/theme/designTokens.js` + `client/src/theme/fonts.css`; semantic color variables (`--ui-primary`, `--ui-card-*`, `--ui-input-*`, `--ui-danger*`) and reusable UI classes (`.ui-card`, `.ui-btn-primary-*`, `.ui-input-*`, etc.) are defined in `client/src/style.css`.
+### Authentication And Admin
 
-### Knockout bracket, phase flow, randomness
+- **Reverse-proxy authentication:** The API trusts `Remote-User` from the reverse proxy. The SPA uses `GET /api/session` with same-origin cookies and shows the current subject plus **Abmelden** when `AUTHELIA_LOGOUT_URL` is configured.
+- **Local development fallback:** Set `DEV_REMOTE_USER` when no proxy injects `Remote-User`. Set `DEV_REMOTE_GROUPS="admins"` when no proxy injects `Remote-Groups`; both fallbacks are ignored in production.
+- **Admin role:** Admin access is granted when `Remote-Groups` contains `admins`. There is no user table in the app database.
+- **Admin area:** Admins can manage schools at `/admin`. School deletion is blocked while the school still has classes, players, or tournaments.
+
+### Shared Catalog
+
+- **Open collaboration model:** School classes, players, and tournaments are visible and fully editable by any authenticated subject.
+- **Creator attribution:** New rows store `createdBySubject`; the API exposes it as `createdBy` for labels such as "Von ..." / "Erstellt von ...". Filters like **Alle** vs. **Eigene** only narrow the list view, not edit permissions.
+- **Classes:** CRUD for school classes at `/classes` and `/api/classes`; names are unique per school.
+- **Players:** CRUD for players with separate `firstName` and `lastName`, optional class assignment from all catalog classes, search by name/class, sortable columns, and scoped list views.
+- **Import/export:** The players page imports XLS/XLSX files with `Vorname`, `Name`, and `Klasse`; import modes support append, replace by `Vorname + Name + Klasse`, or reset all data. Export writes the same schema.
+
+### Tournaments
+
+- **Tournament modes:** Create tournaments as **Group -> K.O.**, **Direct K.O.**, or **Round-Robin**. Tournaments can also run in "teams as individuals" mode, e.g. for badminton.
+- **Roster setup:** Add teams, assign any catalog player to a roster, rename teams and group labels, or transfer roster structure from another tournament.
+- **Operations tab (`Spielbetrieb`):** Configure group count, save advancers per group, generate group/round-robin/knockout matches, advance phases, and delete all matches/groups when needed.
+- **Generation rules:** Empty teams are excluded from group generation. Regenerating group matches removes existing knockout matches. Direct K.O. supports arbitrary team counts with byes.
+- **Standings and phases:** Group standings are computed from persisted results. Tournament phases advance through round of 16, quarter-final, semi-final, final, and completed where applicable.
+
+### Matches And Realtime
+
+- **Match operation:** Start, pause, resume, end, or cancel the timer. Scores remain editable at any time.
+- **Score persistence:** Saving sends both home and away goals together. Knockout winners are determined only from persisted scores; ending the timer alone does not decide a winner.
+- **Stopwatch display:** Live elapsed time is computed locally from server timestamps on a one-second UI tick, so there is no per-second polling.
+- **Live updates:** WebSocket updates run on `/api/ws`. Tournament subscribers receive `tournamentChanged`; all connected clients receive `catalogChanged` and `tournamentsChanged`.
+- **Draft protection:** When realtime refreshes tournament details, the client merges score drafts so unsaved typing is not wiped.
+
+### Interface And Feedback
+
+- **Responsive Vue UI:** Single light theme, mobile navigation, and shared title/action rows via `CatalogPageHeader`.
+- **Toasts:** Global bottom-screen toasts surface validation hints and API errors for tournament actions.
+- **Centralized theming:** Font tokens live in `client/src/theme/designTokens.js` and `client/src/theme/fonts.css`; semantic colors and reusable UI utility classes live in `client/src/style.css`.
+
+### Knockout Logic Details
 
 - **Bracket (Turnierbaum):** In this project, "bracket" means the K.O. tournament tree (who plays whom and which winner advances to the next round).
 - **Phase flows:** Group+KO and Direct-KO display concrete KO phases (`ROUND_OF_16` → `QUARTER` → `SEMI` → `FINAL` → `COMPLETED`) depending on team count and current state; Round-Robin uses `GROUP` (match operation phase) → `COMPLETED`.
@@ -50,7 +75,7 @@ For a detailed German-language explanation of the tournament logic, see **[`doc/
    - The browser uses **same-origin** `fetch` with **`credentials: "include"`**; no JWT in `localStorage`.
 
 2. **(Admin) Maintain schools**
-   - Open **Admin** (`/admin`) to create/rename/delete schools when your subject is in **`ADMIN_REMOTE_USERS`**.
+   - Open **Admin** (`/admin`) to create/rename/delete schools when your proxy groups include the configured admin group.
 
 3. **Prepare master data**
    - In **Classes**, create school classes (optional but recommended). Any user can use classes created by others when assigning players.
@@ -101,11 +126,11 @@ For a detailed German-language explanation of the tournament logic, see **[`doc/
 | Client   | Vite, Vue 3, TypeScript, Pinia, Vue Router, Tailwind CSS |
 | Server   | Express, TypeScript, **`ws`** (WebSocket on `/api/ws`, same HTTP server as the API) |
 | Shared   | **`@turnier-hub/shared`** workspace: TypeScript types for catalog and tournament API payloads (e.g. `Player`, `CreatedBy`, `SessionUser`) plus helpers like `formatCreator` and `formatPlayerName`; consumed by client and server |
-| Database | SQLite via Prisma ORM |
+| Database | MySQL via Prisma ORM |
 | Identity | Reverse-proxy headers (`Remote-User`, optional admin list); optional `AUTHELIA_LOGOUT_URL` for SPA logout |
 | Lint     | ESLint 9 (flat config), `typescript-eslint`, `eslint-plugin-vue` (client) |
 
-The SQLite file lives under `data/` (for example `data/dev.db`). Database files are not committed to the repository.
+Database connection settings are read from `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_NAME`; the server derives Prisma's `DATABASE_URL` from those values when it is not provided explicitly.
 
 Server error handling is centralized: route handlers should use `server/src/middleware/asyncHandler.ts`, and uncaught/domain errors are mapped in `server/src/middleware/error.ts` (for example `ServiceError` and Prisma conflict handling).
 
@@ -119,6 +144,7 @@ Server architecture (quick reference):
 
 - **Node.js** (>= 22)
 - **npm** (workspaces are used at the repo root)
+- **MySQL** (local server or reachable instance)
 
 ## Quick Start
 
@@ -136,32 +162,53 @@ Server architecture (quick reference):
 
    Important variables:
 
-   - `DATABASE_URL` — SQLite path relative to `server/prisma` (default points to `data/dev.db`).
+   - `DB_HOST` / `DB_PORT` / `DB_USERNAME` / `DB_PASSWORD` / `DB_NAME` — MySQL connection settings. The app and npm scripts derive Prisma's `DATABASE_URL` from these values when `DATABASE_URL` is not set explicitly.
    - `DEFAULT_SCHOOL_ID` — **required in production**: Prisma `id` of the school whose catalog (classes, players, tournaments) this instance serves. In development, the app falls back to the school named `DEFAULT_SCHOOL_NAME` (from seed).
    - `DEFAULT_SCHOOL_NAME` — seed/bootstrap school name when resolving by name (default: `defaultSchool`).
-   - `ADMIN_REMOTE_USERS` — comma-separated `Remote-User` values allowed to call `/api/admin/*`.
-   - `ADMIN_REMOTE_GROUP` — name that must appear in Authelia’s comma-separated `Remote-Groups` header for admin (default `admins`, case-insensitive). Set to empty (`ADMIN_REMOTE_GROUP=`) to disable this check and rely only on `ADMIN_REMOTE_USERS`.
    - `AUTHELIA_LOGOUT_URL` — full URL returned on `GET /api/session` as `logoutUrl` so the SPA can navigate the browser there on **Abmelden** (clears the SSO session cookie at the identity provider).
    - `DEV_REMOTE_USER` — optional local fallback when no `Remote-User` header is present (never rely on this in production).
-   - `DEV_REMOTE_ADMIN` — when `1` / `true` / `yes`, grants **admin** to every authenticated subject in non-production only (for local Admin UI without listing users in `ADMIN_REMOTE_USERS`).
-   - `PORT` — API port (default `3001`).
+   - `DEV_REMOTE_GROUPS` — optional local fallback when no `Remote-Groups` header is present, for example `admins` to enable the Admin UI in local development (never relied on in production).
+   - `PORT` — API port (default `3000`).
+   - `STATIC_DIR` — path to the built client files, resolved relative to `server/` (default `../client/dist`).
    - `CORS_ALLOWED_ORIGINS` — comma-separated allowlist of browser origins that may call the API with credentials.
    - `TRUST_PROXY` — set to `1` (or the correct hop count) when running behind a reverse proxy so IP-based protections use the real client IP.
    - `JSON_BODY_LIMIT` — max JSON request payload size for `express.json` (default `100kb`).
    - `WS_CONNECT_WINDOW_MS` / `WS_CONNECT_MAX_PER_IP` / `WS_MESSAGE_WINDOW_MS` / `WS_MESSAGE_MAX_PER_WINDOW` / `WS_MAX_SUBSCRIPTIONS_PER_CLIENT` — websocket abuse protection (upgrade/message rates + per-client subscription cap).
 
-3. **Apply the database schema** and optionally **seed** demo data:
+3. **Create the local MySQL databases and user.** Run this once with an administrative MySQL account, for example via `mysql -u root -p`:
+
+   ```sql
+   CREATE DATABASE `turnier-hub`;
+   CREATE DATABASE `turnier-hub-test`;
+
+   CREATE USER IF NOT EXISTS 'turnier_user'@'localhost' IDENTIFIED BY 'turnier_pass';
+
+   GRANT ALL PRIVILEGES ON `turnier-hub`.* TO 'turnier_user'@'localhost';
+   GRANT ALL PRIVILEGES ON `turnier-hub-test`.* TO 'turnier_user'@'localhost';
+
+   FLUSH PRIVILEGES;
+   ```
+
+   If the API connects from another host or container, replace `'localhost'` with the concrete host or `%` and keep the same value in `DB_HOST`.
+
+4. **Apply the database schema** and optionally **seed** demo data:
 
    ```bash
    npm run db:push
    npm run db:seed
    ```
 
-   If `db:push` fails because of existing rows (e.g. after a breaking schema change), reset the **local** SQLite file (this deletes all data), then push and seed again — for example delete `data/dev.db` or use `npx prisma db push --force-reset` from `server/` (development only).
+   For the test database schema:
+
+   ```bash
+   npm run db:push:test
+   ```
+
+   If `db:push` fails because of existing rows (e.g. after a breaking schema change), reset the **local** development database (this deletes all data), then push and seed again — for example use `npx prisma db push --force-reset` from `server/` (development only).
 
   The seed creates two schools (`defaultSchool`, `secondSchool`), twelve players, shared demo **school classes**, and four demo tournaments: **"Demo: Football School Cup"** (Group → K.O., 8 teams in 2 groups), **"Demo: Volleyball K.O."** (Direct K.O., 6 teams with byes), **"Demo: Direct K.O. with 15 Teams"** (Direct K.O., 15 teams), and **"Demo: Badminton Round Robin"** (Round-Robin, 5 individuals). Re-running the seed removes **all** tournaments, **school classes**, and players for the default school, then recreates the demo data.
 
-3.1. **Wipe demo data (dev/test)**
+4.1. **Wipe demo data (dev/test)**
 
 If you want to remove catalog content (classes, players, tournaments) but keep schools:
 
@@ -175,15 +222,15 @@ For the test database:
 npm run db:clear:test -- --yes
 ```
 
-4. **Run the app in development** (API + Vite dev server with proxy):
+5. **Run the app in development** (API + Vite dev server with proxy):
 
    ```bash
    npm run dev
    ```
 
    - Front end: [http://localhost:5173](http://localhost:5173)
-   - API: [http://localhost:3001](http://localhost:3001)
-   - The Vite dev server proxies **`/api`** to port 3001 for both **HTTP and WebSocket** (realtime uses `ws://` / `wss://` on the same host as the SPA in dev).
+   - API: [http://localhost:3000](http://localhost:3000)
+   - The Vite dev server proxies **`/api`** to port 3000 for both **HTTP and WebSocket** (realtime uses `ws://` / `wss://` on the same host as the SPA in dev).
 
 ## NPM Scripts (repository root)
 
@@ -197,7 +244,7 @@ npm run db:clear:test -- --yes
 | `npm run prod:start` | Starts the server with `NODE_ENV=production` (serves API + built SPA from `client/dist`). |
 | `npm run prod` | `prod:prepare` then `prod:start` in one step. |
 | `npm run db:push` | Pushes the Prisma schema to the database from `server/.env`. |
-| `npm run db:deploy` | Same as `db:push` — use on production hosts with the correct `DATABASE_URL` in the environment. |
+| `npm run db:deploy` | Same as `db:push` — use on production hosts with either `DATABASE_URL` or the split `DB_*` variables in the environment. |
 | `npm run db:studio` | Opens Prisma Studio against the database from `server/.env`. |
 | `npm run db:generate` | Generates the Prisma client. |
 | `npm run db:seed` | Runs the Prisma seed (dev database). |
@@ -226,6 +273,21 @@ Realtime test coverage (current baseline):
 
 ### Dev DB
 - Environment file: `server/.env`
+- One-time local MySQL setup (run as an admin user, e.g. `mysql -u root -p`):
+
+  ```sql
+  CREATE DATABASE `turnier-hub`;
+  CREATE DATABASE `turnier-hub-test`;
+
+  CREATE USER IF NOT EXISTS 'turnier_user'@'localhost' IDENTIFIED BY 'turnier_pass';
+
+  GRANT ALL PRIVILEGES ON `turnier-hub`.* TO 'turnier_user'@'localhost';
+  GRANT ALL PRIVILEGES ON `turnier-hub-test`.* TO 'turnier_user'@'localhost';
+
+  FLUSH PRIVILEGES;
+  ```
+
+  If the API connects from another host or container, replace `'localhost'` with the concrete host or `%`.
 - Apply schema: `npm run db:push`
 - Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)
 - Clear catalog data (keeps `School` rows): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
@@ -241,7 +303,7 @@ Realtime test coverage (current baseline):
 - Internally, `db:clear:test` runs the same clear file (`server/scripts/clearDbExceptUsers.ts`) but executes under `server/.env.test`.
 
 ### Production
-- Environment variables: `DATABASE_URL` and other secrets are provided by the host (no local `.env` reliance)
+- Environment variables: `DATABASE_URL` or `DB_HOST` / `DB_PORT` / `DB_USERNAME` / `DB_PASSWORD` / `DB_NAME`, plus other secrets, are provided by the host (no local `.env` reliance)
 - Apply schema: `npm run db:deploy`
 - Seed/clear: not part of the standard flow; avoid `npm run db:clear` on production.
 
@@ -249,7 +311,7 @@ Realtime test coverage (current baseline):
 
 For Ansible-based production automation (bootstrap, restart, update + deploy), see [`ansible/README.md`](ansible/README.md).
 
-1. Set environment variables on the host (`DATABASE_URL`, **`DEFAULT_SCHOOL_ID`**, `PORT`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, optional `ADMIN_REMOTE_USERS`, `AUTHELIA_LOGOUT_URL`, etc.) — do not rely on committing `.env`.
+1. Set environment variables on the host (`DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME` or `DATABASE_URL`, **`DEFAULT_SCHOOL_ID`**, `PORT`, `STATIC_DIR`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, optional `AUTHELIA_LOGOUT_URL`, etc.) — do not rely on committing `.env`.
 
 2. Install dependencies and prepare the build:
 
@@ -258,7 +320,7 @@ For Ansible-based production automation (bootstrap, restart, update + deploy), s
    npm run prod:prepare
    ```
 
-3. Apply the schema to the production database (with production `DATABASE_URL` set):
+3. Apply the schema to the production database (with production DB env set):
 
    ```bash
    npm run db:deploy
@@ -330,7 +392,6 @@ turnier-hub/
 │       ├── routes/            # session, classes, players, tournaments/…, admin
 │       │   └── tournaments/   # Thin route handlers (validate → service → notify → respond)
 │       └── services/          # Pure logic (advancePhase, standings, matchTimer, knockoutBracket, roundRobinSchedule) + orchestration (tournamentRosterService, tournamentMatchService, ServiceError)
-├── data/                      # SQLite files (created locally; .gitignored)
 └── package.json               # npm workspaces + shared scripts
 ```
 
@@ -346,7 +407,7 @@ For a concise checklist, file paths, and how to reuse the focus trap in new dial
 
 ## Test Environment
 
-- `server/.env.test` defines a separate SQLite file (for example `data/test.db`) and port `3002`.
+- `server/.env.test` defines the separate MySQL database `turnier-hub-test` and port `3002`.
 - Use `npm run db:push:test` and `npm run db:seed:test` against that database.
 - Use `npm run db:clear:test -- --yes` to wipe demo catalog content while keeping `School` rows.
 - If you run only the test API, point the client proxy at port `3002` or call the API directly.

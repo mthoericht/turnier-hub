@@ -4,7 +4,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 ## Repository shape
 
-- **npm workspaces** at the repo root: `client/` (Vue 3 + Vite + Tailwind), `server/` (Express + Prisma + SQLite), **`shared/`** (`@turnier-hub/shared` — TypeScript types and small helpers shared by client and server: catalog API shapes such as `Player`, `SchoolClass`, `CreatedBy`, `SessionUser`, `formatCreator`, `formatPlayerName` in `shared/src/catalog.ts`; tournament DTOs in `shared/src/tournament.ts`). Import from **`@turnier-hub/shared`** in app code (no client-only `types.ts` barrel).
+- **npm workspaces** at the repo root: `client/` (Vue 3 + Vite + Tailwind), `server/` (Express + Prisma + MySQL), **`shared/`** (`@turnier-hub/shared` — TypeScript types and small helpers shared by client and server: catalog API shapes such as `Player`, `SchoolClass`, `CreatedBy`, `SessionUser`, `formatCreator`, `formatPlayerName` in `shared/src/catalog.ts`; tournament DTOs in `shared/src/tournament.ts`). Import from **`@turnier-hub/shared`** in app code (no client-only `types.ts` barrel).
 - Run **install and most scripts from the repository root**, not only inside `client` or `server`, unless you have a reason.
 
 ## Commands (from repo root)
@@ -18,7 +18,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Prod: start API + static SPA (`NODE_ENV=production`) | `npm run prod:start` |
 | Prod: prepare + start in one step | `npm run prod` |
 | Apply Prisma schema (dev `.env`) | `npm run db:push` |
-| Apply schema (production naming; uses current `DATABASE_URL`) | `npm run db:deploy` |
+| Apply schema (production naming; uses current `DATABASE_URL` or split `DB_*`) | `npm run db:deploy` |
 | Prisma Studio | `npm run db:studio` |
 | Regenerate Prisma client | `npm run db:generate` |
 | Seed demo data (dev) | `npm run db:seed` |
@@ -34,7 +34,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Clean install | `npm run clean:install` |
 
 - **Server** entry: `server/src/index.ts` creates an **HTTP** server from the Express app and attaches the **WebSocket** server on **`/api/ws`** (same identity as HTTP: trusted **`Remote-User`** on the upgrade). Production: `node server/dist/index.js` (`start` / `start:prod` in server workspace).
-- **Client** dev server proxies **`/api`** to the backend (default `http://localhost:3001`) with **`ws: true`** so WebSockets work through Vite in development.
+- **Client** dev server proxies **`/api`** to the backend (default `http://localhost:3000`) with **`ws: true`** so WebSockets work through Vite in development.
 - **Client** ESLint: flat config in `client/eslint.config.js` (`typescript-eslint`, `eslint-plugin-vue`; stylistic rules include semicolons, Allman braces, 2-space indent).
 - Tests live in the repository root under `tests/` (`tests/server/**`, `tests/client/**`), executed via each workspace's Vitest config.
 - **Storybook** (`npm run storybook`): config under `tests/client/storybook/` — for **fixtures, mocks, router canvas, and Vitest integration** see [`tests/client/storybook/README.md`](tests/client/storybook/README.md). Name the primary CSF export **`Default`** when reasonable so URLs and tooling that expect `…--default` keep working; preview wraps the canvas with padding and uses **non-inline** docs stories for reliable Vue rendering. Example: `tests/client/storybook/stories/components/common/CatalogPageHeader.stories.ts`.
@@ -44,15 +44,15 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 ## Environment and secrets
 
 - Copy `server/.env.example` → `server/.env` for local development. Do **not** commit `.env`.
-- `DATABASE_URL` in `.env` is resolved relative to `server/prisma/` (see `.env.example`).
-- **Test** profile: `server/.env.test` (separate SQLite file, e.g. `data/test.db`). Seed respects an already-set `DATABASE_URL` so `dotenv-cli` can target the test DB.
-- Typical keys: `DATABASE_URL`, **`DEFAULT_SCHOOL_ID`** (production), `DEFAULT_SCHOOL_NAME`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, `ADMIN_REMOTE_USERS`, `ADMIN_REMOTE_GROUP`, `AUTHELIA_LOGOUT_URL`, `DEV_REMOTE_USER`, `DEV_REMOTE_ADMIN` (non-production dev flags), `PORT`.
+- `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_NAME` in `.env` are composed into Prisma's `DATABASE_URL` when `DATABASE_URL` is not set explicitly.
+- **Test** profile: `server/.env.test` (separate MySQL database name). Seed/clear scripts run through `server/scripts/withDatabaseUrl.mjs` so split DB settings work with Prisma CLI commands.
+- Typical keys: `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`, optional `DATABASE_URL`, **`DEFAULT_SCHOOL_ID`** (production), `DEFAULT_SCHOOL_NAME`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`, `AUTHELIA_LOGOUT_URL`, `DEV_REMOTE_USER`, `DEV_REMOTE_GROUPS` (non-production dev fallbacks), `PORT`, `STATIC_DIR`.
 
 ## Database and Prisma
 
 - Schema: `server/prisma/schema.prisma`.
 - **`db:push` / `db:deploy`** update the **database** from the schema; **`db:generate`** regenerates the **Prisma Client** only (no DB writes). After changing `schema.prisma`, you typically need both push/deploy and a fresh client.
-- **Dev DB**: uses `server/.env` (SQLite file referenced by `DATABASE_URL`) and the root scripts:
+- **Dev DB**: uses `server/.env` (split MySQL settings or explicit `DATABASE_URL`) and the root scripts:
   - Apply schema: `npm run db:push`
   - Seed demo data: `npm run db:seed` (script: `server/scripts/seed.ts`)
     - Under the hood: `server/package.json` configures Prisma seed (`prisma.seed`) to run `tsx scripts/seed.ts`.
@@ -64,11 +64,11 @@ This document helps humans and coding agents work effectively in **turnier-hub**
     - Under the hood: same `tsx scripts/seed.ts`, but executed with `dotenv -e .env.test`.
   - Clear DB (keep `School`): `npm run db:clear:test -- --yes` (same script: `server/scripts/clearDbExceptUsers.ts`)
     - Under the hood: same `tsx scripts/clearDbExceptUsers.ts`, but executed with `dotenv -e .env.test`.
-- **Production**: uses host environment variables (especially `DATABASE_URL`) and the root scripts:
+- **Production**: uses host environment variables (split `DB_*` settings or explicit `DATABASE_URL`) and the root scripts:
   - Apply schema: `npm run db:deploy` (currently `prisma db push`; no migration history yet)
   - Regenerate Prisma client if needed: `npm run db:generate`
   - Seed/clear are not part of the standard production flow; avoid `db:clear` on production.
-- **Breaking schema changes:** if `prisma db push` refuses to add non-nullable columns to existing rows, use a **development-only** reset (destroys all local DB data), then `db:seed`. Prisma may require `prisma db push --force-reset` plus an explicit consent env var when run from tooling; running the same from your own terminal is fine for local SQLite.
+- **Breaking schema changes:** if `prisma db push` refuses to add non-nullable columns to existing rows, use a **development-only** reset (destroys all local DB data), then `db:seed`. Prisma may require `prisma db push --force-reset` plus an explicit consent env var when run from tooling.
 
 ## API surface (high level)
 
@@ -78,12 +78,12 @@ This document helps humans and coding agents work effectively in **turnier-hub**
   - Audit log listing (read-only)
   - Safety constraints: school delete is blocked while the school still has catalog rows (players, classes, or tournaments).
 - **WebSocket** at **`/api/ws`** (same origin/port as the API in production; trusted **`Remote-User`** on upgrade, same as HTTP). Clients **subscribe** to tournament IDs; the server **pushes** `tournamentChanged` to those subscribers. After catalog or tournament-list mutations it **broadcasts** `catalogChanged` (players/classes) and `tournamentsChanged` to **all** connected sockets (`server/src/realtime/hub.ts`, `notify.ts`, route handlers).
-- Identity: reverse proxy sets **`Remote-User`**; **`ADMIN_REMOTE_USERS`** and/or **`Remote-Groups`** (with **`ADMIN_REMOTE_GROUP`**, default `admins`) grant `admin` on `GET /api/session` and for `requireAdmin` routes. In non-production, **`DEV_REMOTE_ADMIN`** (`1` / `true` / `yes`) grants `admin` to every authenticated subject. SPA uses **`GET /api/session`** with **`credentials: "include"`** (no JWT in `localStorage`).
+- Identity: reverse proxy sets **`Remote-User`** and **`Remote-Groups`**; membership in the **`admins`** group grants `admin` on `GET /api/session` and for `requireAdmin` routes. In non-production, **`DEV_REMOTE_USER`** and **`DEV_REMOTE_GROUPS`** provide local fallbacks when the proxy headers are absent. SPA uses **`GET /api/session`** with **`credentials: "include"`** (no JWT in `localStorage`).
 
 ## Front end
 
 - **Pinia:** global **`auth`** and **`toast`**; domain stores in `client/src/stores/` — **`tournamentLayout`** (active tournament detail, standings, score draft, roster form state), **`playersManagement`**, **`classesManagement`**, **`tournamentsList`**, **`dashboard`**. **Global modal APIs (no local `EntityDialog` in views):** **`confirmDialog`** (`requestConfirm` → boolean) and **`textPromptDialog`** (`requestPrompt` → string or null); hosts in **`App.vue`** (`EntityDialog` + **`GlobalTextPromptDialog.vue`**). Feature composables mostly **delegate** to these stores (`storeToRefs` + `onMounted` loads); admin view state lives in `client/src/composables/admin/useAdminManagementState.ts`. **Vue Router**.
-- **Auth roles:** `SessionUser` from `GET /api/session` includes `role` (`admin` | `user`) from **`ADMIN_REMOTE_USERS`**, **`Remote-Groups`** + **`ADMIN_REMOTE_GROUP`**, or in non-production from **`DEV_REMOTE_ADMIN`**. The top navigation shows the `/admin` entry only for admins.
+- **Auth roles:** `SessionUser` from `GET /api/session` includes `role` (`admin` | `user`) from **`Remote-Groups`** or the non-production **`DEV_REMOTE_GROUPS`** fallback. The top navigation shows the `/admin` entry only for admins.
 - **Realtime client:** `client/src/realtime/realtimeClient.ts` — connects when a session is active, disconnects when inactive; **subscribe/unsubscribe** tournament IDs from `useTournamentLayoutState`; dynamic `import()` of stores in the message dispatcher avoids circular deps with `auth` (prefer **relative** paths in those imports for `vue-tsc`).
 - **Realtime client tests:** `setRealtimeDispatchForTests(...)` exists only as a small test seam for unit tests; production code should keep using the default internal dispatch.
 - Styling: keep style decisions centralized. Use `client/src/style.css` for semantic UI color variables and shared utility classes (`.ui-card`, `.ui-btn-*`, `.ui-input-*`, etc.). Keep font and Tailwind token sources in `client/src/theme/designTokens.js` and `client/src/theme/fonts.css`.
@@ -110,7 +110,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 ## Conventions for changes
 
 - Keep diffs **focused** on the requested task; match existing style, imports, and naming.
-- Do **not** commit SQLite files (`*.db`), `.env`, or generated `dist/` / `node_modules/`.
+- Do **not** commit `.env`, database dumps/backups, or generated `dist/` / `node_modules/`.
 - **English** for `README.md` and this file; product UI strings may stay **German** unless the project moves to i18n.
 - If you add new env vars, update `server/.env.example` and [README.md](README.md) when relevant.
 - After substantive client edits, run **`npm run lint -w client`** (and `vue-tsc --build --noEmit` in `client/` if types are touched).
@@ -162,4 +162,4 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 
 ## Product context (short)
 
-School-style tournaments on a **shared catalog**: **school classes**, **players**, and **tournaments** are readable and fully editable by **any authenticated subject**; rows store **`createdBySubject`** at creation time and the API exposes **`createdBy`** for display only. **Admin** subjects (`ADMIN_REMOTE_USERS`, **`Remote-Groups`** matching **`ADMIN_REMOTE_GROUP`** (default `admins`), or any subject when **`DEV_REMOTE_ADMIN`** is enabled outside production) manage **schools** and can view audit logs. **School class** names are unique per school in the DB. **Players** optionally link to any class; they are assigned to **team rosters** per tournament. **Matches are team vs. team** (or player vs. player with `teamsAreIndividuals`). Three **tournament modes**: `GROUP_KO` (group stage → knockout), `DIRECT_KO` (knockout only, 2+ teams), `ROUND_ROBIN` (everyone vs everyone). GROUP_KO supports multiple groups (`groupCount`); top **`advancesPerGroup`** per group feed knockout pairings. KO supports `ROUND_OF_16`/`QUARTER`/`SEMI`/`FINAL` with byes for non-power-of-2 counts. Round-robin matches are organized in parallel rounds. **Manual scores**; **match timer** (including **end** from scheduled state without starting the clock). Access control is delegated to the reverse proxy / IdP (**`Remote-User`**); the app does not implement login or registration.
+School-style tournaments on a **shared catalog**: **school classes**, **players**, and **tournaments** are readable and fully editable by **any authenticated subject**; rows store **`createdBySubject`** at creation time and the API exposes **`createdBy`** for display only. **Admin** subjects (**`Remote-Groups`** containing **`admins`**, or non-production **`DEV_REMOTE_GROUPS`** containing **`admins`**) manage **schools** and can view audit logs. **School class** names are unique per school in the DB. **Players** optionally link to any class; they are assigned to **team rosters** per tournament. **Matches are team vs. team** (or player vs. player with `teamsAreIndividuals`). Three **tournament modes**: `GROUP_KO` (group stage → knockout), `DIRECT_KO` (knockout only, 2+ teams), `ROUND_ROBIN` (everyone vs everyone). GROUP_KO supports multiple groups (`groupCount`); top **`advancesPerGroup`** per group feed knockout pairings. KO supports `ROUND_OF_16`/`QUARTER`/`SEMI`/`FINAL` with byes for non-power-of-2 counts. Round-robin matches are organized in parallel rounds. **Manual scores**; **match timer** (including **end** from scheduled state without starting the clock). Access control is delegated to the reverse proxy / IdP (**`Remote-User`**); the app does not implement login or registration.

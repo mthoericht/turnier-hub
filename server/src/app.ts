@@ -2,12 +2,12 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   CORS_ALLOWED_ORIGINS,
   JSON_BODY_LIMIT,
   SECURITY_HTTP_STATUS_THRESHOLD,
   SECURITY_HTTP_STATUS_WINDOW_MS,
+  STATIC_DIR,
   TRUST_PROXY,
 } from "./config.js";
 import sessionRouter from "./routes/session.js";
@@ -33,9 +33,6 @@ function isOriginAllowed(origin: string): boolean
  */
 export function createApp()
 {
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const clientDist = path.resolve(__dirname, "../../client/dist");
-
   const app = express();
 
   // Security baseline: trust proxy, headers, CORS and request payload limits.
@@ -89,7 +86,7 @@ export function createApp()
   app.use("/api/admin", adminRouter);
 
   // SPA static assets + fallback routing for non-API paths.
-  app.use(express.static(clientDist));
+  app.use(express.static(STATIC_DIR));
   app.get("*", (req, res, next) =>
   {
     if (req.path.startsWith("/api"))
@@ -97,7 +94,7 @@ export function createApp()
       next();
       return;
     }
-    res.sendFile(path.join(clientDist, "index.html"));
+    res.sendFile(path.join(STATIC_DIR, "index.html"));
   });
 
   // API not-found handler and global error mapper.

@@ -3,11 +3,33 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const serverRoot = path.resolve(here, "..");
 const envFile =
   process.env.NODE_ENV === "test" ? ".env.test" : ".env";
-loadEnv({ path: path.join(here, "..", envFile) });
+loadEnv({ path: path.join(serverRoot, envFile) });
 
 const isProd = process.env.NODE_ENV === "production";
+
+/**
+ * Builds the Prisma MySQL connection string from split DB_* env settings.
+ */
+function buildDatabaseUrlFromParts(): string | undefined
+{
+  const host = process.env.DB_HOST?.trim();
+  const port = process.env.DB_PORT?.trim();
+  const username = process.env.DB_USERNAME?.trim();
+  const password = process.env.DB_PASSWORD?.trim();
+  const database = process.env.DB_NAME?.trim();
+
+  if (!host || !port || !username || !password || !database)
+  {
+    return undefined;
+  }
+
+  return `mysql://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+}
+
+process.env.DATABASE_URL = process.env.DATABASE_URL?.trim() || buildDatabaseUrlFromParts();
 
 /**
  * Enforces presence of an environment variable in production.
@@ -22,6 +44,7 @@ function requireEnvInProduction(key: string): void
 
 requireEnvInProduction("CORS_ALLOWED_ORIGINS");
 requireEnvInProduction("DEFAULT_SCHOOL_ID");
+requireEnvInProduction("DATABASE_URL");
 
 /**
  * Reads a positive integer from env input, falling back on invalid values.
@@ -82,7 +105,12 @@ function readTrustProxy(value: string | undefined): boolean | number | string | 
 }
 
 /** HTTP port for API and static assets. */
-export const PORT = readPositiveInt(process.env.PORT, 3001);
+export const PORT = readPositiveInt(process.env.PORT, 3000);
+/** Directory containing the built SPA files served by Express. */
+export const STATIC_DIR = path.resolve(
+  serverRoot,
+  process.env.STATIC_DIR?.trim() || "../client/dist"
+);
 /** Explicit browser origin allowlist for CORS. */
 export const CORS_ALLOWED_ORIGINS = splitCsv(
   process.env.CORS_ALLOWED_ORIGINS

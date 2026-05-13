@@ -1,20 +1,10 @@
 /**
  * Authelia (and similar proxies) may send `Remote-Groups` as a comma-separated list.
- * Returns whether any listed group matches the configured admin group name (case-insensitive).
- *
- * @param adminGroupEnv `ADMIN_REMOTE_GROUP`; empty string disables the check. When unset, defaults to `"admins"`.
+ * Returns whether any listed group matches the app's admin group name (case-insensitive).
  */
-export function remoteGroupsHeaderGrantsAdmin(
-  header: string | string[] | undefined,
-  adminGroupEnv: string | undefined,
-): boolean
+export function remoteGroupsHeaderGrantsAdmin(header: string | string[] | undefined): boolean
 {
-  const rawEnv = adminGroupEnv?.trim();
-  const needle = rawEnv === "" ? "" : (rawEnv ?? "admins").trim().toLowerCase();
-  if (!needle)
-  {
-    return false;
-  }
+  const needle = "admins";
   const raw = Array.isArray(header) ? (header[0] ?? "") : (header ?? "");
   const parts = raw
     .split(",")

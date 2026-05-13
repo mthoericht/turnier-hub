@@ -11,6 +11,7 @@ import { wrapFetchForTestApi } from "../helpers/remoteUserFetch.js";
 
 const ADMIN_SUBJECT = "admin-subject";
 const USER_SUBJECT = "normal-subject";
+const ADMIN_HEADERS = { "Remote-Groups": "admins" };
 
 describe("admin API integration (via client API)", () =>
 {
@@ -38,13 +39,12 @@ describe("admin API integration (via client API)", () =>
   beforeEach(async () =>
   {
     await resetDatabase();
-    delete process.env.DEV_REMOTE_ADMIN;
-    process.env.ADMIN_REMOTE_USERS = ADMIN_SUBJECT;
+    delete process.env.DEV_REMOTE_GROUPS;
   });
 
   afterAll(async () =>
   {
-    delete process.env.ADMIN_REMOTE_USERS;
+    delete process.env.DEV_REMOTE_GROUPS;
     globalThis.fetch = originalFetch;
     if (server)
     {
@@ -56,10 +56,8 @@ describe("admin API integration (via client API)", () =>
     await prisma.$disconnect();
   });
 
-  it("grants admin when Remote-Groups contains the configured admin group", async () =>
+  it("grants admin when Remote-Groups contains the admins group", async () =>
   {
-    delete process.env.ADMIN_REMOTE_USERS;
-    delete process.env.ADMIN_REMOTE_GROUP;
     globalThis.fetch = wrapFetchForTestApi(originalFetch, apiBaseUrl, USER_SUBJECT, {
       "Remote-Groups": "editors,admins",
     });
@@ -76,7 +74,7 @@ describe("admin API integration (via client API)", () =>
 
   it("allows admins to delete an empty school", async () =>
   {
-    globalThis.fetch = wrapFetchForTestApi(originalFetch, apiBaseUrl, ADMIN_SUBJECT);
+    globalThis.fetch = wrapFetchForTestApi(originalFetch, apiBaseUrl, ADMIN_SUBJECT, ADMIN_HEADERS);
     const schools = await fetchAdminSchools();
     const empty = schools.find((s) => s.catalogCount === 0);
     expect(empty).toBeDefined();
@@ -87,7 +85,7 @@ describe("admin API integration (via client API)", () =>
 
   it("blocks deleting schools that still have catalog data", async () =>
   {
-    globalThis.fetch = wrapFetchForTestApi(originalFetch, apiBaseUrl, ADMIN_SUBJECT);
+    globalThis.fetch = wrapFetchForTestApi(originalFetch, apiBaseUrl, ADMIN_SUBJECT, ADMIN_HEADERS);
     const school = await prisma.school.findFirstOrThrow({ where: { name: "defaultSchool" } });
     await prisma.schoolClass.create({
       data: { name: "7a", createdBySubject: "x", schoolId: school.id },

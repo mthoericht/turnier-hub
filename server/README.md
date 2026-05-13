@@ -4,7 +4,7 @@ Diese README beschreibt das Backend im `server/`-Workspace im Detail: Architektu
 
 ## Überblick
 
-Das Backend ist eine Express-API mit Prisma (SQLite). Identität kommt vom **Reverse-Proxy** über den Header **`Remote-User`** (z. B. Authelia); Admin über **`ADMIN_REMOTE_USERS`** und/oder **`Remote-Groups`** (Gruppe **`ADMIN_REMOTE_GROUP`**, Standard `admins`).
+Das Backend ist eine Express-API mit Prisma (MySQL). Identität kommt vom **Reverse-Proxy** über den Header **`Remote-User`** (z. B. Authelia); Admin über **`Remote-Groups`** mit Gruppe **`admins`**.
 
 - REST-Basis: `/api/*` (inkl. `GET /api/session` für Subjekt, Rolle und optional `logoutUrl`)
 - Realtime: `/api/ws` (gleicher HTTP-Server wie die API; Upgrade mit `Remote-User`)
@@ -65,8 +65,8 @@ In `src/app.ts` gemountet:
 
 ### `src/middleware/auth.ts`
 
-- liest **`Remote-User`** (normalisiert); optional Fallback **`DEV_REMOTE_USER`** nur für Entwicklung/Test; optional **`DEV_REMOTE_ADMIN`** setzt für jede Identität die Rolle Admin (nur non-production); **`Remote-Groups`** für Admin gemäß **`ADMIN_REMOTE_GROUP`**
-- setzt `req.remoteSubject` und `req.userRole` (`ADMIN` bei Treffer in `ADMIN_REMOTE_USERS`, bei Gruppe in `Remote-Groups` laut `ADMIN_REMOTE_GROUP`, sonst `USER`; non-production: `DEV_REMOTE_ADMIN`)
+- liest **`Remote-User`** (normalisiert); optional Fallback **`DEV_REMOTE_USER`** nur für Entwicklung/Test; **`Remote-Groups`** für Admin; optional Fallback **`DEV_REMOTE_GROUPS`** nur für Entwicklung/Test
+- setzt `req.remoteSubject` und `req.userRole` (`ADMIN` bei Gruppe `admins` in `Remote-Groups` oder non-production `DEV_REMOTE_GROUPS`, sonst `USER`)
 - liefert `401`, wenn kein Subjekt ermittelt werden kann
 
 ### `src/types/express.d.ts`
@@ -177,7 +177,7 @@ Siehe `server/.env.example`. Typisch relevant:
 - `PORT`, `DATABASE_URL`
 - `DEFAULT_SCHOOL_ID` / `DEFAULT_SCHOOL_NAME` (Katalog-Zuordnung)
 - `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`
-- `ADMIN_REMOTE_USERS`, `ADMIN_REMOTE_GROUP`, `AUTHELIA_LOGOUT_URL`, `DEV_REMOTE_USER`, `DEV_REMOTE_ADMIN` (nur lokal / non-production)
+- `AUTHELIA_LOGOUT_URL`, `DEV_REMOTE_USER`, `DEV_REMOTE_GROUPS` (nur lokal / non-production)
 - `JSON_BODY_LIMIT`, `WS_*`, `SECURITY_*`
 
 ## Response- und Fehlerkonventionen

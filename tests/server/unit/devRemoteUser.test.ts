@@ -25,7 +25,7 @@ describe("devRemoteUserFallback", () =>
   });
 });
 
-describe("devRemoteAdminEnabled", () =>
+describe("devRemoteGroupsFallback", () =>
 {
   afterEach(() =>
   {
@@ -33,33 +33,26 @@ describe("devRemoteAdminEnabled", () =>
     vi.resetModules();
   });
 
-  it("is false in production even when DEV_REMOTE_ADMIN=1", async () =>
+  it("returns empty in production even when DEV_REMOTE_GROUPS is set", async () =>
   {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("DEV_REMOTE_ADMIN", "1");
-    const { devRemoteAdminEnabled } = await import("../../../server/src/lib/devRemoteUser.js");
-    expect(devRemoteAdminEnabled()).toBe(false);
+    vi.stubEnv("DEV_REMOTE_GROUPS", "admins");
+    const { devRemoteGroupsFallback } = await import("../../../server/src/lib/devRemoteUser.js");
+    expect(devRemoteGroupsFallback()).toBe("");
   });
 
-  it("is true for 1 / true / yes when not production", async () =>
+  it("returns trimmed DEV_REMOTE_GROUPS when not production", async () =>
   {
     vi.stubEnv("NODE_ENV", "development");
-    const { devRemoteAdminEnabled } = await import("../../../server/src/lib/devRemoteUser.js");
-    vi.stubEnv("DEV_REMOTE_ADMIN", "1");
-    expect(devRemoteAdminEnabled()).toBe(true);
-    vi.stubEnv("DEV_REMOTE_ADMIN", "TRUE");
-    expect(devRemoteAdminEnabled()).toBe(true);
-    vi.stubEnv("DEV_REMOTE_ADMIN", "yes");
-    expect(devRemoteAdminEnabled()).toBe(true);
+    vi.stubEnv("DEV_REMOTE_GROUPS", " editors, admins ");
+    const { devRemoteGroupsFallback } = await import("../../../server/src/lib/devRemoteUser.js");
+    expect(devRemoteGroupsFallback()).toBe("editors, admins");
   });
 
-  it("is false when unset or not a truthy token", async () =>
+  it("returns empty when unset", async () =>
   {
     vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("DEV_REMOTE_ADMIN", "");
-    const { devRemoteAdminEnabled } = await import("../../../server/src/lib/devRemoteUser.js");
-    expect(devRemoteAdminEnabled()).toBe(false);
-    vi.stubEnv("DEV_REMOTE_ADMIN", "0");
-    expect(devRemoteAdminEnabled()).toBe(false);
+    const { devRemoteGroupsFallback } = await import("../../../server/src/lib/devRemoteUser.js");
+    expect(devRemoteGroupsFallback()).toBe("");
   });
 });

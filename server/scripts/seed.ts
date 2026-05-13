@@ -1,18 +1,10 @@
-import { config } from "dotenv";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import "../src/config.js";
 import { PrismaClient } from "@prisma/client";
 import {
   seedDemoData,
   SEED_CREATOR_SUBJECT,
   SEED_PLAYERS,
 } from "../src/seed/demoSeed.js";
-
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-if (!process.env.DATABASE_URL)
-{
-  config({ path: path.join(root, ".env") });
-}
 
 const prisma = new PrismaClient();
 
