@@ -16,6 +16,7 @@
     "db:deploy": "node scripts/withDatabaseUrl.mjs prisma db push",
     "db:studio": "node scripts/withDatabaseUrl.mjs prisma studio",
     "db:seed": "node scripts/withDatabaseUrl.mjs prisma db seed",
+    "db:seed:demo": "npm run db:seed",
     "db:seed:test": "NODE_ENV=test SERVER_ENV_FILE=.env.test node scripts/withDatabaseUrl.mjs prisma db seed",
     "db:clear": "node scripts/withDatabaseUrl.mjs tsx scripts/clearDbExceptUsers.ts",
     "db:clear:test": "NODE_ENV=test SERVER_ENV_FILE=.env.test node scripts/withDatabaseUrl.mjs tsx scripts/clearDbExceptUsers.ts",

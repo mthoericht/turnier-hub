@@ -1,5 +1,13 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
+
+const compiledSeed = "dist/seed/runDemoSeed.js";
+const sourceSeed = "scripts/seed.ts";
+const seedCommand = existsSync(resolve(compiledSeed))
+  ? `node ${compiledSeed}`
+  : `tsx ${sourceSeed}`;
 
 function buildDatabaseUrlFromParts(): string | undefined
 {
@@ -22,6 +30,6 @@ process.env.DATABASE_URL = process.env.DATABASE_URL?.trim() || buildDatabaseUrlF
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
-    seed: "tsx scripts/seed.ts",
+    seed: seedCommand,
   },
 });
