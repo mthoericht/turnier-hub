@@ -13,9 +13,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY client/package.json client/
 COPY server/package.json server/
-# The `shared` workspace runs `tsc` from a `prepare` script when installed
-# (it's a `file:` workspace dep of client/server), so its sources must be
-# present at install time. Copy the whole workspace up front.
+# The `shared` workspace is a `file:` dep of client/server; copy its sources
+# before `npm install` so the `prepare` script can run. Rebuild shared cleanly
+# before server/client compile (see shared build step below).
 COPY shared ./shared
 # The lockfile was generated on macOS so it pins macOS-only optional deps
 # of `rolldown`/`vite` (#4828). Removing it forces npm to resolve the
@@ -27,6 +27,12 @@ RUN rm -f package-lock.json \
 # Copy remaining sources.
 COPY client ./client
 COPY server ./server
+
+# Server `tsc` uses a composite project reference to shared; dist must exist first
+# (same order as root `npm run build`, which builds shared before server/client).
+# `prepare` during `npm install` can leave tsbuildinfo without .d.ts on Linux; clean first.
+RUN rm -rf shared/dist shared/tsconfig.build.tsbuildinfo \
+    && npm run build -w @turnier-hub/shared
 
 # Build client (Vite -> client/dist).
 RUN npm --workspace client run build
@@ -47,11 +53,10 @@ ENV STATIC_DIR=/app/client/dist
 
 WORKDIR /app/server
 
-# Reuse the build stage's node_modules so the generated Prisma client and any
-# hoisted packages are wherever npm placed them. (Trades a slightly larger image
-# for build-time simplicity / reliability.)
+# Reuse the build stage's node_modules (workspace install hoists to /app/node_modules;
+# there is often no server/node_modules in the image). Node resolves from /app/server
+# up to /app/node_modules for runtime deps and the generated Prisma client.
 COPY --from=build /app/node_modules /app/node_modules
-COPY --from=build /app/server/node_modules /app/server/node_modules
 
 # Server build output + package.json + Prisma schema + operational scripts
 # (the Nomad migrate task runs Prisma's compiled demo seed from dist).
