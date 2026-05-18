@@ -22,13 +22,77 @@ export const SEED_PLAYERS: { firstName: string; lastName: string; className: str
   { firstName: "Max", lastName: "Schwarz", className: "9b" },
 ];
 
+async function resolveDefaultSchool(prisma: PrismaClient): Promise<{ id: string; name: string }>
+{
+  const envId = process.env.DEFAULT_SCHOOL_ID?.trim();
+  const envName = process.env.DEFAULT_SCHOOL_NAME?.trim() || "defaultSchool";
+
+  if (!envId)
+  {
+    return prisma.school.upsert({
+      where: { name: envName },
+      create: { name: envName },
+      update: {},
+      select: { id: true, name: true },
+    });
+  }
+
+  const schoolById = await prisma.school.findUnique({
+    where: { id: envId },
+    select: { id: true, name: true },
+  });
+  if (schoolById)
+  {
+    if (schoolById.name !== envName)
+    {
+      const nameConflict = await prisma.school.findUnique({
+        where: { name: envName },
+        select: { id: true },
+      });
+      if (nameConflict && nameConflict.id !== schoolById.id)
+      {
+        throw new Error(
+          `DEFAULT_SCHOOL_NAME=${envName} already belongs to school ${nameConflict.id}; cannot rename DEFAULT_SCHOOL_ID=${envId}`,
+        );
+      }
+      return prisma.school.update({
+        where: { id: envId },
+        data: { name: envName },
+        select: { id: true, name: true },
+      });
+    }
+    return schoolById;
+  }
+
+  const schoolByName = await prisma.school.findUnique({
+    where: { name: envName },
+    select: { id: true, name: true },
+  });
+  if (schoolByName)
+  {
+    const [tournamentCount, playerCount, classCount] = await Promise.all([
+      prisma.tournament.count({ where: { schoolId: schoolByName.id } }),
+      prisma.player.count({ where: { schoolId: schoolByName.id } }),
+      prisma.schoolClass.count({ where: { schoolId: schoolByName.id } }),
+    ]);
+    if (tournamentCount + playerCount + classCount > 0)
+    {
+      throw new Error(
+        `DEFAULT_SCHOOL_NAME=${envName} exists with id ${schoolByName.id}, but DEFAULT_SCHOOL_ID=${envId}; update DEFAULT_SCHOOL_ID or clear that school's catalog data`,
+      );
+    }
+    await prisma.school.delete({ where: { id: schoolByName.id } });
+  }
+
+  return prisma.school.create({
+    data: { id: envId, name: envName },
+    select: { id: true, name: true },
+  });
+}
+
 export async function seedDemoData(prisma: PrismaClient): Promise<void>
 {
-  const defaultSchool = await prisma.school.upsert({
-    where: { name: "defaultSchool" },
-    create: { name: "defaultSchool" },
-    update: {},
-  });
+  const defaultSchool = await resolveDefaultSchool(prisma);
   await prisma.school.upsert({
     where: { name: "secondSchool" },
     create: { name: "secondSchool" },
