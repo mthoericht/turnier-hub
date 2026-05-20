@@ -24,9 +24,10 @@ COPY shared ./shared
 RUN rm -f package-lock.json \
     && npm install --include=optional --legacy-peer-deps --no-audit --no-fund
 
-# Copy remaining sources.
+# Copy remaining sources + Vitest tree (tests/ is not part of any workspace package).
 COPY client ./client
 COPY server ./server
+COPY tests ./tests
 
 # Server `tsc` uses a composite project reference to shared; dist must exist first
 # (same order as root `npm run build`, which builds shared before server/client).
@@ -34,11 +35,17 @@ COPY server ./server
 RUN rm -rf shared/dist shared/tsconfig.build.tsbuildinfo \
     && npm run build -w @turnier-hub/shared
 
-# Build client (Vite -> client/dist).
-RUN npm --workspace client run build
-
-# Generate Prisma client (MySQL) + compile server (tsc -> server/dist).
+# Prisma client is required by server unit tests (@prisma/client imports).
 RUN npx --workspace server prisma generate --schema prisma/schema.prisma
+
+# Unit tests only (no DB). Server test script loads .env.test via withDatabaseUrl but does not
+# connect; a placeholder DATABASE_URL satisfies that wrapper. No Storybook browser tests.
+RUN export DATABASE_URL='mysql://turnier_user:turnier_pass@127.0.0.1:3306/turnier-hub-test' \
+    && npm run test:unit -w server \
+    && npm run test:unit -w client
+
+# Build client (Vite -> client/dist) + compile server (tsc -> server/dist).
+RUN npm --workspace client run build
 RUN npm --workspace server run build
 
 # ---------- Runtime stage ----------
