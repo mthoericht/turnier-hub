@@ -11,6 +11,9 @@ model User {
   id            String        @id @default(cuid())
   username      String?       @unique
   email         String        @unique
+  // Links the internal user row to its AWS Cognito identity (`sub`).
+  // Nullable during the Cognito migration; legacy rows have no Cognito user yet.
+  cognitoSub    String?       @unique
   passwordHash  String
   tokenVersion  Int           @default(0)
   role          UserRole      @default(USER)

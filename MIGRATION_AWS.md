@@ -26,6 +26,7 @@ Weitere Sinnvolle Lösungen: https://github.com/dougmoscrop/serverless-http
 | Datenbank | **Amazon RDS PostgreSQL** (mit RDS Proxy für Lambda-Connection-Pool) |
 | Realtime | **SSE via Lambda Response Streaming** + DynamoDB-Polling für Fan-Out (1–2 s Latenz akzeptiert) |
 | IaC | **AWS CDK in TypeScript** |
+| Auth | **AWS Cognito User Pool** ersetzt den eigenen JWT-/bcrypt-Stack (Signup/Login/Session/Lockout). App-Logik (Invite-Code, School, RDS-User-Anlage) via **Cognito-Lambda-Trigger**. Details + Phasenplan: [`AUTH_MIGRATION.md`](AUTH_MIGRATION.md). |
 | Region | **eu-central-1 (Frankfurt)** — DSGVO + Latenz |
 | Lokale Entwicklung | **Daily Dev ohne Docker** mit lokalem PostgreSQL (`data/postgres` via `db:init`/`db:start`); Lambda-Local via SAM bleibt optionaler Integrationspfad |
 
@@ -36,7 +37,7 @@ Weitere Sinnvolle Lösungen: https://github.com/dougmoscrop/serverless-http
   - `/api/sse` → `sse`-Lambda Function URL (Streaming)
   - `/api/*` → `api`-Lambda Function URL (REST via `serverless-http`)
   - `/*` → S3 (statische SPA)
-- **Auth zwischen CloudFront und Function URLs** läuft via `Function URL AuthType: AWS_IAM` + CloudFront **Origin Access Control (OAC)**: nur CloudFront kann die Function URLs aufrufen. Application-Auth (JWT) bleibt in der Lambda.
+- **Auth zwischen CloudFront und Function URLs** läuft via `Function URL AuthType: AWS_IAM` + CloudFront **Origin Access Control (OAC)**: nur CloudFront kann die Function URLs aufrufen. Application-Auth läuft über **AWS Cognito** (Tokens RS256, in der Lambda via `aws-jwt-verify` geprüft) — der frühere Eigenbau-JWT-Stack wird abgelöst; Plan siehe [`AUTH_MIGRATION.md`](AUTH_MIGRATION.md).
 - **Throttling/WAF** komplett auf CloudFront-/WAF-Ebene (statt an API GW). Application-Layer-Limits (Identifier, Login-Lockout) liegen in DynamoDB.
 - **SSE Fan-Out**: jede Mutation schreibt einen Event in DynamoDB (`realtime_events`, TTL 1 h). Jede SSE-Lambda pollt diese Tabelle alle 1–2 s und schreibt neue Events als SSE-Frames in den Stream. Lambdas laufen bis zu 15 min, dann reconnected der Browser-`EventSource` automatisch.
 
