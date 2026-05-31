@@ -334,7 +334,7 @@ Geplant:            0
 
 Maximalwert: 5 Stunden (Schutz vor Fehlern).
 
-**Wichtig:** Die Anzeige im Browser tickt **lokal** (1-Sekunden-Intervall) während `LIVE` — es gibt **kein** sekundengenaues Polling zum Server. Der Timer-Zustand wird nur bei Aktionen (Start/Pause/Ende) oder WebSocket-Updates vom Server aktualisiert.
+**Wichtig:** Die Anzeige im Browser tickt **lokal** (1-Sekunden-Intervall) während `LIVE` — es gibt **kein** sekundengenaues Polling zum Server. Der Timer-Zustand wird nur bei Aktionen (Start/Pause/Ende) oder SSE-Updates vom Server (`GET /api/sse`) aktualisiert.
 
 → Dateien: `server/src/services/matchTimer.ts`, `client/src/tournament/matchElapsed.ts`
 

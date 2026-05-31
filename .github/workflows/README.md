@@ -39,9 +39,16 @@ Builds the Vue client and can optionally deploy the artifact to AWS S3.
 
 - Repository/Environment secret: `AWS_DEPLOY_ROLE_ARN`
 - Repository/Environment secret: `AWS_SPA_BUCKET`
-- Optional secret: `AWS_CLOUDFRONT_DISTRIBUTION_ID` (only needed for invalidation)
+- Optional secret: `AWS_CLOUDFRONT_DISTRIBUTION_ID` (only needed for invalidation; also emitted as `CloudFrontDistributionId` from the edge stack)
 - Optional variable: `AWS_REGION` (defaults to `eu-central-1`)
+- **Cognito SPA build (required for auth smoke-test deploys):**
+  - Secret: `VITE_COGNITO_USER_POOL_ID`
+  - Secret: `VITE_COGNITO_CLIENT_ID`
+  - Variable: `VITE_API_BASE_URL` (e.g. `https://<CloudFrontDomain>`)
+  - Optional variable: `VITE_AUTH_PROVIDER` (defaults to `cognito` in the workflow)
 - OIDC trust configured in AWS for `aws-actions/configure-aws-credentials`
+
+Populate Cognito/API values from `npm run smoke:outputs` after `cdk deploy`.
 
 ### Notes
 

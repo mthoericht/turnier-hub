@@ -278,7 +278,7 @@ async function loginHandler(req: Request, res: Response): Promise<void> {
     },
   });
 
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+  if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
     const nextLockout = await registerLoginFailure(loginIdentifier);
     if (nextLockout.lockedUntilMs > Date.now())
     {

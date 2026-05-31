@@ -1,11 +1,20 @@
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
-import {
+import { bootstrapSecretsIntoEnv } from "../runtime/secrets.js";
+
+/**
+ * Resolve Secrets Manager values into `process.env` before importing the SSE
+ * pipeline — `sseEndpoint.ts` pulls in the token verifier, which reads `config`
+ * and the Prisma client at module-evaluation time. Locally/in tests this is a
+ * no-op, so the dynamic imports below behave exactly like static ones.
+ */
+await bootstrapSecretsIntoEnv();
+const {
   authenticateSseToken,
   parseSseQuery,
   startSseStream,
-} from "../realtime/sseEndpoint.js";
-import { setRealtimeEventBus } from "../realtime/notify.js";
-import { resolveRealtimeBus } from "../runtime/runtimeAdapters.js";
+} = await import("../realtime/sseEndpoint.js");
+const { setRealtimeEventBus } = await import("../realtime/notify.js");
+const { resolveRealtimeBus } = await import("../runtime/runtimeAdapters.js");
 
 /**
  * Per-container bus instance.

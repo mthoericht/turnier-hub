@@ -1,9 +1,6 @@
 import type { Request, RequestHandler, Response } from "express";
-import jwt from "jsonwebtoken";
 import { z } from "zod";
-import { JWT_SECRET } from "../config.js";
-import type { AuthPayload } from "../auth/token.js";
-import { prisma } from "../db.js";
+import { getTokenVerifier } from "../auth/tokenVerifier.js";
 import type { RealtimeEvent, RealtimeEventBus } from "./eventBus.js";
 
 export const SSE_HEARTBEAT_INTERVAL_MS = 30_000;
@@ -15,29 +12,17 @@ const querySchema = z.object({
 });
 
 /**
- * Verifies the JWT delivered as a query parameter and confirms the user still
- * exists with a matching `tokenVersion`. Returns the user id on success.
+ * Verifies the token delivered as a query parameter and resolves it to the
+ * internal user id via the active {@link getTokenVerifier} (local HS256 or
+ * Cognito). Returns the user id on success, `null` otherwise.
  *
  * EventSource cannot send `Authorization` headers, so the token must travel as
  * a query parameter — same approach as the legacy WebSocket upgrade.
  */
 export async function authenticateSseToken(token: string): Promise<string | null>
 {
-  try
-  {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.sub },
-      select: { id: true, tokenVersion: true },
-    });
-    if (!user) return null;
-    if ((decoded.tv ?? 0) !== user.tokenVersion) return null;
-    return user.id;
-  }
-  catch
-  {
-    return null;
-  }
+  const identity = await getTokenVerifier().verify(token);
+  return identity?.userId ?? null;
 }
 
 /**

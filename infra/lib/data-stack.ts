@@ -24,7 +24,6 @@ export class DataStack extends cdk.Stack
   public readonly proxy: rds.DatabaseProxy;
   public readonly realtimeEventsTable: dynamodb.Table;
   public readonly rateLimitTable: dynamodb.Table;
-  public readonly loginLockoutTable: dynamodb.Table;
 
   public constructor(scope: Construct, id: string, props: DataStackProps)
   {
@@ -91,13 +90,9 @@ export class DataStack extends cdk.Stack
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    this.loginLockoutTable = new dynamodb.Table(this, "LoginLockoutTable", {
-      tableName: `${props.namePrefix}-login-lockout`,
-      partitionKey: { name: "key", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      timeToLiveAttribute: "ttl",
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
+    // Login lockout protected the legacy `/api/auth/login` route; AWS uses
+    // Cognito (with its own adaptive brute-force protection), so no DynamoDB
+    // lockout table is provisioned. See doc/AUTH_MIGRATION.md.
 
     this.jwtSecret = new secretsmanager.Secret(this, "JwtSecret", {
       secretName: props.jwtSecretName,
@@ -119,6 +114,18 @@ export class DataStack extends cdk.Stack
         excludePunctuation: true,
         passwordLength: 24,
       },
+    });
+
+    new cdk.CfnOutput(this, "DbProxyEndpoint", {
+      value: this.proxy.endpoint,
+    });
+
+    new cdk.CfnOutput(this, "DatabaseSecretArn", {
+      value: this.databaseSecret.secretArn,
+    });
+
+    new cdk.CfnOutput(this, "InviteCodeSecretName", {
+      value: props.inviteCodeSecretName,
     });
   }
 }

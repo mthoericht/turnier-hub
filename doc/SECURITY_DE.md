@@ -36,6 +36,22 @@ Diese Datei kombiniert:
 - Die App **nicht** direkt ohne Reverse-Proxy dem oeffentlichen Internet aussetzen.
 - Alle authentifizierten Benutzer als vertrauenswuerdige Mitarbeitende innerhalb des Deployment-Umfelds behandeln.
 
+### Auth-Backend und Realtime-Transport (zuerst lesen)
+
+- **Pluggable Auth (`AUTH_VERIFIER`).** Der unten beschriebene JWT-Lebenszyklus,
+  Login-Lockout, Auth-Rate-Limiting, `tokenVersion` und
+  `POST /api/auth/revoke-sessions` gelten fuer den **`local`**-Verifier (Dev,
+  Tests, Legacy-Single-VM). Im AWS-Deployment (`AUTH_VERIFIER=cognito`) werden
+  Passwort-Hashing, Brute-Force-/Lockout-Schutz, Token-Ausstellung, Refresh und
+  Revoke **von Cognito verwaltet**; der Einladungscode wird in der Cognito-
+  Siehe [`AUTH_MIGRATION.md`](AUTH_MIGRATION.md).
+- **Realtime ist SSE, nicht WebSocket.** Der alte `ws`-Hub (inkl. `WS_*`-Limits)
+  wurde in der AWS-Migration (Phase 2) **entfernt**. Realtime laeuft jetzt ueber
+  **Server-Sent Events** auf `GET /api/sse` — eine normale, langlebige
+  HTTP-Antwort, authentifiziert ueber denselben Token-Verifier (`?token=<token>`).
+  WebSocket-spezifische Hinweise aus aelteren Revisionen gelten nicht mehr; die
+  SSE-Aequivalente stehen unten.
+
 ---
 
 ## Sicherheits-Checkliste
@@ -50,21 +66,18 @@ Praktische Checkliste zur Verbesserung der Sicherheitslage von `turnier-hub`.
 - [x] Konfigurierbares JSON-Request-Limit (`JSON_BODY_LIMIT`) hinzugefuegt.
 - [x] Explizites Proxy-Trust (`TRUST_PROXY`) eingefuehrt, damit `req.ip` hinter Reverse-Proxy verlaesslich ist.
 - [ ] Produktionswert fuer `TRUST_PROXY` mit echtem Deployment-Pfad verifizieren (in vielen Setups: `1` hinter Nginx).
-- [x] WebSocket-Upgrade validiert `tokenVersion` gegen DB (identisch zu HTTP-Auth).
-- [x] WebSocket-IP-Aufloesung nutzt Express-aequivalente `TRUST_PROXY`-Hop-Count-Semantik (verhindert XFF-Spoofing).
-- [x] WebSocket-Upgrade bricht bei unerwarteten DB-/Auth-Fehlern sauber mit `503` ab.
+- [x] SSE-Endpoint (`GET /api/sse`) authentifiziert das Token ueber den aktiven Verifier (identisch zu HTTP-Auth) und raeumt Listener beim Disconnect auf.
+- [x] ~~WebSocket-Upgrade validiert `tokenVersion` / Origin / bricht sauber ab~~ — obsolet: der `ws`-Hub wurde entfernt (Realtime ist SSE).
 
 ### P1 - Mittlere Prioritaet
 
-- [x] Progressive Backoff / temporaerer Login-Lockout bei wiederholten Fehlversuchen hinzugefuegt.
-- [x] WebSocket-Rate-Limits (Connect/Message) und maximale Subscriptions pro Client hinzugefuegt.
+- [x] Progressive Backoff / temporaerer Login-Lockout bei wiederholten Fehlversuchen hinzugefuegt (`local`-Verifier; in AWS uebernimmt Cognito).
 - [x] Alle mutierenden API-Routen auf strikte Request-Validierung geprueft (Laengen, Enums, erlaubte Zeichen).
-- [x] JWT-Lebenszyklus geprueft:
+- [x] JWT-Lebenszyklus geprueft (`local`-Verifier):
   - [x] Token-Ablaufpolitik gesetzt und dokumentiert.
   - [x] Secret-Rotation-Prozess definiert.
   - [x] Invalidation-Strategie fuer kritische Ereignisse (z. B. Passwort-Reset) definiert.
-- [x] Strukturiertes Monitoring/Alerting fuer Spikes bei `401`, `403`, `429` und WebSocket-Verbindungen hinzugefuegt.
-- [x] WebSocket-Upgrade prueft Origin-Allowlist und erzwingt maximale Payload-Groesse.
+- [x] Strukturiertes Monitoring/Alerting fuer Spikes bei `401`, `403`, `429` hinzugefuegt (JSON-Security-Logs → CloudWatch Metric Filters in AWS).
 
 ### P2 - Laufende Haertung
 
@@ -76,9 +89,9 @@ Praktische Checkliste zur Verbesserung der Sicherheitslage von `turnier-hub`.
 
 - [ ] `CORS_ALLOWED_ORIGINS` enthaelt nur reale Frontend-Origin(s).
 - [ ] `TRUST_PROXY` passt zur realen Proxy-Hop-Topologie.
-- [ ] `JWT_SECRET` und `INVITE_CODE` sind stark und kommen aus Secret-Management.
-- [ ] Auth-Rate-Limits liefern `429` und enthalten `Retry-After`.
-- [ ] Reverse-Proxy leitet WebSocket-Upgrade-Header fuer `/api/ws` korrekt weiter.
+- [ ] `JWT_SECRET` (local mode) und `INVITE_CODE` sind stark und kommen aus Secret-Management.
+- [ ] Auth-Rate-Limits liefern `429` und enthalten `Retry-After` (local-Auth-Routen).
+- [ ] Reverse-Proxy / CDN liefert `GET /api/sse` als langlebige Antwort (kein Buffering, kein vorzeitiger Timeout).
 
 ---
 
@@ -91,16 +104,15 @@ Operatives Playbook fuer Produktions-Sicherheitspruefungen und Incident Response
 Verwenden bei laufendem Missbrauch oder auffaelligem Auth-Verhalten.
 
 1. **Eindaemmen**
-   - `AUTH_LOGIN_MAX_REQUESTS`, `AUTH_IDENTIFIER_MAX_REQUESTS`, `LOGIN_LOCKOUT_*` verschaerfen.
-   - WebSocket-Limits verschaerfen (`WS_CONNECT_*`, `WS_MESSAGE_*`, `WS_MAX_SUBSCRIPTIONS_PER_CLIENT`).
+   - Local-Auth: `AUTH_LOGIN_MAX_REQUESTS`, `AUTH_IDENTIFIER_MAX_REQUESTS`, `LOGIN_LOCKOUT_*` verschaerfen.
+   - Cognito (AWS): WAF-Rate-Regeln an CloudFront und ggf. Cognito-Advanced-Security verschaerfen.
    - Temporare Reverse-Proxy-/WAF-Blocks fuer auffaellige Quellen setzen.
 2. **Verifizieren**
-   - `401` -> `429` Verhalten auf `/api/auth/login` bestaetigen.
-   - WebSocket-Rate-Limit-Events in Logs bestaetigen.
-   - `TRUST_PROXY` auf korrekte Topologie pruefen.
+   - `401` -> `429` Verhalten auf `/api/auth/login` bestaetigen (local-Auth).
+   - Security-Signal-Logs (`401`/`403`/`429`) bestaetigen und `TRUST_PROXY` auf korrekte Topologie pruefen.
 3. **Wiederherstellen**
-   - Bei Verdacht auf Account-Kompromittierung `POST /api/auth/revoke-sessions` fuer betroffene User ausfuehren.
-   - Bei Secret-Exposition `JWT_SECRET` rotieren und alle Instanzen neu starten.
+   - Local-Auth: bei Verdacht auf Account-Kompromittierung `POST /api/auth/revoke-sessions` ausfuehren; bei `JWT_SECRET`-Exposition rotieren und alle Instanzen neu starten.
+   - Cognito (AWS): User global abmelden / Credentials im User-Pool zuruecksetzen; ggf. Cognito-App-Client-Einstellungen rotieren.
 4. **Nachbereitung**
    - Strengere Limits beibehalten, bis Traffic stabil ist.
    - Vorfall und geaenderte Controls dokumentieren.
@@ -110,18 +122,22 @@ Verwenden bei laufendem Missbrauch oder auffaelligem Auth-Verhalten.
 
 - Diese Datei fuer Go-Live-Checks, regelmaessige Haertungsreviews und Sicherheitsvorfaelle verwenden.
 - Checklisten-Abschnitt aktuell halten (Backlog + Source of Truth).
-- Relevante Abschnitte nach Infrastruktur-Aenderungen erneut durchlaufen (Proxy/CDN/LB, Auth-Settings, WebSocket-Topologie).
+- Relevante Abschnitte nach Infrastruktur-Aenderungen erneut durchlaufen (Proxy/CDN/LB, Auth-Settings).
 
 ### Go-Live-Mindestcheckliste
 
-- `JWT_SECRET` und `INVITE_CODE` kommen aus Secret-Management.
+- `JWT_SECRET` (local mode) und `INVITE_CODE` kommen aus Secret-Management (Secrets Manager in AWS).
 - `CORS_ALLOWED_ORIGINS` enthaelt nur reale Frontend-Origin(s).
 - `TRUST_PROXY` passt zur realen Proxy-Hop-Topologie.
-- Auth-Schutz liefert bei wiederholten Fehlversuchen `429` + `Retry-After`.
-- WebSocket-Pfad `/api/ws` funktioniert hinter Reverse-Proxy (Upgrade-Header intakt).
-- Security-Telemetrie fuer HTTP (`401`/`403`/`429`) und WebSocket-Spikes ist sichtbar.
+- Auth-Schutz liefert bei wiederholten Fehlversuchen `429` + `Retry-After` (local-Auth) / Cognito + WAF-Limits in AWS aktiv.
+- SSE-Pfad `GET /api/sse` funktioniert hinter Reverse-Proxy / CDN (langlebige, nicht gebufferte Antwort).
+- Security-Telemetrie fuer HTTP (`401`/`403`/`429`) ist sichtbar.
 
 ### JWT- und Session-Modell
+
+> Gilt fuer den **`local`**-Verifier. Mit `AUTH_VERIFIER=cognito` werden
+> Token-Ausstellung/-Ablauf/-Refresh und Revoke von Cognito verwaltet, nicht
+> ueber die folgenden Felder.
 
 #### Aktuelle Policy
 
@@ -140,18 +156,18 @@ Verwenden bei laufendem Missbrauch oder auffaelligem Auth-Verhalten.
 - Sessions nach Passwort-Reset oder bestaetigter Konto-Kompromittierung widerrufen.
 - Fuer erzwungene Re-Authentifizierung auf allen Geraeten das neu zurueckgegebene Token auf dem ausloesenden Geraet nicht weiterverwenden.
 
-#### WebSocket-Token-Transport
+#### SSE-Token-Transport
 
-- WebSocket-Verbindungen authentifizieren sich ueber ein JWT als Query-Parameter (`?token=<JWT>`).
+- SSE-Verbindungen authentifizieren sich ueber das Token als Query-Parameter (`GET /api/sse?token=<token>`), da `EventSource` keine eigenen Header setzen kann.
 - **Hinweis:** Query-Strings koennen in Reverse-Proxy-Access-Logs, CDN-Logs und Browser-Verlauf erscheinen.
 - **Mitigation:**
-  - Reverse-Proxy so konfigurieren, dass **Query-Strings fuer den `/api/ws`-Pfad nicht geloggt** werden.
+  - Reverse-Proxy / CDN so konfigurieren, dass **Query-Strings fuer den `/api/sse`-Pfad nicht geloggt** werden.
   - TLS end-to-end sicherstellen, damit Tokens nicht im Transit exponiert werden.
-  - Die `tokenVersion`-Pruefung beim WebSocket-Upgrade stellt sicher, dass widerrufene Tokens abgelehnt werden (identisch zu HTTP-Auth).
+  - Der SSE-Handler verifiziert das Token beim Connect ueber den aktiven Verifier; mit dem `local`-Verifier lehnt die `tokenVersion`-Pruefung widerrufene Tokens ab (identisch zu HTTP-Auth).
 
 ### Secret-Rotation-Playbook
 
-#### JWT-Secret-Rotation
+#### JWT-Secret-Rotation (local-Verifier)
 
 1. Neues starkes Secret im Secret-Manager erzeugen.
 2. Alle App-Instanzen mit neuem `JWT_SECRET` deployen.
@@ -159,7 +175,7 @@ Verwenden bei laufendem Missbrauch oder auffaelligem Auth-Verhalten.
 4. Erwartete Session-Invalidierung kommunizieren.
 5. `401`-Spikes nach dem Rollout beobachten und Erholung sicherstellen.
 
-Hinweis: Aktuell wird Single-Key-Verification genutzt. Eine Rotation invalidiert bestehende Tokens global. Fuer nahtlose Rotation waere Multi-Key-Verification (`kid` + aktive/vorherige Secrets) erforderlich.
+Hinweis: Der `local`-Verifier nutzt Single-Key-Verification. Eine Rotation invalidiert bestehende Tokens global. Fuer nahtlose Rotation waere Multi-Key-Verification (`kid` + aktive/vorherige Secrets) erforderlich. Mit `AUTH_VERIFIER=cognito` uebernimmt Cognitos JWKS die Schluesselrotation; eine app-seitige `JWT_SECRET`-Rotation entfaellt.
 
 ### Reverse-Proxy- und `TRUST_PROXY`-Verifikation
 
@@ -192,20 +208,20 @@ Vor Go-Live und nach jeder Proxy-Topologie-Aenderung ausfuehren.
 #### Auth-Missbrauch / Brute-Force
 
 1. Spikes in `401`/`429` und fehlgeschlagene Login-Muster bestaetigen.
-2. `AUTH_LOGIN_MAX_REQUESTS`, `AUTH_IDENTIFIER_MAX_REQUESTS` und `LOGIN_LOCKOUT_*` verschaerfen.
+2. Local-Auth: `AUTH_LOGIN_MAX_REQUESTS`, `AUTH_IDENTIFIER_MAX_REQUESTS` und `LOGIN_LOCKOUT_*` verschaerfen. Cognito (AWS): WAF-Rate-Regeln / Advanced Security verschaerfen.
 3. Temporare Edge-Blocks / Rate-Limits auf Reverse-Proxy oder WAF setzen.
 4. Korrektes `TRUST_PROXY` waehrend der Mitigation verifizieren.
 
-#### WebSocket-Missbrauch / Connection-Flood
+#### SSE-Missbrauch / Connection-Flood
 
-1. WebSocket-Spike-/Rate-Limit-Events in Logs bestaetigen.
-2. `WS_CONNECT_*`, `WS_MESSAGE_*`, `WS_MAX_SUBSCRIPTIONS_PER_CLIENT` verschaerfen.
-3. Zusaetzliche Reverse-Proxy-Limits speziell fuer `/api/ws` setzen, falls noetig.
+1. Spikes bei `GET /api/sse`-Verbindungszahlen in Proxy-/CDN-/Lambda-Logs bestaetigen.
+2. Reverse-Proxy-/WAF-Verbindungs- und Rate-Limits speziell fuer den `/api/sse`-Pfad setzen.
+3. SSE-Listener werden beim Disconnect aufgeraeumt; anhaltende Floods werden am besten am Edge mitigiert.
 
 ### Monitoring- und Alert-Signale
 
-- HTTP-Auth-bezogene Spikes: `401`, `403`, `429`.
-- WebSocket-Signale: Verbindungs-Spikes, WS-Rate-Limit-Trigger (`connect`, `message`, `subscription`).
+- HTTP-Auth-bezogene Spikes: `401`, `403`, `429` (strukturierte JSON-Security-Logs; `recordHttpSecurityStatus`).
+- SSE-Signale: anhaltendes Wachstum gleichzeitiger `/api/sse`-Verbindungen am Edge.
 - Auf anhaltende Spikes alerten, nicht auf Einzelereignisse, um Rauschen zu reduzieren.
 
 ### Automatisierte Abdeckung (Security-Tests)
@@ -217,19 +233,16 @@ Aktuell vorhandene automatisierte Tests fuer zentrale Security-Controls:
   - validiert CORS-Allowlist-Verhalten (erlaubte Origins bekommen `204`; blockierte Origins bekommen `403`)
   - prueft JSON-Body-Limit-Durchsetzung (`413`)
   - prueft, dass keine Stack-Traces bei internen Fehlern geleakt werden
-- `tests/server/unit/realtimeHub.test.ts`
-  - prueft WS-Missbrauchsschutz (Connect/Message) und maximale Subscriptions
-  - prueft WebSocket-tokenVersion- / Revoked-Session-Ablehnung beim Upgrade
-  - prueft Origin-Allowlist-Ablehnung beim WS-Upgrade (403)
-  - prueft Connect-Rate-Limit mit 429 und Retry-After
-  - prueft Verbindungsabbruch bei uebergroesser Payload (maxPayload)
+- `tests/server/unit/sseEndpoint.test.ts`
+  - prueft SSE-Auth, Frame-Routing und Listener-Cleanup beim Disconnect ueber einen echten HTTP-Server
 - `tests/server/unit/securityMonitoring.test.ts`
-  - validiert Monitoring-Event-Emission fuer HTTP-Status-Spikes und WS-Signale
-  - prueft WS-Window-Handling und nicht-negative Connection-Counter
+  - validiert strukturierte Security-Log-Emission fuer HTTP-Auth-Status-Codes (`401`/`403`/`429`)
 - `tests/server/unit/configSecurityGuards.test.ts`
   - validiert Production-Config-Guards (`JWT_SECRET`, `INVITE_CODE`, CORS-Wildcard-Ablehnung)
+- `tests/server/unit/cognitoPreSignUp.test.ts` / `cognitoPostConfirmation.test.ts` / `cognitoTokenVerifier.test.ts`
+  - validieren Invite-Code-Gate, RDS-User-Anlage und Access-Token-→-internal-User-Mapping fuer Cognito
 - `tests/client/integration/auth.api.test.ts`
-  - validiert Login/Signup-Rate-Limits und progressiven Login-Lockout (`429` + `Retry-After`)
+  - validiert Login/Signup-Rate-Limits und progressiven Login-Lockout (`429` + `Retry-After`), local-Verifier
   - validiert Session-Revoke (`POST /api/auth/revoke-sessions`)
 
 ### Produktions-Verifikationsprotokoll
@@ -240,9 +253,9 @@ Checkliste:
 
 - `CORS_ALLOWED_ORIGINS` enthaelt nur reale Frontend-Origin(s).
 - `TRUST_PROXY` passt zur realen Proxy-Hop-Topologie.
-- `JWT_SECRET` und `INVITE_CODE` sind stark und via Secret-Management eingebunden.
-- Auth-Rate-Limits liefern `429` inklusive `Retry-After`.
-- Reverse-Proxy leitet WebSocket-Upgrade-Header fuer `/api/ws` weiter.
+- `JWT_SECRET` (local mode) und `INVITE_CODE` sind stark und via Secret-Management eingebunden.
+- Auth-Rate-Limits liefern `429` inklusive `Retry-After` (local-Auth) / Cognito + WAF-Limits in AWS aktiv.
+- Reverse-Proxy / CDN liefert `GET /api/sse` als langlebige, nicht gebufferte Antwort.
 
 Protokoll:
 

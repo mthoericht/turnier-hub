@@ -2,7 +2,7 @@
 
 Turnier-Hub is a small full-stack web application for managing school sports tournaments (for example volleyball, football, or two-field ball). It covers user registration with an invite code, a **shared catalog** of **school classes**, **players**, and **tournaments** (any signed-in user can edit; creator is shown for attribution), player rosters, tournament setup with **teams** (or individuals), three **tournament modes** (group stage → knockout, direct knockout, round-robin), multiple **groups**, knockout phases (round of 16 / quarter / semi / final), manual score entry, and a per-match stopwatch.
 
-> **AWS migration in flight.** The codebase is moving from the legacy single-VM deployment to a fully serverless AWS stack (Lambda Function URLs + CloudFront + RDS Postgres + DynamoDB). The phase plan and current status live in [`MIGRATION_AWS.md`](MIGRATION_AWS.md). Local development in this repository runs without Docker using a local PostgreSQL server.
+> **AWS (serverless).** Production target is Lambda Function URLs + CloudFront + RDS Postgres + DynamoDB + Cognito. Deploy and smoke-test steps: [`infra/README.md`](infra/README.md). **Authentication** uses a pluggable adapter (local dev/tests vs Cognito in AWS) — see [`doc/AUTH_MIGRATION.md`](doc/AUTH_MIGRATION.md). Local development uses PostgreSQL and the built-in JWT auth path (`npm run dev`).
 
 ## Table of Contents
 
@@ -22,13 +22,13 @@ Turnier-Hub is a small full-stack web application for managing school sports tou
 - **Run locally (daily dev):** follow [Quick Start](#quick-start), then `npm run dev`.
 - **Work on database:** use [Local Dev (no Docker DB)](#local-dev-no-docker-db) and [Database Profiles](#database-profiles-dev--test--production).
 - **Run Lambda locally:** use [Lambda Local (SAM)](#lambda-local-sam).
-- **Deploy AWS/CDK:** see [AWS / CDK](#aws--cdk) and migration status in [`MIGRATION_AWS.md`](MIGRATION_AWS.md).
+- **Deploy AWS/CDK:** see [AWS / CDK](#aws--cdk) and [`infra/README.md`](infra/README.md).
 - **CI on GitHub:** [GitHub Actions (CI/CD)](#github-actions-cicd) — workflow reference in [`.github/workflows/README.md`](.github/workflows/README.md).
 - **Need contributor-level details?** Use [`AGENTS.md`](AGENTS.md) for deeper implementation notes.
 
 ## Features
 
-- **Auth + roles:** invite-code signup, JWT sessions, `user`/`admin` roles with admin-only school/user management.
+- **Auth + roles:** invite-code signup and a **pluggable auth backend** — local JWT sessions (default for dev/tests/legacy single-VM) or **AWS Cognito** (AWS production); `user`/`admin` roles stay Postgres-managed with admin-only school/user management.
 - **Shared catalog:** classes, players, and tournaments are editable by any signed-in user; creator attribution is kept for transparency.
 - **Tournament operations:** `GROUP_KO`, `DIRECT_KO`, `ROUND_ROBIN`, plus roster management, transfers, standings, and phase progression.
 - **Realtime updates:** SSE (`/api/sse`) pushes tournament and catalog changes to connected clients.
@@ -41,8 +41,9 @@ For contributor/deep implementation notes, see **[`AGENTS.md`](AGENTS.md)**.
 ## How To Use (Typical Workflow)
 
 1. **Sign up / log in**
-   - Use the invite code configured on the server.
-   - After login, your JWT is stored in `localStorage` and sent to `/api/*` routes.
+   - Use the invite code configured on the server (validated by the API in local mode, or by the Cognito PreSignUp trigger in AWS mode).
+   - In **Cognito mode**, sign-up adds an email-confirmation step (enter the emailed code, then you're signed in automatically).
+   - After login, the access token is stored in `localStorage` and sent to `/api/*` routes (a local JWT, or the mirrored Cognito access token).
 
 2. **(Admin) Maintain schools and permissions**
    - Open **Admin** (`/admin`) to create/rename/delete schools.
@@ -100,7 +101,7 @@ For contributor/deep implementation notes, see **[`AGENTS.md`](AGENTS.md)**.
 | Server   | Express, TypeScript, **Server-Sent Events** on `GET /api/sse` (same HTTP server as the API) |
 | Shared   | **`@turnier-hub/shared`** workspace: TypeScript types for catalog and tournament API payloads (e.g. `Player`, `CreatedBy`, `AuthUser`) plus helpers like `formatCreator` and `formatPlayerName`; consumed by client and server |
 | Database | **PostgreSQL** via Prisma ORM (local without Docker), RDS Postgres in the AWS target architecture |
-| Auth     | JWT, bcryptjs |
+| Auth     | Pluggable backend: local **JWT + bcryptjs** (dev/tests/legacy) or **AWS Cognito** (production) via `aws-jwt-verify` (server) + `aws-amplify` (client); selected with `AUTH_VERIFIER` / `VITE_AUTH_PROVIDER` |
 | Lint     | ESLint 9 (flat config), `typescript-eslint`, `eslint-plugin-vue` (client) |
 
 Local development uses a local PostgreSQL server (for example via Homebrew or Postgres.app) with separate `turnier_dev` and `turnier_test` databases.
@@ -155,8 +156,10 @@ Root **`package.json`** also defines **`overrides`** for a safe **`serialize-jav
    Important variables:
 
    - `DATABASE_URL` — Postgres connection string (default: `postgresql://turnier:turnier@localhost:5432/turnier_dev?schema=public`).
-   - `JWT_SECRET` — use a strong secret in production.
-   - `INVITE_CODE` — required for new sign-ups (default in the example: `ballspiele2026`).
+   - `AUTH_VERIFIER` — token-verification backend: `local` (default; HS256 JWT signed by this server) or `cognito` (verifies AWS Cognito access tokens via JWKS).
+   - `COGNITO_USER_POOL_ID` / `COGNITO_CLIENT_ID` — required when `AUTH_VERIFIER=cognito` (the app client id is the access-token audience).
+   - `JWT_SECRET` — use a strong secret in production; only required when `AUTH_VERIFIER=local`.
+   - `INVITE_CODE` — required for new sign-ups (default in the example: `ballspiele2026`). In Cognito mode this gates the PreSignUp trigger.
    - `DEFAULT_SCHOOL_NAME` — school name auto-created at startup (default: `defaultSchool`; may contain spaces, e.g. `"BBS Hannover"`).
    - `PORT` — API port (default `3001`).
    - `AUTH_RATE_LIMIT_WINDOW_MS` / `AUTH_LOGIN_MAX_REQUESTS` / `AUTH_SIGNUP_MAX_REQUESTS` / `AUTH_IDENTIFIER_MAX_REQUESTS` — auth-endpoint abuse protection (window + max requests per IP and identifier). Storage is pluggable: in-memory in dev/legacy single-VM, DynamoDB in the upcoming AWS deployment (Phase 5).
@@ -174,6 +177,8 @@ Root **`package.json`** also defines **`overrides`** for a safe **`serialize-jav
    - `VITE_API_BASE_URL` controls where frontend `fetch`/SSE requests are sent.
    - Keep it empty in local dev (Vite proxy handles `/api`).
    - Set it to your CloudFront/custom domain in deployed environments (for example `https://turnier.example.com`).
+   - `VITE_AUTH_PROVIDER` — `local` (default) or `cognito`. In `cognito` mode the SPA loads `aws-amplify` (as an async chunk) and uses the user pool below.
+   - `VITE_COGNITO_USER_POOL_ID` / `VITE_COGNITO_CLIENT_ID` — required when `VITE_AUTH_PROVIDER=cognito` (from the CDK `CognitoStack` outputs).
 
 4. **Initialize and start local PostgreSQL** (without Docker):
 
@@ -292,6 +297,10 @@ npm run dev
 | `npm run db:seed` | Runs the Prisma seed (dev database). |
 | `npm run perf:sse` | Runs the SSE capacity probe script (100 concurrent streams by default). |
 | `npm run db:clear` | Clears all tables except `User` (dev database). Pass `-- --yes` for confirmation. |
+| `npm run cdk:deploy` | CDK deploy (all infra stacks) |
+| `npm run smoke:preflight` | Post-deploy checks (stacks, outputs, invite secret); add `-- --probe` for CloudFront HTTP |
+| `npm run smoke:build-spa` / `smoke:deploy-spa` | Cognito SPA build + S3/CloudFront deploy (`-- --yes` on deploy) |
+| `npm run db:promote-admin` | Sets `User.role = ADMIN` for an existing user by e-mail (Postgres roles; use after Cognito signup). Pass `-- --email user@example.com --yes`. |
 | `npm run db:push:test` | Applies Prisma schema against `server/.env.test` (test DB). |
 | `npm run db:seed:test` | Seeds the test database. |
 | `npm run db:clear:test` | Clears all tables except `User` (test DB). Pass `-- --yes` for confirmation. |
@@ -308,12 +317,20 @@ npm run dev
 
 ### AWS / CDK
 
+Full deploy guide, architecture, smoke scripts, and RDS SSM tunnel: **[`infra/README.md`](infra/README.md)**.
+
 | Script | Description |
 | ------ | ----------- |
 | `npm run cdk:synth` | Synthesizes all CDK stacks in `infra/` to CloudFormation templates (`infra/cdk.out`). |
 | `npm run cdk:diff` | Shows infrastructure differences against the deployed stacks (all CDK stacks). |
 | `npm run cdk:deploy` | Deploys all CDK stacks in dependency order. |
 | `npm run cdk:check` | Runs AWS/CDK preflight checks (context, credentials, required env vars). |
+| `npm run smoke:preflight` | Post-deploy: stacks, outputs, invite secret (`-- --probe` for CloudFront HTTP). |
+| `npm run smoke:outputs` | Print Cognito IDs, CloudFront URL, S3 bucket (`-- --write-env`, `-- --json`). |
+| `npm run smoke:invite` | Show signup invite code from Secrets Manager. |
+| `npm run smoke:database-url` | Build `DATABASE_URL` for schema apply (needs SSM tunnel to RDS Proxy). |
+| `npm run smoke:port-forward-cmd` | Print SSM port-forward command (`-- --instance-id i-xxx`). |
+| `npm run smoke:build-spa` / `smoke:deploy-spa` | Cognito client build + S3/CloudFront deploy (`-- --yes` on deploy). |
 
 ### Build, Test, Quality
 
@@ -398,16 +415,17 @@ Primary target is the AWS serverless stack (Lambda Function URLs + CloudFront + 
    npm run cdk:diff
    npm run cdk:deploy
    ```
-3. Deploy SPA assets:
-   - use the **Deploy SPA to S3** workflow (`spa-deploy.yml`) documented in [`.github/workflows/README.md`](.github/workflows/README.md) with configured AWS role and bucket
-   - or manually sync `client/dist` to the configured S3 bucket and invalidate CloudFront
+3. Deploy SPA assets (`npm run smoke:build-spa` + `npm run smoke:deploy-spa -- --yes`, or GitHub `spa-deploy.yml` — see [`infra/README.md`](infra/README.md)):
+   - Cognito build env comes from `npm run smoke:outputs` (or stack outputs)
+   - workflow: [`.github/workflows/README.md`](.github/workflows/README.md) with AWS role + bucket + `VITE_COGNITO_*`
 4. Validate runtime:
    - API endpoints via CloudFront domain (`/api/*`)
    - SSE endpoint via `/api/sse`
-   - auth flow + one tournament realtime update
+   - auth flow: register with the invite code (read from Secrets Manager, e.g. `/turnier-hub/dev/invite-code`), confirm the emailed code, log in, and confirm a matching `User` row (with `cognitoSub`) is created in RDS plus one tournament realtime update
 
-Detailed phase status and open cutover tasks: [`MIGRATION_AWS.md`](MIGRATION_AWS.md).
-For Route53/domain switch and SSE edge verification, use [`doc/AWS_EDGE_CUTOVER_CHECKLIST.md`](doc/AWS_EDGE_CUTOVER_CHECKLIST.md).
+For end-to-end cloud validation (deploy → Cognito → SPA → signup/confirm/login → RDS → SSE), follow [`infra/README.md`](infra/README.md) §2–§5.
+
+Deployment status and DNS/performance: [`infra/README.md`](infra/README.md) §6–§7.
 
 
 ## Security Notes
@@ -418,14 +436,14 @@ For Route53/domain switch and SSE edge verification, use [`doc/AWS_EDGE_CUTOVER_
 - **CORS allowlist:** browser calls are accepted only from origins in `CORS_ALLOWED_ORIGINS` (comma-separated).
 - **Rate-limit env vars:** `AUTH_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_MAX_REQUESTS`, `AUTH_SIGNUP_MAX_REQUESTS`, `AUTH_IDENTIFIER_MAX_REQUESTS`.
 - **Progressive login lockout:** repeated failed logins per identifier trigger temporary backoff (`LOGIN_LOCKOUT_*`) and return `429` with `Retry-After`. Storage uses the same `LockoutStore` adapter pattern as the rate limiter.
-- **Session invalidation:** JWTs carry per-user token version (`tv`). `POST /api/auth/revoke-sessions` rotates the caller's token version and invalidates all previously issued tokens for that account.
+- **Session invalidation (local auth):** local JWTs carry a per-user token version (`tv`); `POST /api/auth/revoke-sessions` rotates it and invalidates previously issued tokens. In **Cognito mode** token verification, refresh, and revocation are handled by Cognito; the lockout/rate-limit/token-version mechanisms below apply to the `local` path.
 - **Proxy/IP env var:** `TRUST_PROXY` (for example `1` behind Nginx) so `req.ip` is correct for rate limits and auditing.
 - **Payload-size env var:** `JSON_BODY_LIMIT` limits JSON request size globally (default `100kb`).
 - **Structured security signals:** the server emits JSON warning logs for `401`/`403`/`429` responses (`category:"security"`, `type:"http_auth_status"`). In the AWS deployment, CloudWatch Metric Filters aggregate these into spike alarms; in dev they show up on stderr as one-line JSON events.
 - **How limits are applied:** both per-IP and per-identifier counters run in parallel; if either threshold is exceeded in the active window, the request is blocked (`429`).
 - **Current scope:** with the default in-memory adapters limits are process-local. The Phase-5 DynamoDB adapter makes them work across all Lambda instances; on the legacy single-VM that is not needed because there is only one process.
 - **Proxy setup:** if your app runs behind a reverse proxy, configure trusted proxy hops so `req.ip` reflects the real client IP and keep your allowed browser origins aligned with the public frontend URL(s).
-- **Secrets:** always set strong production values for `JWT_SECRET` and `INVITE_CODE` through host environment variables. AWS deployment pulls these from Secrets Manager (Phase 4).
+- **Secrets:** always set strong production values for `JWT_SECRET` (local mode) and `INVITE_CODE` through host environment variables. In the AWS deployment, the Lambda runtime resolves `DATABASE_URL` (RDS secret + RDS Proxy endpoint), `INVITE_CODE`, and `JWT_SECRET` from **AWS Secrets Manager** at cold start via `server/src/runtime/secrets.ts` (`bootstrapSecretsIntoEnv`) before the app/Prisma load. The auto-generated `INVITE_CODE` for a deployed stage can be read from Secrets Manager (e.g. `/turnier-hub/dev/invite-code`).
 
 ## Security Runbook
 
@@ -444,10 +462,8 @@ Triggers, secrets, inputs, and billing context: **[`.github/workflows/README.md`
 
 ## Additional Documentation
 
-- [`MIGRATION_AWS.md`](MIGRATION_AWS.md) - phase-by-phase AWS migration plan and current status.
-- [`infra/README.md`](infra/README.md) - AWS-CDK Infrastrukturdoku (Stacks, Konfiguration, Schritt-für-Schritt Deploy).
-- [`doc/AWS_PERF_CHECKLIST.md`](doc/AWS_PERF_CHECKLIST.md) - SSE + DynamoDB capacity probe checklist and on-demand vs provisioned decision guide.
-- [`doc/AWS_EDGE_CUTOVER_CHECKLIST.md`](doc/AWS_EDGE_CUTOVER_CHECKLIST.md) - Route53/domain cutover and SSE edge validation checklist.
+- [`infra/README.md`](infra/README.md) - AWS/CDK deploy, smoke scripts (`smoke:*`), auth validation, DNS cutover, SSE performance.
+- [`doc/AUTH_MIGRATION.md`](doc/AUTH_MIGRATION.md) - AWS Cognito authentication migration: adapter design, Lambda triggers, and phase status.
 - [`.github/workflows/README.md`](.github/workflows/README.md) - GitHub Actions: CI (client build, full tests, security audit) and manual SPA deploy (`spa-deploy.yml`).
 - [`doc/TURNIERLOGIK.md`](doc/TURNIERLOGIK.md) - detailed German-language tournament logic documentation.
 - [`doc/SECURITY.md`](doc/SECURITY.md) - consolidated security checklist and incident runbook.
@@ -538,6 +554,9 @@ turnier-hub/
 │   ├── scripts/
 │   └── src/
 │       ├── app.ts, index.ts   # Express app; plain HTTP server (no WebSocket upgrade — SSE handler is a regular GET route)
+│       ├── auth/              # token.ts (local JWT signing) + tokenVerifier.ts (pluggable Local/Cognito verifier via AUTH_VERIFIER)
+│       ├── lambda/            # Function URL handlers (httpHandler, sseHandler) + cognito/ triggers (preSignUp, postConfirmation)
+│       ├── runtime/           # runtimeAdapters.ts (Memory/Dynamo selectors) + secrets.ts (Secrets Manager → env bootstrap)
 │       ├── realtime/          # eventBus.ts (RealtimeEventBus + MemoryEventBus), sseEndpoint.ts (createSseHandler for /api/sse), notify.ts (publish into bus from routes)
 │       ├── state/             # rateLimitStore.ts + lockoutStore.ts (transport-agnostic stores; Memory now, Dynamo in Phase 5)
 │       ├── routes/            # auth, classes, players, tournaments/…

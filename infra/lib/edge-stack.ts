@@ -159,5 +159,13 @@ export class EdgeStack extends cdk.Stack
     new cdk.CfnOutput(this, "CloudFrontDomain", {
       value: this.distribution.distributionDomainName,
     });
+
+    new cdk.CfnOutput(this, "CloudFrontDistributionId", {
+      value: this.distribution.distributionId,
+    });
+
+    new cdk.CfnOutput(this, "SiteBucketName", {
+      value: this.siteBucket.bucketName,
+    });
   }
 }

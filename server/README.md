@@ -4,11 +4,11 @@ Diese README beschreibt das Backend im `server/`-Workspace im Detail: Architektu
 
 ## Überblick
 
-Das Backend ist eine Express-API mit Prisma (PostgreSQL), JWT-Auth und SSE-Realtime.
+Das Backend ist eine Express-API mit Prisma (PostgreSQL), pluggable Auth und SSE-Realtime.
 
 - REST-Basis: `/api/*`
-- Realtime: `/api/ws` (gleicher HTTP-Server wie die API)
-- Auth: `Authorization: Bearer <JWT>`
+- Realtime: **Server-Sent Events** auf `GET /api/sse` (gleicher HTTP-Server wie die API; der frühere `ws`-Hub wurde im AWS-Migrationsschritt Phase 2 entfernt)
+- Auth: `Authorization: Bearer <Token>` über einen **pluggable Verifier** (`AUTH_VERIFIER`): lokal HS256-JWT (Dev/Tests/Legacy) oder AWS Cognito (Produktion) — siehe [`doc/AUTH_MIGRATION.md`](../doc/AUTH_MIGRATION.md)
 - Request-Validierung: `zod` in den Route-Modulen
 - Fehlerbehandlung: zentral über Error-Middleware
 
@@ -16,7 +16,7 @@ Das Backend ist eine Express-API mit Prisma (PostgreSQL), JWT-Auth und SSE-Realt
 
 - `src/index.ts`
   - erstellt den HTTP-Server aus der Express-App
-  - hängt den WebSocket-Hub auf `/api/ws` an
+  - SSE läuft als normale `GET /api/sse`-Route (kein WebSocket-Upgrade mehr)
 - `src/app.ts`
   - registriert globale Middleware (CORS, JSON-Parser)
   - mountet alle Router
@@ -31,12 +31,15 @@ server/
 ├── scripts/                 # Seed / DB-Cleanup Skripte
 └── src/
     ├── app.ts               # Express-App
-    ├── index.ts             # HTTP-Server + WS-Anbindung
-    ├── auth/                # Token-Helfer
+    ├── index.ts             # HTTP-Server (SSE als GET-Route)
+    ├── auth/                # token.ts (lokales JWT-Signing) + tokenVerifier.ts (Local/Cognito-Verifier)
     ├── config.ts            # ENV-Konfiguration
     ├── db.ts                # Prisma-Client
+    ├── lambda/              # Function-URL-Handler (httpHandler, sseHandler) + cognito/ Trigger
     ├── middleware/          # auth, asyncHandler, error
-    ├── realtime/            # WS-Hub + Notify-Helfer
+    ├── realtime/            # eventBus (RealtimeEventBus + MemoryEventBus), sseEndpoint, notify
+    ├── runtime/             # runtimeAdapters (Memory/Dynamo) + secrets (Secrets-Manager-Bootstrap)
+    ├── state/               # rateLimitStore + lockoutStore (transport-agnostische Stores)
     ├── routes/              # REST-Routen
     ├── services/            # Domänenlogik
     ├── lib/                 # gemeinsame Mapper/Select-Helper
@@ -67,8 +70,8 @@ In `src/app.ts` gemountet:
 ### `src/middleware/auth.ts`
 
 - liest `Bearer`-Token aus dem Header
-- validiert JWT
-- setzt `req.userId`
+- validiert das Token über den aktiven `TokenVerifier` (`src/auth/tokenVerifier.ts`: lokales JWT oder Cognito-JWKS)
+- setzt `req.userId` und `req.userRole`
 - liefert `401` bei fehlendem/ungültigem Token
 
 ### `src/types/express.d.ts`
@@ -139,13 +142,14 @@ Wichtige Bausteine:
 
 Dadurch bleiben Prisma-Selects und DTO-Mapping zentral konsistent.
 
-## Realtime (WebSocket)
+## Realtime (Server-Sent Events)
 
-- Hub: `src/realtime/hub.ts`
+- Bus: `src/realtime/eventBus.ts` (`RealtimeEventBus` + `MemoryEventBus`; `DynamoEventBus` für Multi-Lambda)
+- SSE-Handler: `src/realtime/sseEndpoint.ts` (`createSseHandler` für `GET /api/sse`)
 - Notify-Funktionen: `src/realtime/notify.ts`
-- Endpoint: `/api/ws?token=<JWT>`
+- Endpoint: `GET /api/sse?token=<Token>&tournaments=t1,t2` (Token über den aktiven Verifier authentifiziert)
 
-Push-Typen:
+Push-Typen (SSE-`event:`-Frames):
 
 - `tournamentChanged` (nur abonnierte Clients)
 - `catalogChanged` (Broadcast an alle)
@@ -153,7 +157,7 @@ Push-Typen:
 
 Subscription-Modell:
 
-- Client abonniert Turnier-IDs
+- Client abonniert Turnier-IDs über die Query (`?tournaments=`)
 - Server schickt turnierspezifische Änderungen gezielt an Subscriber
 
 ## Datenbank / Prisma
@@ -172,6 +176,7 @@ npm run start
 npm run db:push
 npm run db:seed
 npm run db:clear -- --yes
+npm run db:promote-admin -- --email user@example.com --yes
 npm run test:unit
 ```
 
@@ -183,8 +188,11 @@ Siehe `server/.env.example`. Typisch relevant:
 
 - `PORT`
 - `DATABASE_URL`
-- `JWT_SECRET`
+- `AUTH_VERIFIER` (`local` | `cognito`); bei `cognito` zusätzlich `COGNITO_USER_POOL_ID` + `COGNITO_CLIENT_ID`
+- `JWT_SECRET` (nur für den `local`-Verifier)
 - `INVITE_CODE`
+
+In der AWS-Lambda werden `DATABASE_URL`, `INVITE_CODE` und `JWT_SECRET` zur Laufzeit aus Secrets Manager aufgelöst (`src/runtime/secrets.ts`, `bootstrapSecretsIntoEnv`).
 
 ## Response- und Fehlerkonventionen
 

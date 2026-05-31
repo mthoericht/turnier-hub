@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@turnier-hub/shared": "file:../shared",
+    "aws-amplify": "^6.17.0",
     "pinia": "^3.0.1",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0",
@@ -40,7 +41,6 @@
     "dotenv-cli": "^8.0.0",
     "eslint": "^9.39.4",
     "eslint-plugin-vue": "^10.8.0",
-    "vue-eslint-parser": "^10.0.0",
     "globals": "^17.4.0",
     "jsdom": "^29.1.0",
     "playwright": "^1.58.2",
@@ -52,6 +52,7 @@
     "vite": "^8.0.10",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^3.2.4",
+    "vue-eslint-parser": "^10.0.0",
     "vue-tsc": "^2.2.2"
   }
 }

@@ -4,7 +4,17 @@ import type {
   APIGatewayProxyStructuredResultV2,
   Context,
 } from "aws-lambda";
-import { createApp } from "../app.js";
+import { bootstrapSecretsIntoEnv } from "../runtime/secrets.js";
+
+/**
+ * Resolve Secrets Manager values (`DATABASE_URL`, `INVITE_CODE`, `JWT_SECRET`)
+ * into `process.env` **before** `app.ts` is imported — both `config.ts` and
+ * `db.ts` read those env vars at module-evaluation time. This top-level `await`
+ * runs once during the Lambda init phase; the dynamic import below then sees a
+ * fully-populated environment. Locally/in tests the bootstrap is a no-op.
+ */
+await bootstrapSecretsIntoEnv();
+const { createApp } = await import("../app.js");
 
 /**
  * The Express application wrapped for Lambda Function URL invocation.

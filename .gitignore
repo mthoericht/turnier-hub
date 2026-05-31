@@ -4,6 +4,8 @@ dist
 *.db
 *.db-journal
 .env
+client/.env.production.local
+client/.env.smoke
 .DS_Store
 figma-preset
 *storybook.log

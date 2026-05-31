@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from "aws-cdk-lib";
 import { CertificateStack } from "../lib/certificate-stack";
+import { CognitoStack } from "../lib/cognito-stack";
 import { loadConfig } from "../lib/config";
 import { DataStack } from "../lib/data-stack";
 import { EdgeStack } from "../lib/edge-stack";
@@ -33,6 +34,17 @@ const dataStack = new DataStack(app, `${namePrefix}-data`, {
   description: "Data services (RDS, DynamoDB, Secrets Manager) for turnier-hub",
 });
 
+const cognitoStack = new CognitoStack(app, `${namePrefix}-cognito`, {
+  env,
+  namePrefix,
+  vpc: networkStack.vpc,
+  appSecurityGroup: networkStack.appSecurityGroup,
+  databaseSecret: dataStack.databaseSecret,
+  inviteCodeSecret: dataStack.inviteCodeSecret,
+  dbProxyEndpoint: dataStack.proxy.endpoint,
+  description: "AWS Cognito user pool, SPA client, and signup Lambda triggers for turnier-hub",
+});
+
 const lambdaStack = new LambdaStack(app, `${namePrefix}-lambda`, {
   env,
   namePrefix,
@@ -43,8 +55,9 @@ const lambdaStack = new LambdaStack(app, `${namePrefix}-lambda`, {
   inviteCodeSecret: dataStack.inviteCodeSecret,
   realtimeEventsTableName: dataStack.realtimeEventsTable.tableName,
   rateLimitTableName: dataStack.rateLimitTable.tableName,
-  loginLockoutTableName: dataStack.loginLockoutTable.tableName,
   dbProxyEndpoint: dataStack.proxy.endpoint,
+  cognitoUserPoolId: cognitoStack.userPool.userPoolId,
+  cognitoClientId: cognitoStack.userPoolClient.userPoolClientId,
   description: "Application Lambdas (REST, SSE, migration trigger) for turnier-hub",
 });
 

@@ -20,8 +20,9 @@ export type LambdaStackProps = cdk.StackProps & {
   inviteCodeSecret: secretsmanager.ISecret;
   realtimeEventsTableName: string;
   rateLimitTableName: string;
-  loginLockoutTableName: string;
   dbProxyEndpoint: string;
+  cognitoUserPoolId: string;
+  cognitoClientId: string;
 };
 
 export class LambdaStack extends cdk.Stack
@@ -42,12 +43,16 @@ export class LambdaStack extends cdk.Stack
       DATABASE_SECRET_ARN: props.databaseSecret.secretArn,
       JWT_SECRET_ARN: props.jwtSecret.secretArn,
       INVITE_CODE_SECRET_ARN: props.inviteCodeSecret.secretArn,
+      AUTH_VERIFIER: "cognito",
+      COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
+      COGNITO_CLIENT_ID: props.cognitoClientId,
       EVENT_BUS: "dynamo",
       RATE_LIMIT_STORE: "dynamo",
-      LOCKOUT_STORE: "dynamo",
+      // Lockout is a legacy local-auth concern; AWS auth is Cognito, so the
+      // login-lockout route is unused and no DynamoDB lockout table exists.
+      LOCKOUT_STORE: "memory",
       REALTIME_EVENTS_TABLE: props.realtimeEventsTableName,
       RATE_LIMIT_TABLE: props.rateLimitTableName,
-      LOGIN_LOCKOUT_TABLE: props.loginLockoutTableName,
       CORS_ALLOWED_ORIGINS: "https://example.invalid",
       TRUST_PROXY: "1",
       JSON_BODY_LIMIT: "100kb",

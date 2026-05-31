@@ -8,7 +8,7 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 - Run **install and most scripts from the repository root**, not only inside `client` or `server`, unless you have a reason.
 - **Root `.npmrc`:** `legacy-peer-deps=true` so npm can install **Vite 8** together with **`vite-plugin-pwa@1.2.0`**, whose `peerDependencies.vite` still ends at `^7.0.0` (clean install otherwise fails with `ERESOLVE`). Revisit when upstream adds Vite 8 — track [vite-pwa/vite-plugin-pwa#923](https://github.com/vite-pwa/vite-plugin-pwa/issues/923).
 - **Root `package.json` `overrides`:** `@rollup/plugin-terser@^1.0.0` and `serialize-javascript@^7.0.5` so the Workbox build chain does not pull vulnerable `serialize-javascript@6.x` (keeps **`npm run security:audit`** passing aside from the allowlisted **`xlsx`** advisory). With `legacy-peer-deps`, some ESLint peers are not auto-installed; **`client`** lists **`vue-eslint-parser`** explicitly for that reason.
-- **AWS migration in flight:** the codebase is being moved to a fully serverless AWS stack (Lambda Function URLs + CloudFront + RDS PostgreSQL + DynamoDB). Status, decisions, and phase-by-phase plan live in [`MIGRATION_AWS.md`](MIGRATION_AWS.md). Phase 1 (Postgres) and Phase 2 (state adapters + WS→SSE) are merged; Phase 3+ is in progress.
+- **AWS migration:** the codebase targets a fully serverless AWS stack (Lambda Function URLs + CloudFront + RDS PostgreSQL + DynamoDB). Deploy, smoke tests, and architecture: [`infra/README.md`](infra/README.md). **Authentication** uses AWS Cognito in production behind a pluggable adapter — design and cutover in [`doc/AUTH_MIGRATION.md`](doc/AUTH_MIGRATION.md).
 
 ## Commands (from repo root)
 
@@ -38,6 +38,8 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Regenerate Prisma client | `npm run db:generate` |
 | Seed demo data (dev) | `npm run db:seed` |
 | Clear DB (dev, keep `User`) | `npm run db:clear -- --yes` |
+| Cloud auth smoke-test helpers | `npm run smoke:*` — see [`infra/README.md`](infra/README.md) §2–§5 |
+| Promote user to admin (by e-mail, e.g. post-Cognito cutover) | `npm run db:promote-admin -- --email user@example.com --yes` |
 | Test DB schema + seed | `npm run db:push:test` / `npm run db:seed:test` |
 | Clear DB (test, keep `User`) | `npm run db:clear:test -- --yes` |
 | API only, test env (`PORT` 3002) | `npm run dev:test` |
@@ -48,7 +50,8 @@ This document helps humans and coding agents work effectively in **turnier-hub**
 | Security audit (policy wrapper) | `npm run security:audit` |
 | Clean install | `npm run clean:install` |
 
-- **Server** entry: `server/src/index.ts` creates an **HTTP** server from the Express app. The realtime push uses **Server-Sent Events** on **`GET /api/sse`** (JWT via query `token=`, optional `?tournaments=t1,t2` filter). The legacy `ws`-based hub was removed in the Phase-2 AWS migration step. Production (legacy single-VM): `node server/dist/index.js` (`start` / `start:prod` in server workspace). Production (AWS, in progress): the same Express app runs inside a Lambda via `serverless-http`; SSE has its own streaming Lambda handler.
+- **Server** entry: `server/src/index.ts` creates an **HTTP** server from the Express app. The realtime push uses **Server-Sent Events** on **`GET /api/sse`** (bearer token via query `token=`, optional `?tournaments=t1,t2` filter). The legacy `ws`-based hub was removed in the Phase-2 AWS migration step. Production (legacy single-VM): `node server/dist/index.js` (`start` / `start:prod` in server workspace). Production (AWS, in progress): the same Express app runs inside a Lambda via `serverless-http`; SSE has its own streaming Lambda handler.
+- **Auth backend is pluggable** (Cognito migration, see [`doc/AUTH_MIGRATION.md`](doc/AUTH_MIGRATION.md)): `AUTH_VERIFIER=local` (default; HS256 JWT signed/verified here, used by dev/tests/legacy VM and the `/api/auth/*` login/signup/revoke routes) or `AUTH_VERIFIER=cognito` (Cognito access tokens verified via JWKS with `aws-jwt-verify`). Both resolve to an internal `User` row and `role`. The selector + both implementations live in **`server/src/auth/tokenVerifier.ts`** (`getTokenVerifier()`, `setTokenVerifierForTests()`); `middleware/auth.ts` and `realtime/sseEndpoint.ts` call the verifier instead of using `jwt` directly. In Cognito mode, signup logic moves to Lambda triggers (`server/src/lambda/cognito/preSignUp.ts` invite-code gate, `postConfirmation.ts` RDS user upsert) and the legacy `local` auth pieces (lockout, auth rate-limit, `tokenVersion`) stay until full cutover.
 - **Client** dev server proxies **`/api`** to the backend (default `http://localhost:3001`); SSE on `/api/sse` works through that proxy as a regular long-lived HTTP response (no `ws: true` needed since the legacy WebSocket hub was removed).
 - **Client** ESLint: flat config in `client/eslint.config.js` (`typescript-eslint`, `eslint-plugin-vue`; stylistic rules include semicolons, Allman braces, 2-space indent).
 - Tests live in the repository root under `tests/` (`tests/server/**`, `tests/client/**`), executed via each workspace's Vitest config.
@@ -78,6 +81,8 @@ Runs use **GitHub-hosted runners**, not your production AWS resources, except wh
 - Local Postgres can run from `data/postgres` via root scripts (`db:init` / `db:start` / `db:stop`). Logs go to `data/postgres.log`. The helper auto-detects Homebrew Postgres (`postgresql@16/bin`); if binaries are still not in PATH, use `PG_BIN=/path/to/postgres/bin`.
 - SAM local (`sam local start-api`) is optional and still relies on Docker for Lambda runtime emulation, but uses the same local Postgres DB (`localhost:5432`).
 - Typical keys: `JWT_SECRET`, `INVITE_CODE`, `PORT`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`, `TRUST_PROXY`.
+- **Auth keys:** `AUTH_VERIFIER` (`local` default | `cognito`); when `cognito`, also `COGNITO_USER_POOL_ID` + `COGNITO_CLIENT_ID` (server) and `VITE_AUTH_PROVIDER=cognito` + `VITE_COGNITO_USER_POOL_ID` / `VITE_COGNITO_CLIENT_ID` (client). `JWT_SECRET` is only required for the `local` verifier.
+- **AWS secret bootstrap:** in Lambda, `server/src/runtime/secrets.ts` (`bootstrapSecretsIntoEnv`) resolves `DATABASE_URL` (RDS secret + `DB_PROXY_ENDPOINT`), `INVITE_CODE`, and `JWT_SECRET` from Secrets Manager into `process.env` at cold start. Every Lambda entry module (`httpHandler`, `sseHandler`, cognito `preSignUp`/`postConfirmation`) awaits it via top-level `await` **before** dynamically importing `app.ts`/`db.ts` (which read env at module load). Locally/in tests it is a no-op (env already set).
 
 ### Local Postgres quick setup (macOS, no Docker)
 
@@ -119,6 +124,7 @@ $PG_BIN/psql -d turnier_test -c "ALTER SCHEMA public OWNER TO turnier; GRANT ALL
     - Under the hood: `server/package.json` configures Prisma seed (`prisma.seed`) to run `tsx scripts/seed.ts`.
   - Clear DB (keep `User`): `npm run db:clear -- --yes` (script: `server/scripts/clearDbExceptUsers.ts`)
     - Under the hood: `server/package.json` runs `tsx scripts/clearDbExceptUsers.ts`.
+  - Promote user to admin (by e-mail, e.g. after Cognito signup): `npm run db:promote-admin -- --email user@example.com --yes` (script: `server/scripts/promoteAdmin.ts`)
 - **Test DB**: uses `server/.env.test` and the root scripts:
   - Apply migrations: `npm run db:push:test`
   - Seed demo data: `npm run db:seed:test` (same script: `server/scripts/seed.ts`)
@@ -136,14 +142,15 @@ $PG_BIN/psql -d turnier_test -c "ALTER SCHEMA public OWNER TO turnier; GRANT ALL
   - Schools: `GET/POST /schools`, `PATCH/DELETE /schools/:id`
   - Users: `GET /users`, `PATCH /users/:id/role`, `PATCH /users/:id/school`
   - Safety constraints: school delete is blocked while users are assigned; demoting the last remaining admin is blocked.
-- **Realtime** uses **Server-Sent Events** at **`GET /api/sse`** (same origin/port as the API in production; query `?token=<JWT>` and optional `?tournaments=t1,t2`). The handler authenticates the JWT, registers a listener with the in-process `RealtimeEventBus`, and writes typed SSE frames (`event: tournamentChanged|catalogChanged|tournamentsChanged`). After catalog or tournament-list mutations the server **broadcasts** `catalogChanged` (players/classes) and `tournamentsChanged` to every subscriber; `tournamentChanged` only goes to subscribers that opted into that tournament id (`server/src/realtime/eventBus.ts`, `sseEndpoint.ts`, `notify.ts`, route handlers).
+- **Realtime** uses **Server-Sent Events** at **`GET /api/sse`** (same origin/port as the API in production; query `?token=<token>` and optional `?tournaments=t1,t2`). The handler authenticates the token via the active `TokenVerifier` (local JWT or Cognito), registers a listener with the in-process `RealtimeEventBus`, and writes typed SSE frames (`event: tournamentChanged|catalogChanged|tournamentsChanged`). After catalog or tournament-list mutations the server **broadcasts** `catalogChanged` (players/classes) and `tournamentsChanged` to every subscriber; `tournamentChanged` only goes to subscribers that opted into that tournament id (`server/src/realtime/eventBus.ts`, `sseEndpoint.ts`, `notify.ts`, route handlers).
 - The realtime backend is bus-shaped on purpose: `MemoryEventBus` runs single-process (dev, tests, legacy VM), and the upcoming `DynamoEventBus` (Phase 5) will fan out events across REST-Lambda → SSE-Lambda via a DynamoDB event log.
-- Auth: `Authorization: Bearer <JWT>`; client stores token in **localStorage** key `turnier_hub_token`.
+- Auth: `Authorization: Bearer <token>`; client stores the token in **localStorage** key `turnier_hub_token`. In Cognito mode the SPA mirrors the Cognito access token into the same key, so `http.ts` / `realtimeClient.ts` / router guards keep reading it synchronously.
 
 ## Front end
 
 - **Pinia:** global **`auth`** and **`toast`**; domain stores in `client/src/stores/` — **`tournamentLayout`** (active tournament detail, standings, score draft, roster form state), **`playersManagement`**, **`classesManagement`**, **`tournamentsList`**, **`dashboard`**. **Global modal APIs (no local `EntityDialog` in views):** **`confirmDialog`** (`requestConfirm` → boolean) and **`textPromptDialog`** (`requestPrompt` → string or null); hosts in **`App.vue`** (`EntityDialog` + **`GlobalTextPromptDialog.vue`**). Feature composables mostly **delegate** to these stores (`storeToRefs` + `onMounted` loads); admin view state lives in `client/src/composables/admin/useAdminManagementState.ts`. **Vue Router**.
-- **Auth roles:** `AuthUser` now includes `role` (`admin` | `user`). Prisma stores roles as `ADMIN` / `USER` (`User.role`, default `USER`). The top navigation shows the `/admin` entry only for admins.
+- **Auth roles:** `AuthUser` now includes `role` (`admin` | `user`). Prisma stores roles as `ADMIN` / `USER` (`User.role`, default `USER`); roles stay Postgres-managed even in Cognito mode (no Cognito groups). The top navigation shows the `/admin` entry only for admins.
+- **Client auth provider is pluggable** (mirror of the server verifier): `client/src/auth/authProvider.ts` resolves `localAuthProvider` (wraps `/api/auth/*`) or `cognitoAuthProvider` (`aws-amplify`, lazy-loaded) via `VITE_AUTH_PROVIDER`; `stores/auth.ts` delegates `login`/`signup`/`confirmSignup`/`logout`/`restore`. `signup` returns a `SignupResult` so Cognito's email-confirmation step is handled in `SignupView.vue` (`User.cognitoSub` links the RDS row).
 - **Realtime client:** `client/src/realtime/realtimeClient.ts` — opens an `EventSource` on `/api/sse?token=…&tournaments=…` after login/hydrate, closes it on logout; **subscribe/unsubscribe** tournament IDs from `useTournamentLayoutState` mutate the URL set and trigger a debounced (`queueMicrotask`) reconnect of the SSE stream. Dynamic `import()` of stores in the message dispatcher avoids circular deps with `auth` (prefer **relative** paths in those imports for `vue-tsc`).
 - **Realtime client tests:** `setRealtimeDispatchForTests(...)` exists only as a small test seam for unit tests; production code should keep using the default internal dispatch.
 - Styling: keep style decisions centralized. Use `client/src/style.css` for semantic UI color variables and shared utility classes (`.ui-card`, `.ui-btn-*`, `.ui-input-*`, etc.). Keep font and Tailwind token sources in `client/src/theme/designTokens.js` and `client/src/theme/fonts.css`.
@@ -194,12 +201,15 @@ $PG_BIN/psql -d turnier_test -c "ALTER SCHEMA public OWNER TO turnier; GRANT ALL
 | Realtime backend (bus + SSE) | `server/src/realtime/eventBus.ts` (`RealtimeEventBus` interface + `MemoryEventBus`), `server/src/realtime/sseEndpoint.ts` (`createSseHandler` for `GET /api/sse`), `server/src/realtime/notify.ts` (`notifyCatalogChanged` / `notifyTournamentsListChanged` = broadcast, `notifyTournamentChanged` = per-tournament subscribers) |
 | State stores (Memory now, Dynamo in Phase 5) | `server/src/state/rateLimitStore.ts` (`RateLimitStore` + `MemoryRateLimitStore`), `server/src/state/lockoutStore.ts` (`LockoutStore` + `MemoryLockoutStore`); injection points `setRateLimitStore` (in `middleware/authRateLimit.ts`) and `setLockoutStore` (in `routes/auth.ts`) |
 | Tournament route modules | `server/src/routes/tournaments/` |
-| Auth middleware + token helpers | `server/src/middleware/auth.ts`, `server/src/auth/token.ts`, `server/src/types/express.d.ts` |
+| Auth middleware + token helpers | `server/src/middleware/auth.ts`, `server/src/auth/token.ts` (local JWT signing), `server/src/auth/tokenVerifier.ts` (pluggable Local/Cognito verifier), `server/src/types/express.d.ts` |
+| Cognito auth (Lambda triggers + adapters) | `server/src/lambda/cognito/preSignUp.ts` (invite-code gate), `server/src/lambda/cognito/postConfirmation.ts` (RDS `User` upsert + `cognitoSub`), `server/src/runtime/secrets.ts` (Secrets Manager → env bootstrap); client `client/src/auth/authProvider.ts` + `localAuthProvider.ts` / `cognitoAuthProvider.ts` + `cognitoConfig.ts` |
 | Error handling middleware | `server/src/middleware/asyncHandler.ts`, `server/src/middleware/error.ts` |
 | Tournament logic (pure) | `server/src/services/` (`advancePhase`, `standings`, `matchTimer`, `roundRobinSchedule`, `knockoutBracket`) |
 | Tournament services (orchestration) | `server/src/services/tournamentRosterService.ts` (teams, members, team transfer), `server/src/services/tournamentMatchService.ts` (group/KO generation, scores, timer, delete-all); `ServiceError.ts` for typed errors |
 | DB seed | `server/scripts/seed.ts` |
 | DB clear (keep User) | `server/scripts/clearDbExceptUsers.ts` |
+| Promote user to admin | `server/scripts/promoteAdmin.ts`, `server/src/services/adminUserService.ts` |
+| AWS auth smoke-test scripts | `scripts/aws-smoke-*.mjs` — [`infra/README.md`](infra/README.md) §2–§5 |
 | Client views | `client/src/views/` |
 | Match card + stopwatch | `client/src/components/tournament/TournamentMatchCard.vue`, `MatchTimer.vue`; `client/src/composables/tournaments/useMatchTimerDisplay.ts` |
 | Shared types + helpers (client + server) | `shared/src/catalog.ts` (catalog DTOs, `formatCreator`, `formatPlayerName`, `AuthUser`), `shared/src/tournament.ts` — package **`@turnier-hub/shared`** |
@@ -214,8 +224,9 @@ $PG_BIN/psql -d turnier_test -c "ALTER SCHEMA public OWNER TO turnier; GRANT ALL
 | Global confirm + text prompt | `client/src/stores/confirmDialog.ts`, `textPromptDialog.ts`, `GlobalTextPromptDialog.vue`, mounted in `App.vue`; Storybook under `tests/client/storybook/stories/components/common/` (`GlobalTextPromptDialog.stories.ts`) |
 | Catalog page header (lists + dashboard) | `client/src/components/common/CatalogPageHeader.vue`; Storybook `tests/client/storybook/stories/components/common/CatalogPageHeader.stories.ts` |
 | Local DB (no Docker) | PostgreSQL on `localhost:5432` (`turnier_dev`, `turnier_test`), cluster files under `data/postgres` |
-| AWS CDK app + stacks | `infra/bin/infra.ts`, `infra/lib/network-stack.ts`, `infra/lib/data-stack.ts`, `infra/lib/lambda-stack.ts`, `infra/lib/edge-stack.ts`, `infra/lib/config.ts` |
-| AWS migration plan | [`MIGRATION_AWS.md`](MIGRATION_AWS.md) |
+| AWS CDK app + stacks | `infra/bin/infra.ts`, `infra/lib/network-stack.ts`, `infra/lib/data-stack.ts`, `infra/lib/cognito-stack.ts`, `infra/lib/lambda-stack.ts`, `infra/lib/edge-stack.ts`, `infra/lib/config.ts` |
+| AWS deploy + smoke scripts | [`infra/README.md`](infra/README.md), `scripts/aws-smoke-*.mjs` |
+| Auth (Cognito) migration plan | [`doc/AUTH_MIGRATION.md`](doc/AUTH_MIGRATION.md) |
 | GitHub Actions (CI/CD) | [`.github/workflows/README.md`](.github/workflows/README.md) |
 | Tournament views | `client/src/views/tournament/` |
 | Tournament types + inject key | `client/src/tournament/tournamentContext.ts` (re-exports tournament types from `@turnier-hub/shared`; Vue `inject` key) |

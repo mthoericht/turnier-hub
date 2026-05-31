@@ -16,6 +16,8 @@ const schools = ref<{ id: string; name: string }[]>([]);
 const error = ref("");
 const loading = ref(false);
 const schoolsLoading = ref(false);
+const confirmStep = ref(false);
+const confirmCode = ref("");
 
 const inputClass =
   "ui-input-court";
@@ -59,19 +61,43 @@ async function submit(): Promise<void>
   loading.value = true;
   try 
   {
-    await auth.signup({
+    const result = await auth.signup({
       username: username.value,
       email: email.value,
       password: password.value,
       inviteCode: inviteCode.value,
       schoolId: schoolId.value,
     });
+    if (result.status === "needsConfirmation")
+    {
+      confirmStep.value = true;
+    }
   }
   catch (e) 
   {
     error.value = e instanceof Error ? e.message : "Registrierung fehlgeschlagen";
   }
   finally 
+  {
+    loading.value = false;
+  }
+}
+
+async function confirmSubmit(): Promise<void>
+{
+  error.value = "";
+  loading.value = true;
+  try
+  {
+    await auth.confirmSignup(email.value, confirmCode.value);
+    // Sign in immediately with the credentials still held in the form.
+    await auth.login(email.value, password.value);
+  }
+  catch (e)
+  {
+    error.value = e instanceof Error ? e.message : "Bestätigung fehlgeschlagen";
+  }
+  finally
   {
     loading.value = false;
   }
@@ -89,7 +115,51 @@ async function submit(): Promise<void>
       Registrierung nur mit gültigem Einladungscode. Spieler und Turniere gehören
       zu deinem Konto.
     </p>
-    <form class="space-y-4" @submit.prevent="submit">
+    <form
+      v-if="confirmStep"
+      class="space-y-4"
+      @submit.prevent="confirmSubmit"
+    >
+      <p class="text-sm text-slate-600">
+        Wir haben dir einen Bestätigungscode an
+        <span class="font-medium">{{ email }}</span> gesendet. Bitte gib ihn zum
+        Abschluss der Registrierung ein.
+      </p>
+      <AuthFormField label="Bestätigungscode" :input-class="inputClass">
+        <template #default="{ fieldId, describedBy }">
+          <input
+            :id="fieldId"
+            v-model="confirmCode"
+            type="text"
+            required
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            :class="inputClass"
+            :aria-describedby="describedBy"
+            :aria-invalid="error ? 'true' : undefined"
+          />
+        </template>
+      </AuthFormField>
+      <p
+        v-if="error"
+        class="text-sm text-rose-600"
+        role="alert"
+      >
+        {{ error }}
+      </p>
+      <button
+        type="submit"
+        :disabled="loading"
+        class="ui-btn-primary-court w-full"
+      >
+        {{ loading ? "…" : "Bestätigen und anmelden" }}
+      </button>
+    </form>
+    <form
+      v-else
+      class="space-y-4"
+      @submit.prevent="submit"
+    >
       <AuthFormField label="Schule" :input-class="inputClass">
         <template #default="{ fieldId, describedBy }">
           <select

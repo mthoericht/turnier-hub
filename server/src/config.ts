@@ -10,6 +10,14 @@ loadEnv({ path: path.join(here, "..", envFile) });
 const isProd = process.env.NODE_ENV === "production";
 
 /**
+ * Active token-verification backend.
+ * - `local`: HS256 tokens signed by this server (dev/tests, legacy login path).
+ * - `cognito`: AWS Cognito access tokens verified via JWKS (`aws-jwt-verify`).
+ */
+const authVerifier = (process.env.AUTH_VERIFIER ?? "local").trim().toLowerCase();
+const usesLocalVerifier = authVerifier !== "cognito";
+
+/**
  * Enforces presence of an environment variable in production.
  */
 function requireEnvInProduction(key: string): void
@@ -20,9 +28,20 @@ function requireEnvInProduction(key: string): void
   }
 }
 
-requireEnvInProduction("JWT_SECRET");
+if (usesLocalVerifier)
+{
+  requireEnvInProduction("JWT_SECRET");
+}
 requireEnvInProduction("INVITE_CODE");
 requireEnvInProduction("CORS_ALLOWED_ORIGINS");
+
+if (isProd && !usesLocalVerifier)
+{
+  if (!process.env.COGNITO_USER_POOL_ID?.trim() || !process.env.COGNITO_CLIENT_ID?.trim())
+  {
+    throw new Error("COGNITO_USER_POOL_ID and COGNITO_CLIENT_ID must be set when AUTH_VERIFIER=cognito");
+  }
+}
 
 /**
  * Reads a positive integer from env input, falling back on invalid values.
@@ -90,7 +109,13 @@ function hasMinEntropyLikeLength(value: string, minLength: number): boolean
   return value.trim().length >= minLength;
 }
 
-/** JWT signing secret (required in production). */
+/** Token-verification backend (`local` or `cognito`). */
+export const AUTH_VERIFIER = usesLocalVerifier ? "local" : "cognito";
+/** Cognito user pool id (required when `AUTH_VERIFIER=cognito`). */
+export const COGNITO_USER_POOL_ID = process.env.COGNITO_USER_POOL_ID?.trim() || undefined;
+/** Cognito app client id used as the access-token audience (when `AUTH_VERIFIER=cognito`). */
+export const COGNITO_CLIENT_ID = process.env.COGNITO_CLIENT_ID?.trim() || undefined;
+/** JWT signing secret for the local verifier (required in production when `AUTH_VERIFIER=local`). */
 export const JWT_SECRET = process.env.JWT_SECRET ?? "dev-only-change-me";
 /** Shared invite code used during signup (required in production). */
 export const INVITE_CODE = process.env.INVITE_CODE ?? "ballspiele2026";
@@ -163,7 +188,7 @@ export const DEFAULT_SCHOOL_NAME = defaultSchoolName?.length ? defaultSchoolName
 
 if (isProd)
 {
-  if (!hasMinEntropyLikeLength(JWT_SECRET, 32))
+  if (usesLocalVerifier && !hasMinEntropyLikeLength(JWT_SECRET, 32))
   {
     throw new Error("JWT_SECRET must be at least 32 characters in production");
   }

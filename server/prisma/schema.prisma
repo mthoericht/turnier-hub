@@ -14,7 +14,10 @@ model User {
   // Links the internal user row to its AWS Cognito identity (`sub`).
   // Nullable during the Cognito migration; legacy rows have no Cognito user yet.
   cognitoSub    String?       @unique
-  passwordHash  String
+  // Optional during the Cognito migration: users created via Cognito have no
+  // local password hash. Legacy (pre-Cognito) rows still carry a bcrypt hash
+  // until the column is dropped after cutover.
+  passwordHash  String?
   tokenVersion  Int           @default(0)
   role          UserRole      @default(USER)
   schoolId      String
