@@ -1,8 +1,8 @@
 const path = require("node:path");
 
 module.exports = {
-  appId: "de.turnierhub.prototype",
-  productName: "Turnier-Hub Prototyp",
+  appId: "de.turnierhub.app",
+  productName: "Turnier-Hub",
   directories: { app: "desktop/app", output: "release/desktop" },
   files: ["main.cjs", "storage.cjs", "diagnostics.cjs", "maintenance.cjs", "host-management.cjs", "host-preload.cjs", "management.html", "management.css", "management.js", "host.html", "host.css", "host.js", "package.json"],
   extraResources: [

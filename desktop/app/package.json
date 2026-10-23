@@ -1,9 +1,9 @@
 {
-  "name": "turnier-hub-prototype",
-  "productName": "Turnier-Hub Prototyp",
+  "name": "turnier-hub-app",
+  "productName": "Turnier-Hub",
   "version": "0.2.0",
   "private": true,
-  "description": "Offline desktop and LAN feasibility prototype for Turnier-Hub",
+  "description": "Offline desktop and LAN feasibility app for Turnier-Hub",
   "author": "Turnier-Hub contributors",
   "main": "main.cjs"
 }
