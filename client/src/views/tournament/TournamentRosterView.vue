@@ -324,7 +324,7 @@ const { promptRenameGroup, promptRenameTeam } = useTournamentRosterRenamePrompts
               <TournamentTeamMembersList
                 :team="team"
                 :can-edit="canEdit"
-                :show-creator="true"
+
                 @remove-member="(teamId, playerId) => removeMember(teamId, playerId)"
               />
             </template>

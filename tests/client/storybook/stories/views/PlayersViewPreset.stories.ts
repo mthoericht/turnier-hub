@@ -21,22 +21,12 @@ const populatedPlayers: Player[] = [
     firstName: "Lina",
     lastName: "Meyer",
     schoolClass: { id: "class-1", name: "10a" },
-    createdBy: {
-      id: "user-1",
-      username: "coach",
-      email: "coach@example.com",
-    },
   },
   {
     id: "player-2",
     firstName: "Tom",
     lastName: "Schulz",
     schoolClass: { id: "class-2", name: "9b" },
-    createdBy: {
-      id: "user-2",
-      username: "teacher",
-      email: "teacher@example.com",
-    },
   },
 ];
 

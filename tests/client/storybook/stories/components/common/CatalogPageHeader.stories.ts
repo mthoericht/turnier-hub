@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
 import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
-import ScopeToggle from "@/components/common/ScopeToggle.vue";
 
 const meta: Meta<typeof CatalogPageHeader> = {
   title: "Components/Common/CatalogPageHeader",
@@ -18,17 +17,15 @@ type Story = StoryObj<typeof CatalogPageHeader>;
 
 export const Default: Story = {
   render: (args) => ({
-    components: { CatalogPageHeader, ScopeToggle },
+    components: { CatalogPageHeader },
     setup()
     {
-      const scope = ref<"all" | "own">("all");
-      return { args, scope };
+      return { args };
     },
     template: `
       <div class="mx-auto w-full max-w-5xl rounded-xl border border-slate-200 bg-white p-6 sm:p-8">
         <CatalogPageHeader v-bind="args">
           <template #actions>
-            <ScopeToggle v-model="scope" />
             <button type="button" class="ui-btn-primary-blue">
               + Neues Turnier
             </button>
@@ -45,11 +42,10 @@ export const WithDescription: Story = {
     variant: "catalog",
   },
   render: (args) => ({
-    components: { CatalogPageHeader, ScopeToggle },
+    components: { CatalogPageHeader },
     setup()
     {
-      const scope = ref<"all" | "own">("all");
-      return { args, scope };
+      return { args };
     },
     template: `
       <div class="mx-auto w-full max-w-5xl rounded-xl border border-slate-200 bg-white p-6 sm:p-8">
@@ -61,7 +57,6 @@ export const WithDescription: Story = {
             </p>
           </template>
           <template #actions>
-            <ScopeToggle v-model="scope" />
             <button type="button" class="ui-btn-primary-blue">
               + Neue Klasse
             </button>

@@ -1,12 +1,12 @@
-import type { NextFunction, Request, Response, Router } from "express";
+import type { Request, Response, Router } from "express";
 import type { TournamentMode, TournamentPhase } from "@turnier-hub/shared";
 import { z } from "zod";
+import { asyncHandler } from "../../middleware/asyncHandler.js";
 import { prisma } from "../../db.js";
-import { createdBySelect, parseListScope, toCreatedBy } from "../../lib/createdBy.js";
 import { mediumNameSchema } from "../../lib/validation.js";
 import {
-  getUserSchoolId,
-  loadTournamentByIdForSchool,
+
+  loadTournamentById,
   requireTournamentExists,
   serializeTournamentDetail,
 } from "./shared.js";
@@ -33,48 +33,25 @@ const patchTournamentSchema = z.object({
   advancesPerGroup: z.number().int().min(1).max(8).optional(),
 }).strict();
 
-/** GET / - lists tournaments (all or own scope). */
+/** GET / - lists the shared tournaments. */
 async function listTournamentsHandler(req: Request, res: Response): Promise<void>
 {
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId)
-  {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
-  const scope = parseListScope(req.query.scope);
-  const where = scope === "own"
-    ? { schoolId, userId: req.userId! }
-    : { schoolId };
   const list = await prisma.tournament.findMany({
-    where,
     orderBy: { updatedAt: "desc" },
     include: {
-      user: { select: createdBySelect },
+
       _count: { select: { teams: true, matches: true } },
     },
   });
-  res.json(
-    list.map(({ user, ...row }: (typeof list)[number]) => ({
-      ...row,
-      createdBy: toCreatedBy(user),
-    }))
-  );
+  res.json(list);
 }
 
 /** POST / - creates a tournament and returns the created row with metadata. */
 async function createTournamentHandler(
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): Promise<void>
 {
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId)
-  {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
   const parsed = createTournamentSchema.safeParse(req.body);
   if (!parsed.success)
   {
@@ -94,26 +71,21 @@ async function createTournamentHandler(
         mode,
         phase: defaultPhase,
         groupCount: parsed.data.groupCount ?? 1,
-        userId: req.userId!,
-        schoolId,
+
         advancesPerGroup: parsed.data.advancesPerGroup ?? 2,
         teamsAreIndividuals: parsed.data.teamsAreIndividuals ?? false,
       },
       include: {
-        user: { select: createdBySelect },
+
         _count: { select: { teams: true, matches: true } },
       },
     });
-    const { user, ...row } = t;
     notifyTournamentsListChanged();
-    res.status(201).json({
-      ...row,
-      createdBy: toCreatedBy(user),
-    });
+    res.status(201).json(t);
   }
   catch (err)
   {
-    next(err);
+    throw err;
   }
 }
 
@@ -121,13 +93,7 @@ async function createTournamentHandler(
 async function getTournamentDetailHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId)
-  {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
-  const t = await loadTournamentByIdForSchool(tournamentId, schoolId);
+  const t = await loadTournamentById(tournamentId);
   if (!t)
   {
     res.status(404).json({ error: "Turnier nicht gefunden" });
@@ -140,25 +106,19 @@ async function getTournamentDetailHandler(req: Request, res: Response): Promise<
 async function patchTournamentHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId)
-  {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
   const parsed = patchTournamentSchema.safeParse(req.body);
   if (!parsed.success)
   {
     res.status(400).json({ error: "Ungültige Eingaben" });
     return;
   }
-  const exists = await requireTournamentExists(res, tournamentId, schoolId);
+  const exists = await requireTournamentExists(res, tournamentId);
   if (!exists) return;
   await prisma.tournament.update({
     where: { id: tournamentId },
     data: parsed.data,
   });
-  const full = await loadTournamentByIdForSchool(tournamentId, schoolId);
+  const full = await loadTournamentById(tournamentId);
   notifyTournamentChanged(tournamentId);
   notifyTournamentsListChanged();
   res.json(serializeTournamentDetail(full!));
@@ -168,13 +128,7 @@ async function patchTournamentHandler(req: Request, res: Response): Promise<void
 async function deleteTournamentHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId)
-  {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
-  const exists = await requireTournamentExists(res, tournamentId, schoolId);
+  const exists = await requireTournamentExists(res, tournamentId);
   if (!exists) return;
   await prisma.tournament.delete({ where: { id: tournamentId } });
   notifyTournamentChanged(tournamentId);
@@ -185,9 +139,9 @@ async function deleteTournamentHandler(req: Request, res: Response): Promise<voi
 /** Registers core tournament CRUD routes. */
 export function registerTournamentCoreRoutes(router: Router): void
 {
-  router.get("/", listTournamentsHandler);
-  router.post("/", createTournamentHandler);
-  router.get("/:id", getTournamentDetailHandler);
-  router.patch("/:id", patchTournamentHandler);
-  router.delete("/:id", deleteTournamentHandler);
+  router.get("/", asyncHandler(listTournamentsHandler));
+  router.post("/", asyncHandler(createTournamentHandler));
+  router.get("/:id", asyncHandler(getTournamentDetailHandler));
+  router.patch("/:id", asyncHandler(patchTournamentHandler));
+  router.delete("/:id", asyncHandler(deleteTournamentHandler));
 }

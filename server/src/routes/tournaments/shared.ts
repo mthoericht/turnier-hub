@@ -3,11 +3,11 @@ import type { MatchPhase, MatchStatus, TournamentPhase, Match } from "@prisma/cl
 import type { MatchRow, TournamentDetail } from "@turnier-hub/shared";
 import { prisma } from "../../db.js";
 import {
-  createdBySelect,
+
   playerApiInclude,
   playerToApi,
-  toCreatedBy,
-} from "../../lib/createdBy.js";
+
+} from "../../lib/catalog.js";
 import { computeElapsedMs } from "../../services/matchTimer.js";
 
 /** Stable sort order used to present matches in UI/API responses. */
@@ -70,34 +70,7 @@ export async function loadTournamentById(id: string)
   return prisma.tournament.findFirst({
     where: { id },
     include: {
-      user: { select: createdBySelect },
-      teams: {
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-        include: {
-          members: {
-            include: {
-              player: { include: playerApiInclude },
-            },
-          },
-        },
-      },
-      matches: {
-        include: {
-          homeTeam: { select: { id: true, name: true } },
-          awayTeam: { select: { id: true, name: true } },
-        },
-        orderBy: [{ roundOrder: "asc" }, { slotIndex: "asc" }],
-      },
-    },
-  });
-}
 
-export async function loadTournamentByIdForSchool(id: string, schoolId: string)
-{
-  return prisma.tournament.findFirst({
-    where: { id, schoolId },
-    include: {
-      user: { select: createdBySelect },
       teams: {
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         include: {
@@ -124,10 +97,9 @@ export function serializeTournamentDetail(
   t: NonNullable<Awaited<ReturnType<typeof loadTournamentById>>>
 ): TournamentDetail
 {
-  const { user, matches, teams, ...rest } = t;
+  const { matches, teams, ...rest } = t;
   return {
     ...rest,
-    createdBy: toCreatedBy(user),
     teams: teams.map((team) => ({
       id: team.id,
       name: team.name,
@@ -170,15 +142,14 @@ export async function completeTournamentIfFinalFinished(tournamentId: string): P
   });
 }
 
-/** Any authenticated user may mutate tournaments; `userId` on the row is the original creator (display only). */
+/** Any connected device may mutate the shared tournament. */
 export async function requireTournamentExists(
   res: Response,
-  tournamentId: string,
-  schoolId?: string
+  tournamentId: string
 )
 {
   const t = await prisma.tournament.findFirst({
-    where: schoolId ? { id: tournamentId, schoolId } : { id: tournamentId },
+    where: { id: tournamentId },
   });
   if (!t)
   {
@@ -186,13 +157,4 @@ export async function requireTournamentExists(
     return null;
   }
   return t;
-}
-
-export async function getUserSchoolId(userId: string): Promise<string | null>
-{
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { schoolId: true },
-  });
-  return user?.schoolId ?? null;
 }

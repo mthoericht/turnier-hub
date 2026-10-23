@@ -1,30 +1,25 @@
-import type { CreatedBy, Player } from "@turnier-hub/shared";
+import type { Player } from "@turnier-hub/shared";
 import type { TournamentTeam } from "@/tournament/tournamentContext";
 
-const createdBy: CreatedBy = {
-  id: "u-demo",
-  username: "lehrer",
-  email: "lehrer@schule.example",
-};
 
 export const demoPlayers: Player[] = [
   {
     id: "p1",
     name: "Anna Schmidt",
     schoolClass: { id: "c1", name: "7a" },
-    createdBy,
+
   },
   {
     id: "p2",
     name: "Ben Müller",
     schoolClass: { id: "c1", name: "7a" },
-    createdBy,
+
   },
   {
     id: "p3",
     name: "Cleo ohne Klasse",
     schoolClass: null,
-    createdBy,
+
   },
 ];
 

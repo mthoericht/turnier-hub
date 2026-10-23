@@ -1,0 +1,9 @@
+body { margin: 0; font: 14px system-ui, sans-serif; color: #0f172a; background: #f8fafc; }
+header { box-sizing: border-box; height: 44px; padding: 5px 16px; text-align: right; background: white; border-bottom: 1px solid #e2e8f0; }
+button { font: inherit; padding: 5px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: #334155; cursor: pointer; }
+button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+main { max-width: 680px; margin: 48px auto; padding: 0 24px; }
+main p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+body[data-status="error"] { background: #fff7f7; }
+body[data-status="error"] header { border-color: #fecaca; }
+body[data-status="error"] h1 { color: #991b1b; }

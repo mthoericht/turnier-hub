@@ -18,11 +18,6 @@ const emit = defineEmits<{
 
 const options: Array<{ value: PlayerImportMode; title: string; description: string }> = [
   {
-    value: "reset_all",
-    title: "Bisherige Spieler, Klassen und Turniere löschen",
-    description: "Entfernt alle vorhandenen Spieler, Klassen und Turniere und importiert dann die Datei.",
-  },
-  {
     value: "append",
     title: "Spieler hinzufügen",
     description: "Fügt die Einträge aus der Datei zu den bestehenden Spielern hinzu.",
@@ -67,12 +62,8 @@ const options: Array<{ value: PlayerImportMode; title: string; description: stri
         </span>
       </label>
     </fieldset>
-    <p
-      v-if="props.modelValue === 'reset_all'"
-      class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800"
-      role="alert"
-    >
-      Achtung: Diese Option löscht bestehende Spieler, Klassen und Turniere. Dieser Schritt lässt sich nicht mehr rueckgängig machen!
+    <p class="text-xs text-slate-600">
+      Den gesamten Datenbestand kannst du direkt am Host-Rechner in der Host-Verwaltung zurücksetzen.
     </p>
 
     <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">

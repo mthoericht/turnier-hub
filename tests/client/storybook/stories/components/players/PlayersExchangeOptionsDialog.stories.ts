@@ -85,7 +85,7 @@ export const ResetAllWarning: Story = {
     setup()
     {
       const open = ref(true);
-      const mode = ref<PlayerImportMode>("reset_all");
+      const mode = ref<PlayerImportMode>("append");
       return { open, mode };
     },
     template: `

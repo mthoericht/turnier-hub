@@ -9,3 +9,8 @@ figma-preset
 *storybook.log
 storybook-static
 data/postgres
+desktop/runtime/
+release/
+*.db-wal
+*.db-shm
+.local/

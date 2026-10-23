@@ -4,8 +4,8 @@ import { prisma } from "../../db.js";
 import { advanceTournamentPhase } from "../../services/advancePhase.js";
 import { computePoolStandings } from "../../services/standings.js";
 import {
-  getUserSchoolId,
-  loadTournamentByIdForSchool,
+
+  loadTournamentById,
   requireTournamentExists,
   serializeTournamentDetail,
 } from "./shared.js";
@@ -20,13 +20,7 @@ const advanceSchema = z.object({
 async function getStandingsHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId)
-  {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
-  const t = await loadTournamentByIdForSchool(tournamentId, schoolId);
+  const t = await loadTournamentById(tournamentId);
   if (!t)
   {
     res.status(404).json({ error: "Turnier nicht gefunden" });
@@ -72,21 +66,15 @@ async function getStandingsHandler(req: Request, res: Response): Promise<void>
 async function advanceTournamentHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId)
-  {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
   const parsed = advanceSchema.safeParse(req.body);
   if (!parsed.success)
   {
     res.status(400).json({ error: "Ungültige Zielphase" });
     return;
   }
-  const owned = await requireTournamentExists(res, tournamentId, schoolId);
+  const owned = await requireTournamentExists(res, tournamentId);
   if (!owned) return;
-  const t = await loadTournamentByIdForSchool(tournamentId, schoolId);
+  const t = await loadTournamentById(tournamentId);
   if (!t)
   {
     res.status(404).json({ error: "Turnier nicht gefunden" });
@@ -98,7 +86,7 @@ async function advanceTournamentHandler(req: Request, res: Response): Promise<vo
       where: { id: t.id },
       data: { phase: "COMPLETED" },
     });
-    const full = await loadTournamentByIdForSchool(t.id, schoolId);
+    const full = await loadTournamentById(t.id);
     notifyTournamentChanged(t.id);
     res.json(serializeTournamentDetail(full!));
     return;
@@ -119,7 +107,7 @@ async function advanceTournamentHandler(req: Request, res: Response): Promise<vo
       },
       parsed.data.target as "ROUND_OF_16" | "QUARTER" | "SEMI" | "FINAL"
     );
-    const full = await loadTournamentByIdForSchool(t.id, schoolId);
+    const full = await loadTournamentById(t.id);
     notifyTournamentChanged(t.id);
     res.json({
       ...serializeTournamentDetail(full!),

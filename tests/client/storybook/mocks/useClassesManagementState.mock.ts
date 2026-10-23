@@ -5,20 +5,10 @@ const defaultClasses: SchoolClass[] = [
   {
     id: "class-1",
     name: "10a",
-    createdBy: {
-      id: "user-1",
-      username: "coach",
-      email: "coach@example.com",
-    },
   },
   {
     id: "class-2",
     name: "9b",
-    createdBy: {
-      id: "user-2",
-      username: "teacher",
-      email: "teacher@example.com",
-    },
   },
 ];
 
@@ -46,7 +36,6 @@ export function setClassesStoryState(state: {
 
 export function useClassesManagementState()
 {
-  const scope = ref<"all" | "own">("all");
 
   const dialogOpen = ref(false);
   const editingId = ref<string | null>(null);
@@ -87,7 +76,6 @@ export function useClassesManagementState()
   const initialized = computed(() => true);
 
   return {
-    scope,
     classes,
     loading,
     error,

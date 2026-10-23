@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, watch } from "vue";
+import { ref } from "vue";
 import {
   deleteTournament,
   postTournament,
@@ -9,11 +9,9 @@ import {
 import { useConfirmDialogStore } from "@/stores/confirmDialog";
 import type { TournamentMode } from "@/tournament/tournamentContext";
 
-export type TournamentsScope = "all" | "own";
 
 export const useTournamentsListStore = defineStore("tournamentsList", () =>
 {
-  const scope = ref<TournamentsScope>("all");
   const list = ref<TournamentListRow[]>([]);
   const loading = ref(true);
   const error = ref("");
@@ -30,7 +28,7 @@ export const useTournamentsListStore = defineStore("tournamentsList", () =>
     error.value = "";
     try
     {
-      list.value = await fetchTournaments(scope.value);
+      list.value = await fetchTournaments();
       initialized.value = true;
     }
     catch (e)
@@ -49,7 +47,6 @@ export const useTournamentsListStore = defineStore("tournamentsList", () =>
     await load();
   }
 
-  watch(scope, () => void load());
 
   async function createT(): Promise<TournamentListRow | null>
   {
@@ -97,7 +94,6 @@ export const useTournamentsListStore = defineStore("tournamentsList", () =>
   }
 
   return {
-    scope,
     list,
     loading,
     error,

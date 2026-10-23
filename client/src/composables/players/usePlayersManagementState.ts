@@ -2,7 +2,6 @@ import { onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { usePlayersManagementStore } from "@/stores/playersManagement";
 
-export type { PlayersScope } from "@/stores/playersManagement";
 
 export function usePlayersManagementState()
 {

@@ -5,10 +5,10 @@ import { useDialogFocusTrap } from "@/composables/useDialogFocusTrap";
 import NewTournament from "@/components/tournaments/NewTournament.vue";
 import TournamentsList from "@/components/tournaments/TournamentsList.vue";
 import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
-import ScopeToggle from "@/components/common/ScopeToggle.vue";
+import EmptyStateCard from "@/components/common/EmptyStateCard.vue";
+import AppIcon from "@/components/common/AppIcon.vue";
 
 const {
-  scope,
   list,
   loading,
   error,
@@ -40,7 +40,7 @@ useDialogFocusTrap(
   <div>
     <CatalogPageHeader title="Turniere">
       <template #actions>
-        <ScopeToggle v-model="scope" />
+
         <button
           type="button"
           class="ui-btn-primary-blue"
@@ -85,7 +85,18 @@ useDialogFocusTrap(
     </div>
 
     <div class="mb-8">
+      <EmptyStateCard
+        v-if="!loading && list.length === 0"
+        title="Noch keine Turniere erstellt"
+        action-label="Erstes Turnier erstellen"
+        @action="newTournamentDialogOpen = true"
+      >
+        <template #icon>
+          <AppIcon name="trophy" class="mx-auto mb-4 h-12 w-12 text-slate-400" />
+        </template>
+      </EmptyStateCard>
       <TournamentsList
+        v-else
         :list="list"
         :loading="loading"
         :remove="remove"

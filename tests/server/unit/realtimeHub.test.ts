@@ -3,30 +3,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import WebSocket from "ws";
 import { createApp } from "../../../server/src/app.js";
 import { RealtimeHub } from "../../../server/src/realtime/hub.js";
-import { signToken } from "../../../server/src/auth/token.js";
 import {
   WS_CONNECT_MAX_PER_IP,
   WS_MAX_PAYLOAD_BYTES,
   WS_MAX_SUBSCRIPTIONS_PER_CLIENT,
   WS_MESSAGE_MAX_PER_WINDOW,
 } from "../../../server/src/config.js";
-
-/**
- * Mock Prisma so hub.ts DB lookups resolve without a real database.
- * By default every user id is treated as valid with tokenVersion 0.
- */
-const mockFindUnique = vi.fn().mockImplementation(
-  ({ where }: { where: { id: string } }) =>
-    Promise.resolve({ id: where.id, tokenVersion: 0 })
-);
-
-vi.mock("../../../server/src/db.js", () => ({
-  prisma: {
-    user: {
-      findUnique: (...args: unknown[]) => mockFindUnique(...args),
-    },
-  },
-}));
 
 type Push =
   | { type: "tournamentChanged"; tournamentId: string }
@@ -61,28 +43,25 @@ function connectExpectStatus(
   options?: WebSocket.ClientOptions
 ): Promise<http.IncomingMessage>
 {
-  return new Promise((resolve) =>
+  return new Promise((resolve, reject) =>
   {
     const ws = new WebSocket(url, options);
     ws.on("unexpected-response", (_req, res) =>
     {
       expect(res.statusCode).toBe(expectedStatus);
+      res.resume();
+      ws.terminate();
       resolve(res);
     });
     ws.on("error", () =>
     {
-      resolve(undefined as unknown as http.IncomingMessage);
+      reject(new Error("Expected HTTP rejection during upgrade"));
     });
     ws.on("close", () =>
     {
-      resolve(undefined as unknown as http.IncomingMessage);
+      reject(new Error("Expected HTTP rejection during upgrade"));
     });
   });
-}
-
-function connectExpect401(url: string): Promise<void>
-{
-  return connectExpectStatus(url, 401).then(() => {});
 }
 
 function waitForMessage<T>(ws: WebSocket): Promise<T>
@@ -109,11 +88,6 @@ describe("RealtimeHub (WebSocket)", () =>
   afterEach(() =>
   {
     vi.restoreAllMocks();
-    // Restore the default mock after restoreAllMocks clears it.
-    mockFindUnique.mockImplementation(
-      ({ where }: { where: { id: string } }) =>
-        Promise.resolve({ id: where.id, tokenVersion: 0 })
-    );
   });
 
   let server: http.Server;
@@ -138,22 +112,24 @@ describe("RealtimeHub (WebSocket)", () =>
 
   afterAll(async () =>
   {
+    await hub.close();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
-  it("rejects missing token with 401", async () =>
+  it("accepts shared-catalog connections without an account", async () =>
   {
-    await connectExpect401(baseUrl);
+    const ws = new WebSocket(baseUrl);
+    await waitForOpen(ws);
+    ws.close();
+    await waitForClose(ws);
   });
 
   it("pushes tournamentChanged only to subscribed clients", async () =>
   {
-    const tokenA = signToken("user-a");
-    const wsA = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenA)}`);
+    const wsA = new WebSocket(baseUrl);
     await waitForOpen(wsA);
 
-    const tokenB = signToken("user-b");
-    const wsB = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenB)}`);
+    const wsB = new WebSocket(baseUrl);
     await waitForOpen(wsB);
     wsB.on("error", () => {});
 
@@ -178,8 +154,7 @@ describe("RealtimeHub (WebSocket)", () =>
 
   it("does not push after unsubscribe from tournament", async () =>
   {
-    const token = signToken("user-a");
-    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(baseUrl);
     await waitForOpen(ws);
 
     ws.send(JSON.stringify({ type: "subscribe", tournamentId: "t1" }));
@@ -199,8 +174,7 @@ describe("RealtimeHub (WebSocket)", () =>
 
   it("ignores malformed client messages without closing socket", async () =>
   {
-    const token = signToken("user-a");
-    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(baseUrl);
     await waitForOpen(ws);
 
     ws.send("{broken-json");
@@ -219,8 +193,7 @@ describe("RealtimeHub (WebSocket)", () =>
   {
     // This test intentionally triggers security warn logs; mute expected console output.
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    const token = signToken("user-limit-subs");
-    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(baseUrl);
     await waitForOpen(ws);
 
     for (let i = 0; i < WS_MAX_SUBSCRIPTIONS_PER_CLIENT; i += 1)
@@ -238,8 +211,7 @@ describe("RealtimeHub (WebSocket)", () =>
   {
     // This test intentionally triggers security warn logs; mute expected console output.
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    const token = signToken("user-msg-limit");
-    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(baseUrl);
     await waitForOpen(ws);
 
     for (let i = 0; i <= WS_MESSAGE_MAX_PER_WINDOW; i += 1)
@@ -253,13 +225,11 @@ describe("RealtimeHub (WebSocket)", () =>
 
   it("pushes catalogChanged to all connected clients", async () =>
   {
-    const tokenA = signToken("user-a");
-    const wsA1 = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenA)}`);
-    const wsA2 = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenA)}`);
+    const wsA1 = new WebSocket(baseUrl);
+    const wsA2 = new WebSocket(baseUrl);
     await Promise.all([waitForOpen(wsA1), waitForOpen(wsA2)]);
 
-    const tokenB = signToken("user-b");
-    const wsB = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenB)}`);
+    const wsB = new WebSocket(baseUrl);
     await waitForOpen(wsB);
 
     hub.notifyCatalogChanged(["players"]);
@@ -281,12 +251,10 @@ describe("RealtimeHub (WebSocket)", () =>
 
   it("pushes tournamentsChanged to all connected clients", async () =>
   {
-    const tokenA = signToken("user-a");
-    const wsA = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenA)}`);
+    const wsA = new WebSocket(baseUrl);
     await waitForOpen(wsA);
 
-    const tokenB = signToken("user-b");
-    const wsB = new WebSocket(`${baseUrl}?token=${encodeURIComponent(tokenB)}`);
+    const wsB = new WebSocket(baseUrl);
     await waitForOpen(wsB);
 
     hub.notifyTournamentsListChanged();
@@ -302,25 +270,9 @@ describe("RealtimeHub (WebSocket)", () =>
     await Promise.all([waitForClose(wsA), waitForClose(wsB)]);
   });
 
-  it("rejects token with mismatched tokenVersion (revoked session)", async () =>
-  {
-    // Token signed with tokenVersion 0, but DB says user is at version 1.
-    mockFindUnique.mockResolvedValueOnce({ id: "user-revoked", tokenVersion: 1 });
-    const token = signToken("user-revoked", 0);
-    await connectExpect401(`${baseUrl}?token=${encodeURIComponent(token)}`);
-  });
-
-  it("rejects token for deleted user", async () =>
-  {
-    mockFindUnique.mockResolvedValueOnce(null);
-    const token = signToken("user-deleted", 0);
-    await connectExpect401(`${baseUrl}?token=${encodeURIComponent(token)}`);
-  });
-
   it("rejects upgrade with disallowed Origin header (403)", async () =>
   {
-    const token = signToken("user-a");
-    const url = `${baseUrl}?token=${encodeURIComponent(token)}`;
+    const url = baseUrl;
     await connectExpectStatus(url, 403, {
       headers: { Origin: "https://evil.example.com" },
     });
@@ -328,9 +280,8 @@ describe("RealtimeHub (WebSocket)", () =>
 
   it("disconnects client that sends oversized payload", async () =>
   {
-    const token = signToken("user-big");
     // Disable client-side payload limit so the oversized frame actually reaches the server.
-    const ws = new WebSocket(`${baseUrl}?token=${encodeURIComponent(token)}`, {
+    const ws = new WebSocket(baseUrl, {
       maxPayload: WS_MAX_PAYLOAD_BYTES * 10,
     });
     await waitForOpen(ws);
@@ -350,10 +301,6 @@ describe("RealtimeHub connect rate limit", () =>
   afterEach(() =>
   {
     vi.restoreAllMocks();
-    mockFindUnique.mockImplementation(
-      ({ where }: { where: { id: string } }) =>
-        Promise.resolve({ id: where.id, tokenVersion: 0 })
-    );
   });
 
   it("returns 429 with Retry-After when connect rate limit is exceeded", async () =>
@@ -369,18 +316,17 @@ describe("RealtimeHub connect rate limit", () =>
     const port = typeof addr === "object" && addr ? addr.port : 0;
     const url = `ws://127.0.0.1:${port}/api/ws`;
 
-    const token = signToken("user-rate");
     const sockets: WebSocket[] = [];
     for (let i = 0; i < WS_CONNECT_MAX_PER_IP; i += 1)
     {
-      const ws = new WebSocket(`${url}?token=${encodeURIComponent(token)}`);
+      const ws = new WebSocket(url);
       await waitForOpen(ws);
       sockets.push(ws);
     }
 
     // Next connection must be rate-limited.
     const res = await connectExpectStatus(
-      `${url}?token=${encodeURIComponent(token)}`,
+      url,
       429
     );
     expect(res).toBeTruthy();
@@ -388,6 +334,7 @@ describe("RealtimeHub connect rate limit", () =>
 
     for (const ws of sockets) ws.close();
     await Promise.all(sockets.map(waitForClose));
+    await hub.close();
     await new Promise<void>((resolve) => srv.close(() => resolve()));
   });
 });

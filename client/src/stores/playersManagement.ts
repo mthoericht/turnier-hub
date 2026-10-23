@@ -14,7 +14,6 @@ import { useToastStore } from "@/stores/toast";
 import { formatPlayerName, type Player, type SchoolClass } from "@turnier-hub/shared";
 import { exportPlayersToXlsx, parsePlayersImportFile } from "@/utils/playersExchange";
 
-export type PlayersScope = "all" | "own";
 export type PlayerSortKey = "firstName" | "lastName" | "schoolClass";
 export type SortDirection = "asc" | "desc";
 
@@ -22,7 +21,6 @@ export const usePlayersManagementStore = defineStore("playersManagement", () =>
 {
   const toast = useToastStore();
 
-  const scope = ref<PlayersScope>("all");
   const players = ref<Player[]>([]);
   /** All school classes (assignable when creating/editing a player). */
   const schoolClassOptions = ref<SchoolClass[]>([]);
@@ -54,7 +52,7 @@ export const usePlayersManagementStore = defineStore("playersManagement", () =>
     classesLoading.value = true;
     try
     {
-      schoolClassOptions.value = await fetchSchoolClasses("all");
+      schoolClassOptions.value = await fetchSchoolClasses();
     }
     catch
     {
@@ -72,7 +70,7 @@ export const usePlayersManagementStore = defineStore("playersManagement", () =>
     error.value = "";
     try
     {
-      players.value = await fetchPlayers(scope.value);
+      players.value = await fetchPlayers();
       initialized.value = true;
     }
     catch (e)
@@ -107,11 +105,6 @@ export const usePlayersManagementStore = defineStore("playersManagement", () =>
     if (!ids.has(classFilter.value)) classFilter.value = "";
   }
 
-  watch(scope, () =>
-  {
-    classFilter.value = "";
-    void loadPlayers();
-  });
 
   watch(
     () => players.value,
@@ -340,7 +333,6 @@ export const usePlayersManagementStore = defineStore("playersManagement", () =>
   }
 
   return {
-    scope,
     players,
     schoolClassOptions,
     loading,

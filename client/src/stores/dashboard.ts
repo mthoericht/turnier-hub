@@ -1,15 +1,13 @@
 import { defineStore } from "pinia";
-import { ref, watch } from "vue";
+import { ref } from "vue";
 import { fetchSchoolClasses } from "@/api/classesApi";
 import { fetchPlayers } from "@/api/playersApi";
 import { fetchTournaments, type TournamentListRow } from "@/api/tournamentsApi";
-import { useAuthStore } from "@/stores/auth";
 
 export type TournamentStatus = "upcoming" | "ongoing" | "completed";
 
 export const useDashboardStore = defineStore("dashboard", () =>
 {
-  const auth = useAuthStore();
 
   const loading = ref(false);
   const error = ref("");
@@ -55,9 +53,9 @@ export const useDashboardStore = defineStore("dashboard", () =>
     try
     {
       const [classes, players, tournaments] = await Promise.all([
-        fetchSchoolClasses("all"),
-        fetchPlayers("all"),
-        fetchTournaments("all"),
+        fetchSchoolClasses(),
+        fetchPlayers(),
+        fetchTournaments(),
       ]);
 
       classesCount.value = classes.length;
@@ -88,30 +86,8 @@ export const useDashboardStore = defineStore("dashboard", () =>
     await loadDashboard();
   }
 
-  watch(
-    () => auth.user,
-    () =>
-    {
-      if (auth.user)
-      {
-        void loadDashboard();
-      }
-      else
-      {
-        recentTournaments.value = [];
-        classesCount.value = 0;
-        playersCount.value = 0;
-        tournamentsCount.value = 0;
-        activeTournamentsCount.value = 0;
-        error.value = "";
-        initialized.value = false;
-      }
-    },
-    { immediate: true },
-  );
 
   return {
-    auth,
     loading,
     error,
     initialized,

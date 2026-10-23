@@ -1,11 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const getTokenMock = vi.fn<() => string | null>();
-
-vi.mock("../../../client/src/api/http", () => ({
-  getToken: getTokenMock,
-}));
-
 class MockWebSocket
 {
   static readonly CONNECTING = 0;
@@ -70,8 +64,6 @@ describe("realtimeClient", () =>
   {
     vi.useFakeTimers();
     MockWebSocket.instances = [];
-    getTokenMock.mockReset();
-    getTokenMock.mockReturnValue("token-123");
 
     vi.stubGlobal("window", {
       location: {
@@ -91,7 +83,7 @@ describe("realtimeClient", () =>
     vi.unstubAllGlobals();
   });
 
-  it("connects with token and flushes queued subscriptions on open", async () =>
+  it("connects without an account and flushes queued subscriptions on open", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
     mod.subscribeTournamentRealtime("t1");
@@ -99,7 +91,7 @@ describe("realtimeClient", () =>
 
     expect(MockWebSocket.instances).toHaveLength(1);
     const ws = MockWebSocket.instances[0]!;
-    expect(ws.url).toContain("/api/ws?token=token-123");
+    expect(ws.url).toBe("ws://localhost:5173/api/ws");
     expect(ws.sent).toEqual([]);
 
     ws.open();
@@ -108,12 +100,26 @@ describe("realtimeClient", () =>
     );
   });
 
-  it("does not connect when token is missing", async () =>
+  it("refreshes shared data and subscriptions after a maintenance interruption", async () =>
   {
     const mod = await import("../../../client/src/realtime/realtimeClient");
-    getTokenMock.mockReturnValue(null);
+    const dispatch = vi.fn();
+    mod.setRealtimeDispatchForTests(dispatch);
+    mod.subscribeTournamentRealtime("t1");
     mod.connectRealtime();
-    expect(MockWebSocket.instances).toHaveLength(0);
+    MockWebSocket.instances[0]!.open();
+    expect(dispatch).not.toHaveBeenCalled();
+    MockWebSocket.instances[0]!.close();
+    expect(mod.realtimeDisconnected.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(4000);
+    const next = MockWebSocket.instances[1]!;
+    next.open();
+    await flushMicrotasks();
+    expect(mod.realtimeDisconnected.value).toBe(false);
+    expect(next.sent).toContain(JSON.stringify({ type: "subscribe", tournamentId: "t1" }));
+    expect(dispatch).toHaveBeenCalledWith({ type: "catalogChanged", kinds: ["players", "classes"] });
+    expect(dispatch).toHaveBeenCalledWith({ type: "tournamentsChanged" });
+    expect(dispatch).toHaveBeenCalledWith({ type: "tournamentChanged", tournamentId: "t1" });
   });
 
   it("does not open duplicate socket while already connecting/open", async () =>
@@ -194,6 +200,8 @@ describe("realtimeClient", () =>
 
     mod.disconnectRealtime();
     expect(ws.readyState).toBe(MockWebSocket.CLOSED);
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(MockWebSocket.instances).toHaveLength(1);
 
     const previousCount = MockWebSocket.instances.length;
     mod.connectRealtime();

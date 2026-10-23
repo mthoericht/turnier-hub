@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import { formatCreator, formatPlayerName } from "@turnier-hub/shared";
+import { formatPlayerName } from "@turnier-hub/shared";
 import type { TournamentTeam } from "@/tournament/tournamentContext";
 
 withDefaults(
   defineProps<{
     team: TournamentTeam;
     canEdit: boolean;
-    showCreator?: boolean;
   }>(),
   {
-    showCreator: false,
   }
 );
 
@@ -33,13 +31,6 @@ const emit = defineEmits<{
         >
           ({{ mem.player.schoolClass.name }})</span
         >
-        <span
-          v-if="showCreator"
-          class="ml-2 text-xs text-slate-500"
-          :title="mem.player.createdBy.email"
-        >
-          · {{ formatCreator(mem.player.createdBy) }}
-        </span>
       </span>
       <button
         v-if="canEdit"

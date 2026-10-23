@@ -1,4 +1,4 @@
-import { getToken } from "../api/http";
+import { ref } from "vue";
 
 type ServerPushMessage =
   | { type: "tournamentChanged"; tournamentId: string }
@@ -7,17 +7,17 @@ type ServerPushMessage =
 
 let socket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let enabled = false;
+let hasConnected = false;
+export const realtimeDisconnected = ref(false);
 const tournamentSubs = new Set<string>();
 const RECONNECT_MS = 4000;
 let dispatchMessage: (msg: ServerPushMessage) => Promise<void> = dispatch;
 
 function wsUrl(): string | null
 {
-  const token = getToken();
-  if (!token) return null;
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
-  const enc = encodeURIComponent(token);
-  return `${proto}://${window.location.host}/api/ws?token=${enc}`;
+  return `${proto}://${window.location.host}/api/ws`;
 }
 
 async function dispatch(msg: ServerPushMessage): Promise<void>
@@ -72,8 +72,7 @@ function flushSubscriptions(): void
 
 function scheduleReconnect(): void
 {
-  if (reconnectTimer) return;
-  if (!getToken()) return;
+  if (!enabled || reconnectTimer) return;
   reconnectTimer = setTimeout(() =>
   {
     reconnectTimer = null;
@@ -83,6 +82,7 @@ function scheduleReconnect(): void
 
 export function connectRealtime(): void
 {
+  enabled = true;
   const url = wsUrl();
   if (!url) return;
   if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING))
@@ -96,7 +96,16 @@ export function connectRealtime(): void
     socket = ws;
     ws.onopen = () =>
     {
+      if (socket !== ws || !enabled) return;
+      realtimeDisconnected.value = false;
       flushSubscriptions();
+      if (hasConnected)
+      {
+        void dispatchMessage({ type: "catalogChanged", kinds: ["players", "classes"] });
+        void dispatchMessage({ type: "tournamentsChanged" });
+        for (const tournamentId of tournamentSubs) void dispatchMessage({ type: "tournamentChanged", tournamentId });
+      }
+      hasConnected = true;
     };
     ws.onmessage = (ev) =>
     {
@@ -119,7 +128,9 @@ export function connectRealtime(): void
     };
     ws.onclose = () =>
     {
+      if (socket !== ws || !enabled) return;
       socket = null;
+      realtimeDisconnected.value = true;
       scheduleReconnect();
     };
     ws.onerror = () =>
@@ -129,12 +140,16 @@ export function connectRealtime(): void
   }
   catch
   {
+    realtimeDisconnected.value = true;
     scheduleReconnect();
   }
 }
 
 export function disconnectRealtime(): void
 {
+  enabled = false;
+  hasConnected = false;
+  realtimeDisconnected.value = false;
   if (reconnectTimer)
   {
     clearTimeout(reconnectTimer);

@@ -1,16 +1,13 @@
 import { api } from "./http";
 import type { SchoolClass } from "@turnier-hub/shared";
 
-export type ClassesScope = "all" | "own";
 
-export async function fetchSchoolClasses(
-  scope: ClassesScope
-): Promise<SchoolClass[]> 
+export async function fetchSchoolClasses(): Promise<SchoolClass[]>
 {
-  return api<SchoolClass[]>(`/api/classes?scope=${scope}`);
+  return api<SchoolClass[]>("/api/classes");
 }
 
-export async function postSchoolClass(body: { name: string }): Promise<SchoolClass> 
+export async function postSchoolClass(body: { name: string }): Promise<SchoolClass>
 {
   return api<SchoolClass>("/api/classes", {
     method: "POST",
@@ -21,7 +18,7 @@ export async function postSchoolClass(body: { name: string }): Promise<SchoolCla
 export async function patchSchoolClass(
   id: string,
   body: { name: string }
-): Promise<SchoolClass> 
+): Promise<SchoolClass>
 {
   return api<SchoolClass>(`/api/classes/${id}`, {
     method: "PATCH",
@@ -29,7 +26,7 @@ export async function patchSchoolClass(
   });
 }
 
-export async function deleteSchoolClass(id: string): Promise<void> 
+export async function deleteSchoolClass(id: string): Promise<void>
 {
   await api(`/api/classes/${id}`, { method: "DELETE" });
 }

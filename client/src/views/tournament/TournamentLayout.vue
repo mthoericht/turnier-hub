@@ -8,7 +8,6 @@ import {
   tournamentTabInactiveClass,
 } from "@/tournament/tournamentUi";
 import { useTournamentLayoutState } from "@/tournament/useTournamentLayoutState";
-import { formatCreator } from "@turnier-hub/shared";
 import { formatTournamentMode } from "@/tournament/tournamentFormat";
 
 const route = useRoute();
@@ -73,12 +72,6 @@ const { tournament, loading, error, formatPhaseLabel } = ctx;
         Spiele laufen
         <strong class="font-medium">Mannschaft gegen Mannschaft</strong>.
         Mannschaften verwaltest du unter „Mannschaften".
-      </p>
-      <p
-        class="mt-2 text-sm text-slate-500"
-        :title="tournament.createdBy.email"
-      >
-        Erstellt von {{ formatCreator(tournament.createdBy) }}
       </p>
     </div>
 

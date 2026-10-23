@@ -7,7 +7,6 @@ import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
 import AppIcon from "@/components/common/AppIcon.vue";
 
 const {
-  auth,
   loading,
   error,
   classesCount,
@@ -21,11 +20,11 @@ const {
 </script>
 
 <template>
-  <div v-if="auth.user" class="space-y-8">
+  <div class="space-y-8">
     <CatalogPageHeader title="Dashboard" variant="hero">
       <template #description>
         <p class="text-slate-600">
-          Übersicht über Klassen, Spieler und deine Turniere
+          Übersicht über Klassen, Spieler und Turniere
         </p>
       </template>
       <template #actions>
@@ -95,26 +94,4 @@ const {
     </div>
   </div>
 
-  <div
-    v-else
-    class="max-w-md rounded-2xl border border-slate-200 bg-white/60 p-5 sm:p-6"
-  >
-    <p class="text-slate-700 mb-4">
-      Melde dich an oder registriere dich mit dem Einladungscode.
-    </p>
-    <div class="flex flex-col gap-2 sm:flex-row sm:gap-3">
-      <RouterLink
-        to="/login"
-        class="rounded-lg border border-slate-300 px-4 py-3 text-center text-slate-800 transition hover:bg-slate-100 sm:py-2"
-      >
-        Login
-      </RouterLink>
-      <RouterLink
-        to="/signup"
-        class="rounded-lg bg-blue-600 px-4 py-3 text-center font-medium text-white transition hover:bg-blue-600/90 sm:py-2"
-      >
-        Registrieren
-      </RouterLink>
-    </div>
-  </div>
 </template>

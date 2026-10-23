@@ -1,16 +1,3 @@
-export const TOKEN_KEY = "turnier_hub_token";
-
-export function getToken(): string | null 
-{
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string | null): void 
-{
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
-}
-
 async function parseError(res: Response): Promise<string> 
 {
   const text = await res.text();
@@ -27,7 +14,7 @@ async function parseError(res: Response): Promise<string>
 
 export async function api<T>(
   path: string,
-  init?: RequestInit & { skipAuth?: boolean }
+  init?: RequestInit
 ): Promise<T> 
 {
   const headers = new Headers(init?.headers);
@@ -35,16 +22,8 @@ export async function api<T>(
   {
     headers.set("Content-Type", "application/json");
   }
-  const token = getToken();
-  if (token && !init?.skipAuth) 
-  {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
   const res = await fetch(path, { ...init, headers });
-  if (res.status === 401 && !init?.skipAuth) 
-  {
-    setToken(null);
-  }
+
   if (res.status === 204) 
   {
     return undefined as T;

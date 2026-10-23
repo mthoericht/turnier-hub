@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import {
   deleteSchoolClass,
   fetchSchoolClasses,
@@ -11,13 +11,11 @@ import { useConfirmDialogStore } from "@/stores/confirmDialog";
 import { useToastStore } from "@/stores/toast";
 import type { Player, SchoolClass } from "@turnier-hub/shared";
 
-export type ClassesScope = "all" | "own";
 
 export const useClassesManagementStore = defineStore("classesManagement", () =>
 {
   const toast = useToastStore();
 
-  const scope = ref<ClassesScope>("all");
   const classes = ref<SchoolClass[]>([]);
   const players = ref<Player[]>([]);
 
@@ -53,8 +51,8 @@ export const useClassesManagementStore = defineStore("classesManagement", () =>
     try
     {
       const [cls, pls] = await Promise.all([
-        fetchSchoolClasses(scope.value),
-        fetchPlayers("all"),
+        fetchSchoolClasses(),
+        fetchPlayers(),
       ]);
       classes.value = cls;
       players.value = pls;
@@ -77,7 +75,6 @@ export const useClassesManagementStore = defineStore("classesManagement", () =>
     await load();
   }
 
-  watch(scope, () => void load());
 
   function openCreate(): void
   {
@@ -151,7 +148,6 @@ export const useClassesManagementStore = defineStore("classesManagement", () =>
   }
 
   return {
-    scope,
     classes,
     loading,
     error,

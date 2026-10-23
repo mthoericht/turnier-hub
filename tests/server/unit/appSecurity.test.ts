@@ -29,7 +29,7 @@ describe("app security middleware", () =>
 
     const app = createApp();
     const response = await request(app)
-      .options("/api/auth/login")
+      .options("/api/classes")
       .set("Origin", allowedOrigin!)
       .set("Access-Control-Request-Method", "POST");
 
@@ -41,7 +41,7 @@ describe("app security middleware", () =>
   {
     const app = createApp();
     const response = await request(app)
-      .options("/api/auth/login")
+      .options("/api/classes")
       .set("Origin", "https://not-allowed.example")
       .set("Access-Control-Request-Method", "POST");
 
@@ -54,11 +54,10 @@ describe("app security middleware", () =>
     vi.spyOn(console, "error").mockImplementation(() => {});
     const app = createApp();
     const tooLargePayload = {
-      email: "large-body@example.com",
-      password: "x".repeat(200_000),
+      name: "x".repeat(200_000),
     };
     const response = await request(app)
-      .post("/api/auth/login")
+      .post("/api/classes")
       .send(tooLargePayload);
 
     expect(response.status).toBe(413);
@@ -71,7 +70,7 @@ describe("app security middleware", () =>
 
     // Trigger an internal error by sending a malformed content-type body.
     const response = await request(app)
-      .post("/api/auth/login")
+      .post("/api/classes")
       .set("Content-Type", "application/json")
       .send("not-json{{{");
 

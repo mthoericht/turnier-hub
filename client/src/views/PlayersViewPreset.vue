@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { RouterLink } from "vue-router";
-import { formatCreator } from "@turnier-hub/shared";
 import AppIcon from "@/components/common/AppIcon.vue";
 import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
-import ScopeToggle from "@/components/common/ScopeToggle.vue";
 import EmptyStateCard from "@/components/common/EmptyStateCard.vue";
 import EntityDialog from "@/components/common/EntityDialog.vue";
 import PlayersSearchInput from "@/components/players/PlayersSearchInput.vue";
@@ -13,7 +11,6 @@ import PlayersExchangeOptionsDialog from "@/components/players/PlayersExchangeOp
 import { usePlayersManagementState } from "@/composables/players/usePlayersManagementState";
 
 const {
-  scope,
   players,
   schoolClassOptions,
   classFilter,
@@ -86,7 +83,7 @@ function onImportChange(event: Event): void
   <div>
     <CatalogPageHeader title="Spieler">
       <template #actions>
-        <ScopeToggle v-model="scope" />
+
 
         <label class="flex items-center gap-2 text-sm text-slate-600">
           <span class="shrink-0">Klasse</span>
@@ -284,12 +281,6 @@ function onImportChange(event: Event): void
                         Löschen
                       </button>
                     </div>
-                    <p
-                      class="max-w-[11rem] text-xs font-normal text-slate-500 truncate"
-                      :title="p.createdBy.email"
-                    >
-                      {{ formatCreator(p.createdBy) }}
-                    </p>
                   </div>
                 </td>
               </tr>

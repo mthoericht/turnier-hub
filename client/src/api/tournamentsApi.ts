@@ -1,8 +1,6 @@
 import { api } from "./http";
 import type { MatchRow, TournamentDetail, TournamentMode } from "@/tournament/tournamentContext";
-import type { CreatedBy } from "@turnier-hub/shared";
 
-export type TournamentsScope = "all" | "own";
 
 export type TournamentListRow = {
   id: string;
@@ -10,15 +8,12 @@ export type TournamentListRow = {
   sport: string;
   mode: TournamentMode;
   phase: string;
-  createdBy: CreatedBy;
   _count: { teams: number; matches: number };
 };
 
-export async function fetchTournaments(
-  scope: TournamentsScope
-): Promise<TournamentListRow[]> 
+export async function fetchTournaments(): Promise<TournamentListRow[]>
 {
-  return api<TournamentListRow[]>(`/api/tournaments?scope=${scope}`);
+  return api<TournamentListRow[]>("/api/tournaments");
 }
 
 export async function postTournament(body: {
@@ -36,21 +31,21 @@ export async function postTournament(body: {
   });
 }
 
-export async function deleteTournament(id: string): Promise<void> 
+export async function deleteTournament(id: string): Promise<void>
 {
   await api(`/api/tournaments/${id}`, { method: "DELETE" });
 }
 
 export async function fetchTournamentDetail(
   tournamentId: string
-): Promise<TournamentDetail> 
+): Promise<TournamentDetail>
 {
   return api<TournamentDetail>(`/api/tournaments/${tournamentId}`);
 }
 
 export async function fetchTournamentStandings(
   tournamentId: string
-): Promise<Record<string, unknown>> 
+): Promise<Record<string, unknown>>
 {
   return api<Record<string, unknown>>(
     `/api/tournaments/${tournamentId}/standings`
@@ -60,7 +55,7 @@ export async function fetchTournamentStandings(
 export async function createTournamentTeam(
   tournamentId: string,
   body: { name: string }
-): Promise<void> 
+): Promise<void>
 {
   await api(`/api/tournaments/${tournamentId}/teams`, {
     method: "POST",
@@ -97,7 +92,7 @@ export async function addTeamMember(
   tournamentId: string,
   teamId: string,
   playerId: string
-): Promise<void> 
+): Promise<void>
 {
   await api(
     `/api/tournaments/${tournamentId}/teams/${teamId}/members`,
@@ -112,7 +107,7 @@ export async function removeTeamMember(
   tournamentId: string,
   teamId: string,
   playerId: string
-): Promise<void> 
+): Promise<void>
 {
   await api(
     `/api/tournaments/${tournamentId}/teams/${teamId}/members/${playerId}`,
@@ -144,7 +139,7 @@ export async function transferTournamentTeam(
   tournamentId: string,
   sourceTournamentId: string,
   body?: { overwriteExistingMembers?: boolean }
-): Promise<TransferTeamResult> 
+): Promise<TransferTeamResult>
 {
   return api<TransferTeamResult>(
     `/api/tournaments/${tournamentId}/transfer-team-from/${sourceTournamentId}`,
@@ -161,7 +156,7 @@ export async function patchTournamentSettings(
     groupCount?: number;
     advancesPerGroup?: number;
   }
-): Promise<TournamentDetail> 
+): Promise<TournamentDetail>
 {
   return api<TournamentDetail>(`/api/tournaments/${tournamentId}`, {
     method: "PATCH",
@@ -214,7 +209,7 @@ export async function patchMatchScores(
   tournamentId: string,
   matchId: string,
   body: { homeScore?: number; awayScore?: number }
-): Promise<MatchRow> 
+): Promise<MatchRow>
 {
   return api<MatchRow>(
     `/api/tournaments/${tournamentId}/matches/${matchId}/scores`,
@@ -229,7 +224,7 @@ export async function postMatchTimer(
   tournamentId: string,
   matchId: string,
   action: "start" | "pause" | "resume" | "end" | "cancel"
-): Promise<MatchRow> 
+): Promise<MatchRow>
 {
   return api<MatchRow>(
     `/api/tournaments/${tournamentId}/matches/${matchId}/timer`,

@@ -1,10 +1,9 @@
 import { ref } from "vue";
-import type { TournamentListRow, TournamentsScope } from "@/api/tournamentsApi";
+import type { TournamentListRow } from "@/api/tournamentsApi";
 import type { TournamentMode } from "@/tournament/tournamentContext";
 
 export function useTournamentsListState()
 {
-  const scope = ref<TournamentsScope>("all");
   const list = ref<TournamentListRow[]>([
     {
       id: "t1",
@@ -12,11 +11,6 @@ export function useTournamentsListState()
       sport: "Fußball",
       mode: "GROUP_KO" as TournamentMode,
       phase: "GROUP",
-      createdBy: {
-        id: "u1",
-        username: "demo",
-        email: "demo@example.com",
-      },
       _count: { teams: 6, matches: 10 },
     },
   ]);
@@ -37,7 +31,6 @@ export function useTournamentsListState()
   async function remove(): Promise<void> {}
 
   return {
-    scope,
     list,
     loading,
     error,

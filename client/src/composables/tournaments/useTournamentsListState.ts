@@ -2,7 +2,6 @@ import { onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useTournamentsListStore } from "@/stores/tournamentsList";
 
-export type { TournamentsScope } from "@/stores/tournamentsList";
 
 export function useTournamentsListState()
 {

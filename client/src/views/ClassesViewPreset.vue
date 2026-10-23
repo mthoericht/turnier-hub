@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import { formatCreator } from "@turnier-hub/shared";
 import AppIcon from "@/components/common/AppIcon.vue";
 import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
-import ScopeToggle from "@/components/common/ScopeToggle.vue";
 import EmptyStateCard from "@/components/common/EmptyStateCard.vue";
 import EntityDialog from "@/components/common/EntityDialog.vue";
 
 import { useClassesManagementState } from "@/composables/classes/useClassesManagementState";
 
 const {
-  scope,
   classes,
   loading,
   error,
@@ -32,7 +29,7 @@ const inputClass =
   <div>
     <CatalogPageHeader title="Klassen">
       <template #actions>
-        <ScopeToggle v-model="scope" />
+
 
         <button
           type="button"
@@ -80,12 +77,6 @@ const inputClass =
               </p>
               <p class="text-sm text-slate-500 mt-1 truncate">
                 Schulklasse
-              </p>
-              <p
-                class="mt-2 text-xs text-slate-500 truncate"
-                :title="c.createdBy.email"
-              >
-                Von {{ formatCreator(c.createdBy) }}
               </p>
             </div>
             <div class="flex gap-2 shrink-0">

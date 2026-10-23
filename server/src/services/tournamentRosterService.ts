@@ -1,5 +1,5 @@
 import { prisma } from "../db.js";
-import { playerApiInclude, playerToApi } from "../lib/createdBy.js";
+import { playerApiInclude, playerToApi } from "../lib/catalog.js";
 import {
   loadTournamentById,
   serializeTournamentDetail,

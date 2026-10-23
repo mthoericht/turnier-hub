@@ -1,27 +1,21 @@
-import http from "node:http";
 import { PORT } from "./config.js";
-import { createApp } from "./app.js";
-import { RealtimeHub } from "./realtime/hub.js";
-import { setRealtimeHub } from "./realtime/notify.js";
-import { ensureDefaultSchool } from "./lib/schools.js";
+import { startServer } from "./runtime.js";
 
-const app = createApp();
-const server = http.createServer(app);
-const realtimeHub = new RealtimeHub();
-realtimeHub.attachToServer(server);
-setRealtimeHub(realtimeHub);
-
-async function startServer(): Promise<void>
+startServer().then(({ stop }) =>
 {
-  await ensureDefaultSchool();
-
-  server.listen(PORT, () =>
+  console.log(`API & static: http://localhost:${PORT}`);
+  for (const signal of ["SIGINT", "SIGTERM"] as const)
   {
-    console.log(`API & static: http://localhost:${PORT}`);
-  });
-}
-
-startServer().catch((error) =>
+    process.once(signal, () =>
+    {
+      void stop().then(() => process.exit(0), (error) =>
+      {
+        console.error("Failed to stop server", error);
+        process.exit(1);
+      });
+    });
+  }
+}).catch((error) =>
 {
   console.error("Failed to initialize server startup tasks", error);
   process.exit(1);

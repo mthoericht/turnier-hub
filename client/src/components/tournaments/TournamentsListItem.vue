@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
-import { formatCreator } from "@turnier-hub/shared";
 import { formatTournamentMode } from "@/tournament/tournamentFormat";
 import type { TournamentListRow } from "@/api/tournamentsApi";
 
@@ -26,12 +25,6 @@ defineProps<{
           t._count.teams
         }}
         Mannschaften, {{ t._count.matches }} Spiele
-      </p>
-      <p
-        class="mt-1 text-xs text-slate-500"
-        :title="t.createdBy.email"
-      >
-        Von {{ formatCreator(t.createdBy) }}
       </p>
     </div>
 

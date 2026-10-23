@@ -5,20 +5,10 @@ const defaultSchoolClasses: SchoolClass[] = [
   {
     id: "class-1",
     name: "10a",
-    createdBy: {
-      id: "user-1",
-      username: "coach",
-      email: "coach@example.com",
-    },
   },
   {
     id: "class-2",
     name: "9b",
-    createdBy: {
-      id: "user-2",
-      username: "teacher",
-      email: "teacher@example.com",
-    },
   },
 ];
 
@@ -28,22 +18,12 @@ const defaultPlayers: Player[] = [
     firstName: "Lina",
     lastName: "Meyer",
     schoolClass: { id: "class-1", name: "10a" },
-    createdBy: {
-      id: "user-1",
-      username: "coach",
-      email: "coach@example.com",
-    },
   },
   {
     id: "player-2",
     firstName: "Tom",
     lastName: "Schulz",
     schoolClass: { id: "class-2", name: "9b" },
-    createdBy: {
-      id: "user-2",
-      username: "teacher",
-      email: "teacher@example.com",
-    },
   },
 ];
 
@@ -79,7 +59,6 @@ export function setPlayersStoryState(state: {
 
 export function usePlayersManagementState()
 {
-  const scope = ref<"all" | "own">("all");
   const classFilter = ref("");
   const searchQuery = ref("");
   const sortKey = ref<"firstName" | "lastName" | "schoolClass">("lastName");
@@ -91,7 +70,7 @@ export function usePlayersManagementState()
   const dialogLastName = ref("");
   const dialogClassId = ref("");
   const importDialogOpen = ref(false);
-  const importMode = ref<"reset_all" | "append" | "replace_players">("append");
+  const importMode = ref<"append" | "replace_players">("append");
 
   const filteredPlayers = computed(() => players.value);
 
@@ -149,7 +128,6 @@ export function usePlayersManagementState()
   async function loadClasses(): Promise<void> {}
 
   return {
-    scope,
     players,
     schoolClassOptions,
     classFilter,

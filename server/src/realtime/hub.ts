@@ -1,9 +1,7 @@
 import type { IncomingMessage, Server } from "node:http";
-import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   CORS_ALLOWED_ORIGINS,
-  JWT_SECRET,
   SECURITY_WS_CONNECTIONS_THRESHOLD,
   SECURITY_WS_CONNECTIONS_WINDOW_MS,
   TRUST_PROXY,
@@ -14,8 +12,6 @@ import {
   WS_MESSAGE_MAX_PER_WINDOW,
   WS_MESSAGE_WINDOW_MS,
 } from "../config.js";
-import type { AuthPayload } from "../auth/token.js";
-import { prisma } from "../db.js";
 import {
   onWsConnectionClosed,
   onWsConnectionOpened,
@@ -37,7 +33,6 @@ type ClientMessage =
   | { type: "unsubscribe"; tournamentId: string };
 
 type SocketMeta = {
-  userId: string;
   tournamentIds: Set<string>;
   messageCount: number;
   messageWindowStartedAtMs: number;
@@ -55,33 +50,6 @@ type UpgradeSocket = {
 };
 
 // --- Upgrade/auth and rate-limit helpers ---
-
-/**
- * Extracts and verifies the JWT from websocket upgrade query params,
- * then confirms the user still exists and tokenVersion matches.
- */
-async function parseTokenUserId(req: IncomingMessage): Promise<string | null>
-{
-  const host = req.headers.host ?? "127.0.0.1";
-  const url = new URL(req.url ?? "", `http://${host}`);
-  const token = url.searchParams.get("token");
-  if (!token) return null;
-  try
-  {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.sub },
-      select: { id: true, tokenVersion: true },
-    });
-    if (!user) return null;
-    if ((decoded.tv ?? 0) !== user.tokenVersion) return null;
-    return decoded.sub;
-  }
-  catch
-  {
-    return null;
-  }
-}
 
 /**
  * Resolves the client IP from an upgrade request using the same trust
@@ -216,33 +184,31 @@ export class RealtimeHub
         return;
       }
 
-      this.authenticateUpgrade(request, socket).then((userId) =>
+      this.wss.handleUpgrade(request, socket, head, (ws) =>
       {
-        if (!userId)
-        {
-          return;
-        }
-        this.wss.handleUpgrade(request, socket, head, (ws) =>
-        {
-          this.socketMeta.set(ws, {
-            userId,
-            tournamentIds: new Set(),
-            messageCount: 0,
-            messageWindowStartedAtMs: Date.now(),
-            closing: false,
-          });
-          onWsConnectionOpened({
-            windowMs: SECURITY_WS_CONNECTIONS_WINDOW_MS,
-            thresholdPeakConnections: SECURITY_WS_CONNECTIONS_THRESHOLD,
-          });
-          this.wss.emit("connection", ws, request);
+        this.socketMeta.set(ws, {
+          tournamentIds: new Set(),
+          messageCount: 0,
+          messageWindowStartedAtMs: Date.now(),
+          closing: false,
         });
-      }).catch(() =>
-      {
-        socket.write("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
-        socket.destroy();
+        onWsConnectionOpened({
+          windowMs: SECURITY_WS_CONNECTIONS_WINDOW_MS,
+          thresholdPeakConnections: SECURITY_WS_CONNECTIONS_THRESHOLD,
+        });
+        this.wss.emit("connection", ws, request);
       });
     });
+  }
+
+  /** Stops all upgraded connections before the hosting HTTP server shuts down. */
+  async close(): Promise<void>
+  {
+    for (const ws of this.wss.clients)
+    {
+      ws.terminate();
+    }
+    await new Promise<void>((resolve) => this.wss.close(() => resolve()));
   }
 
   /**
@@ -289,6 +255,13 @@ export class RealtimeHub
   private isOriginAllowed(request: IncomingMessage, socket: UpgradeSocket): boolean
   {
     const origin = request.headers.origin;
+    if (process.env.TURNIER_HUB_DESKTOP === "1"
+      && !CORS_ALLOWED_ORIGINS.some((value) => new URL(value).host === request.headers.host))
+    {
+      socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+      socket.destroy();
+      return false;
+    }
     if (!origin)
     {
       return true;
@@ -301,25 +274,6 @@ export class RealtimeHub
     socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
     socket.destroy();
     return false;
-  }
-
-  /**
-   * Verifies JWT auth during websocket upgrade.
-   */
-  private async authenticateUpgrade(
-    request: IncomingMessage,
-    socket: UpgradeSocket
-  ): Promise<string | null>
-  {
-    const userId = await parseTokenUserId(request);
-    if (userId)
-    {
-      return userId;
-    }
-
-    socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
-    socket.destroy();
-    return null;
   }
 
   /**

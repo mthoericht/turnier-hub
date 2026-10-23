@@ -11,8 +11,8 @@ export default defineConfig({
     alias: clientAlias,
   },
   test: {
-    // Integration tests share one SQLite file (server/.env.test); parallel files
-    // would race on resetDatabase() and invalidate JWT user rows (P2003 / hangs).
+    // Integration files share the fresh database created by test-isolated.mjs.
+    // Run files sequentially so resetting catalog rows cannot race.
     fileParallelism: false,
     projects: (() =>
     {

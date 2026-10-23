@@ -28,7 +28,7 @@ export function useTournamentRosterTransfer(
       loadingSources.value = true;
       try
       {
-        const all = await fetchTournaments("all");
+        const all = await fetchTournaments();
         sourceTournaments.value = all.filter((x) => x.id !== t.id);
       }
       finally

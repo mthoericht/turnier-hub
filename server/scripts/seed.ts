@@ -4,10 +4,7 @@ import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import {
   seedDemoData,
-  SEED_EMAIL,
-  SEED_PASSWORD,
   SEED_PLAYERS,
-  SEED_USERNAME,
 } from "../src/seed/demoSeed.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -21,8 +18,6 @@ const prisma = new PrismaClient();
 async function main(): Promise<void>
 {
   console.log("Seed OK:");
-  console.log(`  Benutzer:  ${SEED_EMAIL} / ${SEED_USERNAME}`);
-  console.log(`  Passwort:  ${SEED_PASSWORD}`);
   await seedDemoData(prisma);
   console.log(`  Spieler (Fixtures): ${SEED_PLAYERS.length}`);
   console.log("  Turniere (Fixtures):");

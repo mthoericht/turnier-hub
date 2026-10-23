@@ -1,27 +1,24 @@
 import { api } from "./http";
 import type { Player } from "@turnier-hub/shared";
 
-export type PlayersScope = "all" | "own";
-export type PlayerImportMode = "reset_all" | "append" | "replace_players";
+export type PlayerImportMode = "append" | "replace_players";
 
-export async function fetchPlayers(
-  scope: PlayersScope
-): Promise<Player[]> 
+export async function fetchPlayers(): Promise<Player[]>
 {
-  return api<Player[]>(`/api/players?scope=${scope}`);
+  return api<Player[]>("/api/players");
 }
 
 /** All players visible to the user (for tournament roster assignment). */
-export async function fetchPlayersAll(): Promise<Player[]> 
+export async function fetchPlayersAll(): Promise<Player[]>
 {
-  return fetchPlayers("all");
+  return fetchPlayers();
 }
 
 export async function postPlayer(body: {
   firstName: string;
   lastName: string;
   schoolClassId: string | null;
-}): Promise<Player> 
+}): Promise<Player>
 {
   return api<Player>("/api/players", {
     method: "POST",
@@ -32,7 +29,7 @@ export async function postPlayer(body: {
 export async function patchPlayer(
   id: string,
   body: { firstName: string; lastName: string; schoolClassId: string | null }
-): Promise<void> 
+): Promise<void>
 {
   await api(`/api/players/${id}`, {
     method: "PATCH",
@@ -40,7 +37,7 @@ export async function patchPlayer(
   });
 }
 
-export async function deletePlayer(id: string): Promise<void> 
+export async function deletePlayer(id: string): Promise<void>
 {
   await api(`/api/players/${id}`, { method: "DELETE" });
 }

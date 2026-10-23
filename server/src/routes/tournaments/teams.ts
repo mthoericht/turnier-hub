@@ -1,6 +1,6 @@
 import type { Request, Response, Router } from "express";
 import { z } from "zod";
-import { getUserSchoolId, requireTournamentExists } from "./shared.js";
+import { requireTournamentExists } from "./shared.js";
 import { notifyTournamentChanged } from "../../realtime/notify.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import {
@@ -50,12 +50,7 @@ const transferTeamBodySchema = z.object({
 async function createTeamHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
-  const owned = await requireTournamentExists(res, tournamentId, schoolId);
+  const owned = await requireTournamentExists(res, tournamentId);
   if (!owned) return;
 
   const parsed = createTeamSchema.safeParse(req.body);
@@ -78,12 +73,7 @@ async function patchTeamHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
   const teamId = String(req.params.teamId);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
-  const owned = await requireTournamentExists(res, tournamentId, schoolId);
+  const owned = await requireTournamentExists(res, tournamentId);
   if (!owned) return;
 
   const parsed = patchTeamSchema.safeParse(req.body);
@@ -102,12 +92,7 @@ async function deleteTeamHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
   const teamId = String(req.params.teamId);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
-  const owned = await requireTournamentExists(res, tournamentId, schoolId);
+  const owned = await requireTournamentExists(res, tournamentId);
   if (!owned) return;
 
   const result = await deleteTeam(
@@ -123,12 +108,7 @@ async function deleteTeamHandler(req: Request, res: Response): Promise<void>
 async function renameGroupHandler(req: Request, res: Response): Promise<void>
 {
   const tournamentId = String(req.params.id);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
-  const owned = await requireTournamentExists(res, tournamentId, schoolId);
+  const owned = await requireTournamentExists(res, tournamentId);
   if (!owned) return;
 
   const parsed = renameGroupSchema.safeParse(req.body);
@@ -158,12 +138,7 @@ async function addMemberHandler(req: Request, res: Response): Promise<void>
     return;
   }
 
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
-  const owned = await requireTournamentExists(res, tournamentId, schoolId);
+  const owned = await requireTournamentExists(res, tournamentId);
   if (!owned) return;
 
   const member = await addMember(
@@ -181,12 +156,7 @@ async function removeMemberHandler(req: Request, res: Response): Promise<void>
   const tournamentId = String(req.params.id);
   const teamId = String(req.params.teamId);
   const playerId = String(req.params.playerId);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
-  const owned = await requireTournamentExists(res, tournamentId, schoolId);
+  const owned = await requireTournamentExists(res, tournamentId);
   if (!owned) return;
   await removeMember(tournamentId, teamId, playerId);
   notifyTournamentChanged(tournamentId);
@@ -198,11 +168,6 @@ async function transferTeamHandler(req: Request, res: Response): Promise<void>
 {
   const targetTournamentId = String(req.params.id);
   const sourceTournamentId = String(req.params.sourceTournamentId);
-  const schoolId = await getUserSchoolId(req.userId!);
-  if (!schoolId) {
-    res.status(404).json({ error: "Benutzer nicht gefunden" });
-    return;
-  }
   const parsed = transferTeamBodySchema.safeParse(req.body);
   if (!parsed.success)
   {
@@ -210,13 +175,12 @@ async function transferTeamHandler(req: Request, res: Response): Promise<void>
     return;
   }
 
-  const targetOwned = await requireTournamentExists(res, targetTournamentId, schoolId);
+  const targetOwned = await requireTournamentExists(res, targetTournamentId);
   if (!targetOwned) return;
 
   const sourceOwned = await requireTournamentExists(
     res,
-    sourceTournamentId,
-    schoolId
+    sourceTournamentId
   );
   if (!sourceOwned) return;
 

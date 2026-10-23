@@ -7,7 +7,6 @@ const tournament = {
   sport: "Fußball",
   mode: "GROUP_KO",
   phase: "GROUP",
-  createdBy: { id: "u1", username: "demo", email: "demo@example.com" },
   _count: { teams: 6, matches: 10 },
 };
 

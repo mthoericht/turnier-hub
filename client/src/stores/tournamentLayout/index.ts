@@ -5,12 +5,11 @@
  */
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { useAuthStore } from "@/stores/auth";
 import { useConfirmDialogStore } from "@/stores/confirmDialog";
 import { useToastStore } from "@/stores/toast";
 import {
   buildScoreDraftFromMatches,
-  canUserEditTournament,
+  canEditTournament,
   collectAssignedPlayerIds,
   filterAvailablePlayers,
   getMatchesByPhase,
@@ -47,7 +46,6 @@ import { createPhaseActions } from "./phaseActions";
 
 export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
 {
-  const auth = useAuthStore();
   const toast = useToastStore();
 
   /** Maps API or user errors to a toast for tournament actions that do not use the layout `error` ref. */
@@ -218,9 +216,9 @@ export const useTournamentLayoutStore = defineStore("tournamentLayout", () =>
     }
   }
 
-  /** Whether the signed-in user may edit the loaded tournament (currently any authenticated user when detail exists). */
+  /** Whether a tournament is loaded for editing. */
   const canEdit = computed(() =>
-    canUserEditTournament(tournament.value, auth.user?.id)
+    canEditTournament(tournament.value)
   );
 
   /** Catalog player ids already on a roster in the active tournament. */

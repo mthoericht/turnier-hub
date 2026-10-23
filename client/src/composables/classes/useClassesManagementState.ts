@@ -2,7 +2,6 @@ import { onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useClassesManagementStore } from "@/stores/classesManagement";
 
-export type { ClassesScope } from "@/stores/classesManagement";
 
 export function useClassesManagementState()
 {

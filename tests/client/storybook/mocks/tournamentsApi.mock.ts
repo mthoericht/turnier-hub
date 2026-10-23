@@ -3,7 +3,6 @@
  * Other exports pass through to the real client API module.
  */
 export type {
-  TournamentsScope,
   TournamentListRow,
   TransferTeamResult,
 } from "../../../../client/src/api/tournamentsApi";
@@ -31,11 +30,9 @@ export {
 
 import type {
   TournamentListRow,
-  TournamentsScope,
 } from "../../../../client/src/api/tournamentsApi";
 
 export async function fetchTournaments(
-  _scope: TournamentsScope
 ): Promise<TournamentListRow[]>
 {
   return [];

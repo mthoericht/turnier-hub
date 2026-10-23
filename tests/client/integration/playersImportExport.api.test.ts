@@ -1,52 +1,12 @@
 import type { Server } from "node:http";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import bcrypt from "bcryptjs";
 import { createApp } from "../../../server/src/app.js";
 import { prisma } from "../../../server/src/db.js";
-import { INVITE_CODE } from "../../../server/src/config.js";
-import {
-  fetchAuthSchools,
-  postAuthLogin,
-  postAuthSignup,
-} from "../../../client/src/api/authApi";
 import { fetchPlayers, importPlayersFromRows } from "../../../client/src/api/playersApi";
-import { setToken } from "../../../client/src/api/http";
 import { resetDatabase } from "../../server/helpers/db.js";
-
-type StorageLike = {
-  getItem: (key: string) => string | null;
-  setItem: (key: string, value: string) => void;
-  removeItem: (key: string) => void;
-  clear: () => void;
-};
-
-function installLocalStorageMock(): void
-{
-  const map = new Map<string, string>();
-  const storage: StorageLike = {
-    getItem: (k) => map.get(k) ?? null,
-    setItem: (k, v) => { map.set(k, v); },
-    removeItem: (k) => { map.delete(k); },
-    clear: () => { map.clear(); },
-  };
-  Object.defineProperty(globalThis, "localStorage", {
-    configurable: true,
-    value: storage,
-  });
-}
 
 describe("players import/export API integration", () =>
 {
-  async function getFirstSchoolId(): Promise<string>
-  {
-    const schools = await fetchAuthSchools();
-    if (schools.length === 0)
-    {
-      throw new Error("Expected at least one school option");
-    }
-    return schools[0]!.id;
-  }
-
   const app = createApp();
   let server: Server | null = null;
   let apiBaseUrl = "";
@@ -54,7 +14,6 @@ describe("players import/export API integration", () =>
 
   beforeAll(async () =>
   {
-    installLocalStorageMock();
     await new Promise<void>((resolve) =>
     {
       server = app.listen(0, () => resolve());
@@ -85,7 +44,6 @@ describe("players import/export API integration", () =>
   beforeEach(async () =>
   {
     await resetDatabase();
-    setToken(null);
   });
 
   afterAll(async () =>
@@ -103,27 +61,14 @@ describe("players import/export API integration", () =>
 
   it("replace_players keeps matching players (and memberships), removes missing ones", async () =>
   {
-    const schoolId = await getFirstSchoolId();
-    const auth = await postAuthSignup({
-      username: "ImportCoach",
-      email: "import-coach@example.com",
-      password: "password123",
-      inviteCode: INVITE_CODE,
-      schoolId,
-    });
-    setToken(auth.token);
-
-    const user = await prisma.user.findUniqueOrThrow({ where: { id: auth.user.id } });
     const schoolClass = await prisma.schoolClass.create({
-      data: { name: "10a", userId: user.id, schoolId: user.schoolId },
+      data: { name: "10a" },
     });
     const keepPlayer = await prisma.player.create({
       data: {
         firstName: "Anna",
         lastName: "Muster",
         schoolClassId: schoolClass.id,
-        userId: user.id,
-        schoolId: user.schoolId,
       },
     });
     await prisma.player.create({
@@ -131,16 +76,12 @@ describe("players import/export API integration", () =>
         firstName: "Zoe",
         lastName: "Legacy",
         schoolClassId: schoolClass.id,
-        userId: user.id,
-        schoolId: user.schoolId,
       },
     });
     const tournament = await prisma.tournament.create({
       data: {
         name: "Roster Preserve",
         sport: "Fußball",
-        userId: user.id,
-        schoolId: user.schoolId,
       },
     });
     const team = await prisma.tournamentTeam.create({
@@ -166,7 +107,7 @@ describe("players import/export API integration", () =>
     );
 
     expect(result.imported).toBe(2);
-    const players = await fetchPlayers("all");
+    const players = await fetchPlayers();
     expect(players.map((p) => `${p.firstName} ${p.lastName}`)).toEqual(["Anna Muster", "Ben Neu"]);
 
     const membership = await prisma.tournamentTeamMember.findFirst({
@@ -178,54 +119,33 @@ describe("players import/export API integration", () =>
     expect(membership).not.toBeNull();
   });
 
-  it("reset_all clears tournaments/classes/players and imports fresh rows", async () =>
+  it("rejects host-only reset through the player import API", async () =>
   {
-    const schoolId = await getFirstSchoolId();
-    await postAuthSignup({
-      username: "ResetCoach",
-      email: "reset-coach@example.com",
-      password: "password123",
-      inviteCode: INVITE_CODE,
-      schoolId,
-    });
-    const auth = await postAuthLogin("reset-coach@example.com", "password123");
-    setToken(auth.token);
-
-    const user = await prisma.user.findUniqueOrThrow({ where: { id: auth.user.id } });
     const schoolClass = await prisma.schoolClass.create({
-      data: { name: "9b", userId: user.id, schoolId: user.schoolId },
+      data: { name: "9b" },
     });
     await prisma.player.create({
       data: {
         firstName: "Old",
         lastName: "Player",
         schoolClassId: schoolClass.id,
-        userId: user.id,
-        schoolId: user.schoolId,
       },
     });
     await prisma.tournament.create({
       data: {
         name: "Old Tournament",
         sport: "Volleyball",
-        userId: user.id,
-        schoolId: user.schoolId,
       },
     });
 
-    const result = await importPlayersFromRows(
-      [{ firstName: "Nina", lastName: "Neu", className: "11c" }],
-      "reset_all",
-    );
-
-    expect(result.imported).toBe(1);
-    const players = await fetchPlayers("all");
+    const response = await fetch("/api/players/import", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "reset_all", rows: [{ firstName: "Nina", lastName: "Neu", className: "11c" }] }),
+    });
+    expect(response.status).toBe(400);
+    const players = await fetchPlayers();
     expect(players).toHaveLength(1);
-    expect(players[0]?.firstName).toBe("Nina");
-    expect(players[0]?.lastName).toBe("Neu");
-    expect(players[0]?.schoolClass?.name).toBe("11c");
-
-    const tournamentCount = await prisma.tournament.count();
-    expect(tournamentCount).toBe(0);
+    expect(players[0]?.firstName).toBe("Old");
+    expect(await prisma.tournament.count()).toBe(1);
   });
 });

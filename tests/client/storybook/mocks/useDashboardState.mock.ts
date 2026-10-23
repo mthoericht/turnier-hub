@@ -2,12 +2,6 @@ import { computed, ref } from "vue";
 
 export function useDashboardState()
 {
-  const auth = ref<{ user: { id: string; name: string } } | null>({
-    user: {
-      id: "u1",
-      name: "Demo Nutzer",
-    },
-  });
 
   const loading = ref(false);
   const error = ref("");
@@ -44,7 +38,6 @@ export function useDashboardState()
   }
 
   return {
-    auth: computed(() => auth.value),
     loading,
     error,
     classesCount,

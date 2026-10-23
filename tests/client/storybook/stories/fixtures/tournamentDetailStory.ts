@@ -107,7 +107,7 @@ function buildIndividualsTournamentDetail(): TournamentDetail
     groupCount: 1,
     advancesPerGroup: 1,
     teamsAreIndividuals: true,
-    createdBy: demoPlayers[0]!.createdBy,
+
     teams,
     matches: [
       buildGroupMatch(tournamentId, {
@@ -136,7 +136,7 @@ function buildDirectKoTournamentDetail(): TournamentDetail
     groupCount: 1,
     advancesPerGroup: 1,
     teamsAreIndividuals: false,
-    createdBy: demoPlayers[0]!.createdBy,
+
     teams,
     matches: [
       buildGroupMatch(tournamentId, {
@@ -164,7 +164,7 @@ export function buildDemoTournamentDetail(
     groupCount: 2,
     advancesPerGroup: 2,
     teamsAreIndividuals: false,
-    createdBy: demoPlayers[0]!.createdBy,
+
     teams: withTeams(storyTournamentId),
     matches: [buildGroupMatch(storyTournamentId)],
     ...overrides,

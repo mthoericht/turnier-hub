@@ -12,7 +12,7 @@
   "scripts": {
     "clean": "rimraf node_modules client/node_modules server/node_modules client/dist server/dist",
     "clean:install": "npm run clean && npm install",
-    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev": "npm run desktop:dev",
     "build": "npm run build -w @turnier-hub/shared && npm run build -w server && npm run build -w client",
     "lint": "npm run lint -w client",
     "lint:fix": "npm run lint:fix -w client",
@@ -28,16 +28,30 @@
     "db:seed": "npm run db:seed -w server",
     "db:clear": "npm run db:clear -w server --",
     "db:clear:test": "npm run db:clear:test -w server --",
-    "test": "npm run test -w server && npm run test -w client",
+    "test": "node scripts/test-isolated.mjs all",
     "test:client": "npm run test -w client",
     "test:unit": "npm run test:unit -w server",
-    "test:integration": "npm run test:prepare -w server && npm run test:integration -w client",
+    "test:integration": "node scripts/test-isolated.mjs integration",
     "security:audit": "node ./scripts/security-audit.mjs",
     "storybook": "npm run storybook -w client",
-    "build-storybook": "npm run build-storybook -w client"
+    "build-storybook": "npm run build-storybook -w client",
+    "desktop:prepare": "npm run desktop:runtime && npm run db:generate && npm run build && node desktop/prepare.mjs",
+    "desktop:start": "electron desktop/app",
+    "desktop:dev": "node desktop/dev.mjs",
+    "desktop:pack:mac": "npm run desktop:runtime && npm run db:generate && npm run build && node desktop/prepare.mjs darwin && electron-builder --config desktop/electron-builder.cjs --mac --arm64 --dir",
+    "desktop:dist:mac": "npm run desktop:runtime && npm run db:generate && npm run build && node desktop/prepare.mjs darwin && electron-builder --config desktop/electron-builder.cjs --mac --arm64",
+    "desktop:pack:win": "npm run desktop:runtime && npm run db:generate && npm run build && node desktop/prepare.mjs win32 && electron-builder --config desktop/electron-builder.cjs --win --x64 --dir",
+    "desktop:dist:win": "npm run desktop:runtime && npm run db:generate && npm run build && node desktop/prepare.mjs win32 && electron-builder --config desktop/electron-builder.cjs --win --x64",
+    "desktop:runtime": "node node_modules/electron/install.js",
+    "desktop:smoke": "node desktop/smoke.mjs",
+    "desktop:test": "node --test tests/desktop/*.test.cjs",
+    "desktop:smoke:errors": "node desktop/error-smoke.mjs",
+    "desktop:smoke:host": "node desktop/maintenance-smoke.mjs"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0",
+    "electron": "^42.11.18",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.25.12",
     "rimraf": "^6.0.1"
   }
 }

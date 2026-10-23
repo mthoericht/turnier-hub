@@ -1,14 +1,9 @@
-import bcrypt from "bcryptjs";
 import { type PrismaClient } from "@prisma/client";
 import {
   distributeIntoGroups,
   generateRoundRobinSchedule,
 } from "../services/roundRobinSchedule.js";
 import { generateKoBracketFirstRound } from "../services/knockoutBracket.js";
-
-export const SEED_EMAIL = "seed@turnier-hub.local";
-export const SEED_USERNAME = "seeduser";
-export const SEED_PASSWORD = "seedseed12";
 
 export const SEED_PLAYERS: { firstName: string; lastName: string; className: string }[] = [
   { firstName: "Lina", lastName: "Müller", className: "10a" },
@@ -27,44 +22,19 @@ export const SEED_PLAYERS: { firstName: string; lastName: string; className: str
 
 export async function seedDemoData(prisma: PrismaClient): Promise<void>
 {
-  const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
-  const defaultSchool = await prisma.school.upsert({
-    where: { name: "defaultSchool" },
-    create: { name: "defaultSchool" },
-    update: {},
-  });
-  await prisma.school.upsert({
-    where: { name: "secondSchool" },
-    create: { name: "secondSchool" },
-    update: {},
-  });
-
-  const user = await prisma.user.upsert({
-    where: { email: SEED_EMAIL },
-    create: {
-      email: SEED_EMAIL,
-      username: SEED_USERNAME,
-      passwordHash,
-      role: "ADMIN",
-      schoolId: defaultSchool.id,
-    },
-    update: {
-      username: SEED_USERNAME,
-      passwordHash,
-      role: "ADMIN",
-      schoolId: defaultSchool.id,
-    },
-  });
-
-  await prisma.tournament.deleteMany({ where: { userId: user.id } });
-  await prisma.player.deleteMany({ where: { userId: user.id } });
-  await prisma.schoolClass.deleteMany({ where: { userId: user.id } });
+  const counts = await Promise.all([
+    prisma.schoolClass.count(), prisma.player.count(), prisma.tournament.count(),
+  ]);
+  if (counts.some((count) => count > 0))
+  {
+    throw new Error("Beispieldaten benötigen einen leeren Datenbestand; vorhandene Daten werden nicht verändert.");
+  }
 
   const uniqueClassNames = [...new Set(SEED_PLAYERS.map((p) => p.className))];
   const schoolClasses = await Promise.all(
     uniqueClassNames.map((name) =>
       prisma.schoolClass.create({
-        data: { name, userId: user.id, schoolId: defaultSchool.id },
+        data: { name },
       })
     )
   );
@@ -79,8 +49,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
           firstName: p.firstName,
           lastName: p.lastName,
           schoolClassId: classIdByName[p.className]!,
-          userId: user.id,
-          schoolId: defaultSchool.id,
+
+
         },
       })
     )
@@ -95,8 +65,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
       groupCount: 2,
       advancesPerGroup: 2,
       teamsAreIndividuals: false,
-      userId: user.id,
-      schoolId: defaultSchool.id,
+
+
     },
   });
 
@@ -177,8 +147,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
       groupCount: 1,
       advancesPerGroup: 2,
       teamsAreIndividuals: false,
-      userId: user.id,
-      schoolId: defaultSchool.id,
+
+
     },
   });
 
@@ -223,8 +193,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
       groupCount: 1,
       advancesPerGroup: 1,
       teamsAreIndividuals: true,
-      userId: user.id,
-      schoolId: defaultSchool.id,
+
+
     },
   });
 
@@ -276,8 +246,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<void>
       groupCount: 1,
       advancesPerGroup: 1,
       teamsAreIndividuals: false,
-      userId: user.id,
-      schoolId: defaultSchool.id,
+
+
     },
   });
 

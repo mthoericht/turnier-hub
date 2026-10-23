@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 import ToastHost from "./components/ToastHost.vue";
 import AppIcon from "./components/common/AppIcon.vue";
 import EntityDialog from "./components/common/EntityDialog.vue";
 import GlobalTextPromptDialog from "./components/common/GlobalTextPromptDialog.vue";
-import { useAuthStore } from "./stores/auth";
+import { connectRealtime, disconnectRealtime, realtimeDisconnected } from "./realtime/realtimeClient";
 import { useConfirmDialogStore } from "./stores/confirmDialog";
 
-const auth = useAuthStore();
 const confirmDialog = useConfirmDialogStore();
 const { open: confirmOpen, title: confirmTitle, description: confirmDescription, submitLabel: confirmSubmitLabel } =
   storeToRefs(confirmDialog);
@@ -18,8 +17,11 @@ const navOpen = ref(false);
 
 onMounted(() => 
 {
-  void auth.hydrate();
+  localStorage.removeItem("turnier_hub_token");
+  connectRealtime();
 });
+
+onBeforeUnmount(disconnectRealtime);
 
 watch(
   () => route.fullPath,
@@ -35,23 +37,15 @@ const linkClass =
 type MainNavItem = {
   to: string;
   label: string;
-  icon: "trophy" | "classes" | "players" | "calendar" | "admin";
+  icon: "trophy" | "classes" | "players" | "calendar";
 };
 
-const mainNavItems = computed<MainNavItem[]>(() =>
-{
-  const baseItems: MainNavItem[] = [
-    { to: "/", label: "Dashboard", icon: "trophy" },
-    { to: "/classes", label: "Klassen", icon: "classes" },
-    { to: "/players", label: "Spieler", icon: "players" },
-    { to: "/tournaments", label: "Turniere", icon: "calendar" },
-  ];
-  if (auth.user?.role === "admin")
-  {
-    baseItems.push({ to: "/admin", label: "Admin", icon: "admin" });
-  }
-  return baseItems;
-});
+const mainNavItems: MainNavItem[] = [
+  { to: "/", label: "Dashboard", icon: "trophy" },
+  { to: "/classes", label: "Klassen", icon: "classes" },
+  { to: "/players", label: "Spieler", icon: "players" },
+  { to: "/tournaments", label: "Turniere", icon: "calendar" },
+];
 
 function isNavActive(prefix: string): boolean 
 {
@@ -103,50 +97,12 @@ function navLinkClass(prefix: string): string
               <AppIcon v-if="!navOpen" name="menu" class="h-5 w-5" />
               <AppIcon v-else name="close" class="h-5 w-5" />
             </button>
-            <div class="hidden items-center gap-2 md:flex">
-              <template v-if="auth.user">
-                <div class="max-w-[16rem] text-right leading-tight">
-                  <p
-                    class="truncate text-slate-700"
-                    :title="auth.user.email"
-                  >
-                    {{
-                      auth.user.username
-                        ? `@${auth.user.username}`
-                        : auth.user.email
-                    }}
-                  </p>
-                  <p
-                    class="truncate text-xs text-slate-500"
-                    :title="`Schule: ${auth.user.schoolName}`"
-                  >
-                    Schule: {{ auth.user.schoolName }}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  class="rounded-lg border border-rose-200 bg-white/60 px-3 py-2 text-rose-600 transition hover:border-rose-300 hover:bg-rose-50"
-                  @click="auth.logout()"
-                >
-                  Abmelden
-                </button>
-              </template>
-              <template v-else>
-                <RouterLink :class="linkClass" to="/login"> Login </RouterLink>
-                <RouterLink
-                  class="rounded-lg bg-blue-600 px-3 py-2 font-medium text-white transition hover:bg-blue-600/90"
-                  to="/signup"
-                >
-                  Registrieren
-                </RouterLink>
-              </template>
-            </div>
+
           </div>
         </div>
       </div>
 
       <div
-        v-if="auth.user"
         class="hidden border-b border-slate-200 bg-white/70 backdrop-blur md:block"
       >
         <div class="mx-auto max-w-5xl px-3 sm:px-4">
@@ -174,7 +130,6 @@ function navLinkClass(prefix: string): string
         class="border-t border-slate-200 pb-3 pt-2 md:hidden"
       >
         <nav class="flex flex-col gap-1 px-3" aria-label="Mobile Navigation">
-          <template v-if="auth.user">
             <RouterLink
               v-for="item in mainNavItems"
               :key="item.to"
@@ -185,42 +140,6 @@ function navLinkClass(prefix: string): string
             >
               {{ item.label }}
             </RouterLink>
-            <p
-              class="truncate px-3 py-2 text-sm text-slate-500"
-              :title="auth.user.email"
-            >
-              {{
-                auth.user.username
-                  ? `@${auth.user.username}`
-                  : auth.user.email
-              }}
-            </p>
-            <p
-              class="truncate px-3 pb-2 text-xs text-slate-500"
-              :title="`Schule: ${auth.user.schoolName}`"
-            >
-              Schule: {{ auth.user.schoolName }}
-            </p>
-            <button
-              type="button"
-              class="rounded-lg px-3 py-3 text-left text-base text-rose-600 hover:bg-rose-50"
-              @click="auth.logout()"
-            >
-              Abmelden
-            </button>
-          </template>
-          <template v-else>
-            <RouterLink :class="linkClass" to="/login" @click="navOpen = false">
-              Login
-            </RouterLink>
-            <RouterLink
-              class="rounded-lg bg-blue-600 px-3 py-3 text-center text-base font-medium text-white hover:bg-blue-600/90"
-              to="/signup"
-              @click="navOpen = false"
-            >
-              Registrieren
-            </RouterLink>
-          </template>
         </nav>
       </div>
     </header>
@@ -229,6 +148,10 @@ function navLinkClass(prefix: string): string
       tabindex="-1"
       class="mx-auto w-full max-w-5xl flex-1 px-3 py-6 outline-none sm:px-4 sm:py-8 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]"
     >
+      <p v-if="realtimeDisconnected" role="status" class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        Die Verbindung zum Host ist unterbrochen. Bei einer Datenaktion pausiert der Betrieb kurz.
+        Die Verbindung wird automatisch wiederhergestellt. Bitte mit Änderungen warten.
+      </p>
       <RouterView />
     </main>
     <ToastHost />

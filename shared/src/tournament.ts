@@ -1,4 +1,4 @@
-import type { CreatedBy, Player } from "./catalog.js";
+import type { Player } from "./catalog.js";
 
 export type TournamentMode = "GROUP_KO" | "DIRECT_KO" | "ROUND_ROBIN";
 
@@ -73,7 +73,6 @@ export type TournamentDetail = {
   groupCount: number;
   advancesPerGroup: number;
   teamsAreIndividuals: boolean;
-  createdBy: CreatedBy;
   notices?: string[];
   teams: TournamentTeam[];
   matches: MatchRow[];

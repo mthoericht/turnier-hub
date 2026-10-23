@@ -1,15 +1,6 @@
 import type { Server } from "node:http";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import bcrypt from "bcryptjs";
 import { createApp } from "../../../server/src/app.js";
-import { prisma } from "../../../server/src/db.js";
-import {
-  SEED_EMAIL,
-  SEED_PASSWORD,
-} from "../../../server/src/seed/demoSeed.js";
-import {
-  postAuthLogin,
-} from "../../../client/src/api/authApi";
 import {
   addTeamMember,
   createTournamentTeam,
@@ -23,7 +14,6 @@ import {
 } from "../../../client/src/api/tournamentsApi";
 import { prisma } from "../../../server/src/db.js";
 import { fetchPlayersAll } from "../../../client/src/api/playersApi";
-import { setToken } from "../../../client/src/api/http";
 import { resetDatabase } from "../../server/helpers/db.js";
 
 const app = createApp();
@@ -31,50 +21,12 @@ let server: Server | null = null;
 let apiBaseUrl = "";
 const originalFetch = globalThis.fetch;
 
-type StorageLike = {
-  getItem: (key: string) => string | null;
-  setItem: (key: string, value: string) => void;
-  removeItem: (key: string) => void;
-  clear: () => void;
-};
-
-function installLocalStorageMock(): void
+async function seedMinimalPlayers(): Promise<void>
 {
-  const map = new Map<string, string>();
-  const storage: StorageLike = {
-    getItem: (k) => map.get(k) ?? null,
-    setItem: (k, v) => { map.set(k, v); },
-    removeItem: (k) => { map.delete(k); },
-    clear: () => { map.clear(); },
-  };
-  Object.defineProperty(globalThis, "localStorage", {
-    configurable: true,
-    value: storage,
-  });
-}
-
-async function seedMinimalAuthAndPlayers(): Promise<void>
-{
-  const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
-  const school = await prisma.school.upsert({
-    where: { name: "defaultSchool" },
-    create: { name: "defaultSchool" },
-    update: {},
-  });
-  const user = await prisma.user.create({
-    data: {
-      email: SEED_EMAIL,
-      username: "seeduser",
-      passwordHash,
-      schoolId: school.id,
-    },
-  });
   await prisma.player.createMany({
     data: Array.from({ length: 16 }, (_, i) => ({
       firstName: "Test",
       lastName: `Player ${i + 1}`,
-      userId: user.id,
-      schoolId: school.id,
       schoolClassId: null,
     })),
   });
@@ -84,7 +36,6 @@ describe("tournaments API integration (via client API)", () =>
 {
   beforeAll(async () =>
   {
-    installLocalStorageMock();
     await new Promise<void>((resolve) =>
     {
       server = app.listen(0, () => resolve());
@@ -112,8 +63,7 @@ describe("tournaments API integration (via client API)", () =>
   beforeEach(async () =>
   {
     await resetDatabase();
-    await seedMinimalAuthAndPlayers();
-    setToken(null);
+    await seedMinimalPlayers();
   });
 
   afterAll(async () =>
@@ -131,8 +81,6 @@ describe("tournaments API integration (via client API)", () =>
 
   it("deletes team and removes related group matches", async () =>
   {
-    const auth = await postAuthLogin(SEED_EMAIL, SEED_PASSWORD);
-    setToken(auth.token);
 
     const created = await postTournament({
       name: "Delete Team Test",
@@ -175,8 +123,6 @@ describe("tournaments API integration (via client API)", () =>
 
   it("delete-all-matches removes matches and clears team group labels", async () =>
   {
-    const auth = await postAuthLogin(SEED_EMAIL, SEED_PASSWORD);
-    setToken(auth.token);
 
     const created = await postTournament({
       name: "Delete Matches Test",
@@ -208,8 +154,6 @@ describe("tournaments API integration (via client API)", () =>
 
   it("returns tie-break notice when points are equal on qualification boundary", async () =>
   {
-    const auth = await postAuthLogin(SEED_EMAIL, SEED_PASSWORD);
-    setToken(auth.token);
 
     const created = await postTournament({
       name: "Tie-Break Test Turnier",
@@ -247,34 +191,19 @@ describe("tournaments API integration (via client API)", () =>
     expect((advanced.notices ?? []).some((n) => n.includes("Zufallsprinzip"))).toBe(true);
   });
 
-  it("turnier-ersteller kann fremden Spieler in ein Team aufnehmen", async () =>
+  it("nimmt beliebige Katalogspieler ohne Anmeldung in ein Team auf", async () =>
   {
-    const auth = await postAuthLogin(SEED_EMAIL, SEED_PASSWORD);
-    setToken(auth.token);
 
-    const otherUser = await prisma.user.create({
-      data: {
-        email: "other@turnier-hub.test",
-        username: "othercoach",
-        passwordHash: await bcrypt.hash("x", 10),
-        schoolId: (await prisma.user.findUniqueOrThrow({
-          where: { id: auth.user.id },
-          select: { schoolId: true },
-        })).schoolId,
-      },
-    });
     const otherPlayer = await prisma.player.create({
       data: {
         firstName: "Spieler",
-        lastName: "anderer Nutzer",
-        userId: otherUser.id,
-        schoolId: otherUser.schoolId,
+        lastName: "aus dem Katalog",
         schoolClassId: null,
       },
     });
 
     const created = await postTournament({
-      name: "Cross-user roster",
+      name: "Shared roster",
       sport: "Fußball",
       mode: "GROUP_KO",
       groupCount: 1,

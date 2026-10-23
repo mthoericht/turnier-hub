@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'">
+    <title>Host-Verwaltung</title>
+    <link rel="stylesheet" href="management.css">
+  </head>
+  <body>
+    <main>
+      <h1>Host-Verwaltung</h1>
+      <p>Nur direkt an diesem Rechner verfügbar.</p>
+      <section aria-labelledby="host-heading">
+        <h2 id="host-heading">Host und Verbindung</h2>
+        <dl id="host-info"></dl>
+        <p id="counts"></p>
+      </section>
+      <section aria-labelledby="backup-heading">
+        <h2 id="backup-heading">Datensicherung</h2>
+        <p>Vollständiger Bestand mit Klassen, Spielern, Turnieren, Teams, Kadern, Spielen, Ergebnissen und Timern.</p>
+        <div class="actions">
+          <button data-action="export">Daten vollständig exportieren</button>
+          <button data-action="restore">Sicherung wiederherstellen</button>
+          <button data-action="backups" class="secondary">Automatische Sicherungen öffnen</button>
+        </div>
+      </section>
+      <section aria-labelledby="demo-heading">
+        <h2 id="demo-heading">Ausprobieren und neu beginnen</h2>
+        <p>Beispieldaten können nur in einen leeren Bestand geladen werden. Vor dem Zurücksetzen wird dein bisheriger Bestand automatisch gesichert.</p>
+        <div class="actions">
+          <button data-action="seed" class="secondary">Beispieldaten laden</button>
+          <button data-action="reset" class="danger">Datenbestand zurücksetzen</button>
+        </div>
+      </section>
+      <p class="hint">Während einer Datenaktion pausiert der Netzwerkbetrieb kurz. Die verbundenen Geräte verbinden sich danach automatisch neu. Bewahre wichtige Sicherungen zusätzlich außerhalb dieses Rechners auf.</p>
+      <p id="result" role="status" aria-live="polite"></p>
+    </main>
+    <script src="management.js"></script>
+  </body>
+</html>

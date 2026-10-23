@@ -17,6 +17,8 @@
     "build-storybook": "storybook build --config-dir ../tests/client/storybook"
   },
   "dependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/outfit": "^5.3.0",
     "@turnier-hub/shared": "file:../shared",
     "pinia": "^3.0.1",
     "vue": "^3.5.13",

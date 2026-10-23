@@ -5,7 +5,11 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const envFile =
   process.env.NODE_ENV === "test" ? ".env.test" : ".env";
-loadEnv({ path: path.join(here, "..", envFile) });
+// Desktop supplies isolated settings; never inherit a developer's .env/database.
+if (process.env.TURNIER_HUB_DESKTOP !== "1")
+{
+  loadEnv({ path: path.join(here, "..", envFile) });
+}
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -20,8 +24,6 @@ function requireEnvInProduction(key: string): void
   }
 }
 
-requireEnvInProduction("JWT_SECRET");
-requireEnvInProduction("INVITE_CODE");
 requireEnvInProduction("CORS_ALLOWED_ORIGINS");
 
 /**
@@ -82,58 +84,11 @@ function readTrustProxy(value: string | undefined): boolean | number | string | 
   return csv.length > 1 ? csv : trimmed;
 }
 
-/**
- * Lightweight secret quality check by minimum trimmed length.
- */
-function hasMinEntropyLikeLength(value: string, minLength: number): boolean
-{
-  return value.trim().length >= minLength;
-}
-
-/** JWT signing secret (required in production). */
-export const JWT_SECRET = process.env.JWT_SECRET ?? "dev-only-change-me";
-/** Shared invite code used during signup (required in production). */
-export const INVITE_CODE = process.env.INVITE_CODE ?? "ballspiele2026";
 /** HTTP port for API and static assets. */
 export const PORT = readPositiveInt(process.env.PORT, 3001);
-/** Rate-limit window for login/signup endpoints in milliseconds. */
-export const AUTH_RATE_LIMIT_WINDOW_MS = readPositiveInt(
-  process.env.AUTH_RATE_LIMIT_WINDOW_MS,
-  10 * 60 * 1000
-);
-/** Maximum login requests per IP within the auth window. */
-export const AUTH_LOGIN_MAX_REQUESTS = readPositiveInt(
-  process.env.AUTH_LOGIN_MAX_REQUESTS,
-  20
-);
-/** Maximum signup requests per IP within the auth window. */
-export const AUTH_SIGNUP_MAX_REQUESTS = readPositiveInt(
-  process.env.AUTH_SIGNUP_MAX_REQUESTS,
-  10
-);
-/** Maximum auth requests per email/username within the auth window. */
-export const AUTH_IDENTIFIER_MAX_REQUESTS = readPositiveInt(
-  process.env.AUTH_IDENTIFIER_MAX_REQUESTS,
-  10
-);
-/** Failed logins before progressive lockout starts. */
-export const LOGIN_LOCKOUT_START_AFTER_FAILURES = readPositiveInt(
-  process.env.LOGIN_LOCKOUT_START_AFTER_FAILURES,
-  3
-);
-/** Base lockout duration in milliseconds for failed logins. */
-export const LOGIN_LOCKOUT_BASE_MS = readPositiveInt(
-  process.env.LOGIN_LOCKOUT_BASE_MS,
-  15 * 1000
-);
-/** Maximum lockout duration in milliseconds for failed logins. */
-export const LOGIN_LOCKOUT_MAX_MS = readPositiveInt(
-  process.env.LOGIN_LOCKOUT_MAX_MS,
-  15 * 60 * 1000
-);
 /** Explicit browser origin allowlist for CORS. */
 export const CORS_ALLOWED_ORIGINS = splitCsv(
-  process.env.CORS_ALLOWED_ORIGINS
+  process.env.CORS_ALLOWED_ORIGINS ?? (isProd ? "" : "http://127.0.0.1:3220,http://localhost:3220")
 );
 /** Express `trust proxy` value. */
 export const TRUST_PROXY = readTrustProxy(process.env.TRUST_PROXY);
@@ -190,21 +145,8 @@ export const SECURITY_WS_CONNECTIONS_THRESHOLD = readPositiveInt(
   100
 );
 
-/** Default school name auto-created for new accounts. */
-const defaultSchoolName = process.env.DEFAULT_SCHOOL_NAME?.trim();
-/** Resolved default school name used at startup. */
-export const DEFAULT_SCHOOL_NAME = defaultSchoolName?.length ? defaultSchoolName : "defaultSchool";
-
 if (isProd)
 {
-  if (!hasMinEntropyLikeLength(JWT_SECRET, 32))
-  {
-    throw new Error("JWT_SECRET must be at least 32 characters in production");
-  }
-  if (!hasMinEntropyLikeLength(INVITE_CODE, 12))
-  {
-    throw new Error("INVITE_CODE should be at least 12 characters in production");
-  }
   if (CORS_ALLOWED_ORIGINS.length === 0 || CORS_ALLOWED_ORIGINS.includes("*"))
   {
     throw new Error("CORS_ALLOWED_ORIGINS must be a non-wildcard allowlist in production");
