@@ -7,7 +7,7 @@ import { registerTournamentStandingsAdvanceRoutes } from "./standings-advance.js
 /** Tournament router mounted under `/api/tournaments`. */
 const router = Router();
 
-/** Registers all tournament route modules on one authenticated router. */
+/** Registers the shared-catalog tournament route modules. */
 registerTournamentCoreRoutes(router);
 registerTournamentTeamRoutes(router);
 registerTournamentMatchRoutes(router);

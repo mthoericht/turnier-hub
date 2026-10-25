@@ -6,4 +6,4 @@ alwaysApply: true
 # Project guidance
 
 - Follow **`AGENTS.md`** at the repository root for commands, layout, environment, API notes, tournament UI structure, ESLint, and contribution conventions. Treat it as the primary source for **how to work in this repo**.
-- Use **`README.md`** for user-facing **setup**, **feature overview**, **script tables** (including `prod:*`, `db:deploy`, `lint`), and **production** steps.
+- Use **`README.md`** for user-facing **setup**, **feature overview**, **script tables** (including `prod:*`, `db:generate`, `lint`), and **production** steps.

@@ -6,6 +6,7 @@ import { RealtimeHub } from "./realtime/hub.js";
 import { setRealtimeHub } from "./realtime/notify.js";
 import { prisma } from "./db.js";
 
+export { createDatabaseClient } from "./dbClient.js";
 export { inspectDesktopDatabase, snapshotDesktopDatabase, seedDesktopDatabase } from "./desktopData.js";
 
 /** Shared lifecycle for the CLI server and the small desktop prototype. */

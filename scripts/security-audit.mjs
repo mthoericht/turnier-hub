@@ -2,7 +2,6 @@
 
 import { execFileSync } from "node:child_process";
 
-const ALLOWLIST = new Set(["xlsx"]);
 const FAIL_ON = new Set(["critical", "high"]);
 
 function runAuditJson()
@@ -32,10 +31,13 @@ function main()
 {
   const raw = runAuditJson();
   const report = JSON.parse(raw);
-  const vulnerabilities = report.vulnerabilities ?? {};
+  if (report.error || !report.vulnerabilities || !report.metadata?.vulnerabilities)
+  {
+    throw new Error("Security audit did not return a valid vulnerability report.");
+  }
+  const vulnerabilities = report.vulnerabilities;
 
   const blocking = [];
-  const allowlisted = [];
 
   for (const [pkg, details] of Object.entries(vulnerabilities))
   {
@@ -45,22 +47,7 @@ function main()
       continue;
     }
 
-    if (ALLOWLIST.has(pkg))
-    {
-      allowlisted.push({ pkg, severity });
-      continue;
-    }
-
     blocking.push({ pkg, severity });
-  }
-
-  if (allowlisted.length > 0)
-  {
-    console.log("Allowed audit exceptions:");
-    for (const item of allowlisted)
-    {
-      console.log(`- ${item.pkg} (${item.severity})`);
-    }
   }
 
   if (blocking.length > 0)
@@ -73,7 +60,7 @@ function main()
     process.exit(1);
   }
 
-  console.log("Security audit passed (allowlist applied).");
+  console.log("Security audit passed: no high/critical findings reported.");
 }
 
 main();

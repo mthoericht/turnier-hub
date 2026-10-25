@@ -8,7 +8,7 @@ export async function fetchPlayers(): Promise<Player[]>
   return api<Player[]>("/api/players");
 }
 
-/** All players visible to the user (for tournament roster assignment). */
+/** Shared catalog players available for tournament roster assignment. */
 export async function fetchPlayersAll(): Promise<Player[]>
 {
   return fetchPlayers();

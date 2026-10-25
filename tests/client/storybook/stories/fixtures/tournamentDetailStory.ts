@@ -1,3 +1,4 @@
+import { formatPlayerName } from "@turnier-hub/shared";
 import type {
   MatchRow,
   StandingTeamRow,
@@ -84,7 +85,7 @@ function buildIndividualsTournamentDetail(): TournamentDetail
   const tournamentId = storyTournamentIndividualsId;
   const teams: TournamentTeam[] = demoPlayers.map((player, idx) => ({
     id: `ind-team-${idx + 1}`,
-    name: player.name,
+    name: formatPlayerName(player),
     sortOrder: idx,
     groupLabel: null,
     members: [

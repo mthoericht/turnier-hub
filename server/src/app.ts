@@ -80,7 +80,7 @@ export function createApp(options: { clientDist?: string; localDesktop?: boolean
     next();
   });
 
-  // Passive telemetry for auth-related HTTP status spikes.
+  // Passive telemetry for HTTP security status spikes.
   app.use((req, res, next) =>
   {
     res.on("finish", () =>

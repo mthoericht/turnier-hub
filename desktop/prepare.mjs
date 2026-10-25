@@ -1,10 +1,12 @@
 import { build } from "esbuild";
+import { rebuild } from "@electron/rebuild";
+import runtimePackages from "./runtime-packages.cjs";
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import os from "node:os";
-import crypto from "node:crypto";
+import { storageSchemaId } from "./schema-identity.mjs";
 import { spawnSync } from "node:child_process";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -28,21 +30,52 @@ const bundle = await build({
   platform: "node",
   format: "cjs",
   target: "node22",
-  external: ["@prisma/client"],
+  external: ["@prisma/client", "better-sqlite3"],
   metafile: true,
   // Express's default static path is unused by Desktop; preserve import.meta.url
   // for its dirname and config module without ESM-only runtime constructs.
   define: { "import.meta.url": "desktopImportMetaUrl" },
   banner: { js: "const desktopImportMetaUrl = require('node:url').pathToFileURL(__filename).href;" },
 });
-const prismaClientDir = path.dirname(requireServer.resolve("@prisma/client/package.json"));
-const generatedClientDir = path.dirname(requireServer.resolve(".prisma/client/package.json"));
-await cp(prismaClientDir, path.join(runtimeDir, "node_modules/@prisma/client"), { recursive: true });
-await cp(generatedClientDir, path.join(runtimeDir, "node_modules/.prisma/client"), { recursive: true });
-await writeFile(path.join(runtimeDir, "schema.sha256"), crypto.createHash("sha256").update(schema).digest("hex"));
+const packageDirs = new Set();
+const adapterRequire = createRequire(requireServer.resolve("@prisma/adapter-better-sqlite3"));
+const nativeRequire = createRequire(adapterRequire.resolve("better-sqlite3"));
+const runtimeDependencies = {};
+async function packageDir(resolver, name)
+{
+  try { return path.dirname(resolver.resolve(`${name}/package.json`)); }
+  catch (error)
+  {
+    if (error.code !== "ERR_PACKAGE_PATH_NOT_EXPORTED") throw error;
+    let dir = path.dirname(resolver.resolve(name));
+    while (dir !== path.dirname(dir))
+    {
+      try
+      {
+        const pkg = JSON.parse(await readFile(path.join(dir, "package.json"), "utf8"));
+        if (pkg.name === name) return dir;
+      }
+      catch (failure) { if (failure.code !== "ENOENT") throw failure; }
+      dir = path.dirname(dir);
+    }
+    throw new Error(`Cannot locate runtime package ${name}`);
+  }
+}
+for (const name of runtimePackages)
+{
+  const resolver = ["better-sqlite3", "bindings", "file-uri-to-path"].includes(name) ? nativeRequire : requireServer;
+  const dir = await packageDir(resolver, name);
+  await cp(dir, path.join(runtimeDir, "node_modules", name), { recursive: true });
+  packageDirs.add(dir);
+  if (!name.startsWith(".prisma")) runtimeDependencies[name] = JSON.parse(await readFile(path.join(dir, "package.json"), "utf8")).version;
+}
+await writeFile(path.join(runtimeDir, "package.json"), JSON.stringify({ private: true, dependencies: runtimeDependencies }, null, 2));
+const electronVersion = JSON.parse(await readFile(path.join(root, "node_modules/electron/package.json"), "utf8")).version;
+// Rebuild only the staged copy; API tests retain the build-Node ABI in root deps.
+await rebuild({ buildPath: runtimeDir, electronVersion, arch: process.arch, onlyModules: ["better-sqlite3"], force: true });
+await writeFile(path.join(runtimeDir, "schema.sha256"), storageSchemaId(schema));
 
-// Keep notices for bundled server dependencies and locally shipped font files.
-const packageDirs = new Set([prismaClientDir]);
+// Keep notices for bundled server dependencies, copied runtime packages and fonts.
 for (const input of Object.keys(bundle.metafile.inputs))
 {
   const fullPath = path.resolve(root, input);
@@ -53,9 +86,9 @@ for (const input of Object.keys(bundle.metafile.inputs))
   packageDirs.add(`${parts.join(`${path.sep}node_modules${path.sep}`)}${path.sep}node_modules${path.sep}${packageName}`);
 }
 const requireClient = createRequire(path.join(root, "client/package.json"));
-for (const font of ["@fontsource/dm-sans", "@fontsource/outfit"])
+for (const font of ["@fontsource/dm-sans", "@fontsource/outfit", "xlsx"])
 {
-  packageDirs.add(path.dirname(requireClient.resolve(`${font}/package.json`)));
+  packageDirs.add(await packageDir(requireClient, font));
 }
 for (const dir of packageDirs)
 {
@@ -76,7 +109,8 @@ try
   const temporaryDb = path.join(temporary, "empty.db");
   await writeFile(temporarySchema, schema);
   await writeFile(temporaryDb, "", { flag: "wx" });
-  const result = spawnSync(process.execPath, [requireServer.resolve("prisma/build/index.js"), "db", "push", "--schema", temporarySchema, "--skip-generate"], {
+  await writeFile(path.join(temporary, "prisma.config.mjs"), `export default ${JSON.stringify({ schema: temporarySchema, datasource: { url: `file:${temporaryDb.replaceAll("\\", "/")}` } })};`);
+  const result = spawnSync(process.execPath, [requireServer.resolve("prisma/build/index.js"), "db", "push", "--config", path.join(temporary, "prisma.config.mjs")], {
     cwd: temporary,
     env: { ...process.env, DATABASE_URL: `file:${temporaryDb.replaceAll("\\", "/")}` },
     stdio: "inherit",

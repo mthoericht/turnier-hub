@@ -22,6 +22,7 @@ describe("playersExchange export", () =>
 {
   afterEach(() =>
   {
+    vi.clearAllMocks();
     vi.restoreAllMocks();
   });
 

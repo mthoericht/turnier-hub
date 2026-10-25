@@ -12,40 +12,33 @@
     "prod:prepare": "prisma generate && npm run build",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:push:test": "dotenv -e .env.test -- prisma db push",
-    "db:deploy": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "prisma db seed",
-    "db:seed:test": "dotenv -e .env.test -- prisma db seed",
-    "db:clear": "tsx scripts/clearDb.ts",
-    "db:clear:test": "dotenv -e .env.test -- tsx scripts/clearDb.ts",
     "test": "NODE_ENV=test dotenv -e .env.test -- vitest run",
     "test:watch": "NODE_ENV=test dotenv -e .env.test -- vitest",
-    "test:unit": "NODE_ENV=test dotenv -e .env.test -- vitest run ../tests/server/unit",
-    "test:integration": "NODE_ENV=test dotenv -e .env.test -- vitest run ../tests/server/integration --passWithNoTests",
-    "test:prepare": "dotenv -e .env.test -- prisma db push"
+    "test:unit": "NODE_ENV=test dotenv -e .env.test -- vitest run ../tests/server/unit"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
+    "@prisma/adapter-better-sqlite3": "7.10.1",
+    "@prisma/client": "7.10.1",
     "@turnier-hub/shared": "file:../shared",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "helmet": "^8.1.0",
-    "ws": "^8.20.0",
-    "zod": "^3.24.2"
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.3",
+    "helmet": "^8.3.0",
+    "ws": "^8.22.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "@types/node": "^22.13.5",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/node": "^22.20.5",
     "@types/supertest": "^6.0.3",
-    "@types/ws": "^8.18.1",
+    "@types/ws": "^8.18.2",
     "dotenv-cli": "^8.0.0",
-    "prisma": "^6.19.3",
-    "supertest": "^7.1.1",
-    "tsx": "^4.19.3",
-    "typescript": "^5.7.3",
-    "vitest": "^3.2.4"
+    "prisma": "7.10.1",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "4.1.12"
   }
 }

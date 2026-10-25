@@ -49,7 +49,7 @@ type UpgradeSocket = {
   destroy: () => void;
 };
 
-// --- Upgrade/auth and rate-limit helpers ---
+// --- Upgrade and rate-limit helpers ---
 
 /**
  * Resolves the client IP from an upgrade request using the same trust
@@ -143,7 +143,7 @@ function cleanupExpired(store: Map<string, Counter>): void
 // --- Realtime hub ---
 
 /**
- * Websocket hub for authenticated realtime push messages and subscriptions.
+ * Websocket hub for shared-catalog push messages and subscriptions.
  */
 export class RealtimeHub
 {

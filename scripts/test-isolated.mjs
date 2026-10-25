@@ -7,6 +7,12 @@ import os from "node:os";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const requireServer = createRequire(path.join(root, "server/package.json"));
+const mode = process.argv[2] ?? "all";
+if (!["all", "client", "integration"].includes(mode))
+{
+  console.error("Usage: node scripts/test-isolated.mjs [all|client|integration]");
+  process.exit(1);
+}
 const temporary = await mkdtemp(path.join(os.tmpdir(), "turnier-hub-isolated-tests-"));
 const env = {
   ...process.env, NODE_ENV: "test", TURNIER_HUB_DESKTOP: "0", TURNIER_HUB_ISOLATED_TEST: "1",
@@ -28,8 +34,10 @@ try
 {
   await writeFile(path.join(temporary, "schema.prisma"), await readFile(path.join(root, "server/prisma/schema.prisma")));
   await writeFile(path.join(temporary, "test.db"), "");
-  await run(process.execPath, [requireServer.resolve("prisma/build/index.js"), "db", "push", "--schema", path.join(temporary, "schema.prisma"), "--skip-generate"], temporary);
-  if (process.argv[2] === "integration") await run("npm", ["run", "test:integration", "-w", "client"]);
+  await writeFile(path.join(temporary, "prisma.config.mjs"), `export default ${JSON.stringify({ schema: path.join(temporary, "schema.prisma"), datasource: { url: env.DATABASE_URL } })};`);
+  await run(process.execPath, [requireServer.resolve("prisma/build/index.js"), "db", "push", "--config", path.join(temporary, "prisma.config.mjs")], temporary);
+  if (mode === "integration") await run("npm", ["run", "test:integration", "-w", "client"]);
+  else if (mode === "client") await run("npm", ["run", "test", "-w", "client"]);
   else
   {
     await run("npm", ["run", "test", "-w", "server"]);

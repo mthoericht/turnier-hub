@@ -9,7 +9,7 @@ const { initializePrototypeData } = require("../../desktop/app/storage.cjs");
 
 process.env.TURNIER_HUB_DESKTOP = "1";
 const database = require("../../desktop/runtime/server.cjs");
-const { PrismaClient } = require("../../desktop/runtime/node_modules/@prisma/client");
+const { createDatabaseClient } = database;
 const runtimeDir = path.resolve(__dirname, "../../desktop/runtime");
 
 async function fixture(t, hooks = {})
@@ -22,7 +22,7 @@ async function fixture(t, hooks = {})
     dataDir, runtimeDir, schemaId: settings.schemaId, appVersion: "0.2.0", database,
     stop: async () => {}, start: async () => {}, ...hooks,
   });
-  const connect = () => new PrismaClient({ datasources: { db: { url: `file:${dbPath}` } } });
+  const connect = () => createDatabaseClient(`file:${dbPath}`);
   return { root, dataDir, dbPath, manager, connect };
 }
 
@@ -97,7 +97,7 @@ test("invalid, tampered, incompatible and structurally forged backups change not
   }
   const foreign = path.join(root, "foreign.db");
   await fs.copyFile(path.join(runtimeDir, "empty.db"), foreign);
-  const db = new PrismaClient({ datasources: { db: { url: `file:${foreign}` } } });
+  const db = createDatabaseClient(`file:${foreign}`);
   await db.$executeRawUnsafe("CREATE TABLE Unexpected (id TEXT)");
   await db.$disconnect();
   const bytes = await fs.readFile(foreign);

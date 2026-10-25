@@ -3,7 +3,7 @@ import PlayersViewPreset from "@/views/PlayersViewPreset.vue";
 import {
   resetPlayersStoryState,
   setPlayersStoryState,
-} from "@/composables/players/usePlayersManagementState";
+} from "../../mocks/usePlayersManagementState.mock";
 import type { Player } from "@turnier-hub/shared";
 
 const meta: Meta<typeof PlayersViewPreset> = {

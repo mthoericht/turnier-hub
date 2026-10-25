@@ -19,12 +19,17 @@ The prototype rebuilds instead of using renderer HMR.
 
 Mac Apple Silicon is the current target. `desktop:pack:mac` builds the unpacked
 app; `desktop:dist:mac` also produces a ZIP under ignored `release/desktop/`.
-Build on the native target OS/architecture for Prisma. Windows remains deferred.
+Build on the native target OS/architecture for the SQLite driver. Only the staged
+`better-sqlite3` copy is rebuilt for Electron; root dependencies keep the build-Node
+ABI. `desktop:test` runs under Electron as Node. Windows remains deferred.
 
 ## Host privileges and data safety
 
-Read `desktop/README.md` and `doc/STANDALONE_REFACTORING_TODO.md` for the current
-milestone and validation limits. Electron's `desktop/app/main.cjs` owns the server
+Read the [desktop guide](desktop/README.md) and
+[validation record](doc/STANDALONE_VALIDATION.md) for current behavior and remaining
+acceptance limits. See [development](doc/DEVELOPMENT.md) for commands and the
+[local access boundary](desktop/README.md#local-access-and-safety).
+Electron's `desktop/app/main.cjs` owns the server
 lifecycle. Closing the host stops HTTP, WebSockets and Prisma, including on macOS.
 The packaged default port is 3210. The main renderer has no Node or privileged
 bridge. Only exact local host-management windows/main frames may invoke the
@@ -41,7 +46,10 @@ Desktop ignores server `.env`. Development and packaged data are isolated.
 Account-free files are `standalone.db` and `standalone-settings.json`; legacy
 `prototype.db` and `prototype-settings.json` must remain untouched. Do not reset,
 seed, push schema to or smoke-test an existing real/development/prototype database.
-Changed fingerprints and incomplete data pairs are refused. No runtime Prisma CLI
+Changed fingerprints and incomplete data pairs are refused. `schema-identity.mjs`
+normalizes only Prisma 7’s relocated connection URL to retain the v1 identity; do
+not normalize model changes to bypass this check. `dbClient.ts` uses the official
+SQLite adapter with `unixepoch-ms` timestamps for Prisma 6 compatibility. No runtime Prisma CLI
 or downloads; `desktop/prepare.mjs` makes a fresh empty template at build time.
 Optional demo data may only be loaded explicitly into an empty catalog.
 
@@ -51,7 +59,8 @@ Optional demo data may only be loaded explicitly into an empty catalog.
 - After substantive client edits run `npm run lint -w client`. When types change,
   run `npx vue-tsc --build --noEmit` from `client/`.
 - `npm test` uses `scripts/test-isolated.mjs`, a fresh temporary database and the
-  server/client/Storybook suites. `npm run test:integration` is the focused variant.
+  server/client/Storybook suites. `npm run test:client` uses that runner for the
+  client suites; `npm run test:integration` is the focused API variant.
   Test reset helpers require the isolated runner. Never substitute an old test DB.
 - `npm run desktop:prepare`, then `npm run desktop:test` tests storage and full
   backup/restore. `desktop:smoke`, `desktop:smoke:host` and `desktop:smoke:errors`
@@ -73,8 +82,10 @@ live under `server/src/services/`. Preserve all three modes, byes, round-robin
 parallel rounds, persisted-score advancement and timer semantics.
 
 Prisma schema is `server/prisma/schema.prisma`. Generating the client makes no DB
-writes; `db:push` does. The seed and clear scripts are development tools, never
-part of automatic startup. Seeds use the shared empty catalog and no accounts.
+writes; `db:push` is retained only for deliberately fresh API sandboxes. Manual
+seed/clear and test-profile schema shortcuts have been removed. Host management
+and isolated tests share `server/src/seed/demoSeed.ts`; never remove that module
+as unused CLI code. Seeds use an empty catalog and no accounts.
 Player import append/reconcile preserves matching IDs and memberships. Player
 names have firstName/lastName and optional schoolClass.
 

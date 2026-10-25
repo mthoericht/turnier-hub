@@ -7,10 +7,10 @@
     "shared"
   ],
   "engines": {
-    "node": ">=22"
+    "node": "^22.13.0 || ^24.0.0"
   },
   "scripts": {
-    "clean": "rimraf node_modules client/node_modules server/node_modules client/dist server/dist",
+    "clean": "rimraf node_modules client/node_modules server/node_modules shared/node_modules client/dist server/dist shared/dist client/tsconfig.app.tsbuildinfo client/tsconfig.node.tsbuildinfo shared/tsconfig.tsbuildinfo shared/tsconfig.build.tsbuildinfo",
     "clean:install": "npm run clean && npm install",
     "dev": "npm run desktop:dev",
     "build": "npm run build -w @turnier-hub/shared && npm run build -w server && npm run build -w client",
@@ -20,16 +20,11 @@
     "prod:start": "NODE_ENV=production npm run start:prod -w server",
     "prod": "npm run prod:prepare && npm run prod:start",
     "db:push": "npm run db:push -w server",
-    "db:push:test": "npm run db:push:test -w server",
-    "db:deploy": "npm run db:deploy -w server",
     "db:studio": "npm run db:studio -w server",
     "dev:test": "npm run dev:test -w server",
     "db:generate": "npm run db:generate -w server",
-    "db:seed": "npm run db:seed -w server",
-    "db:clear": "npm run db:clear -w server --",
-    "db:clear:test": "npm run db:clear:test -w server --",
     "test": "node scripts/test-isolated.mjs all",
-    "test:client": "npm run test -w client",
+    "test:client": "node scripts/test-isolated.mjs client",
     "test:unit": "npm run test:unit -w server",
     "test:integration": "node scripts/test-isolated.mjs integration",
     "security:audit": "node ./scripts/security-audit.mjs",
@@ -44,14 +39,15 @@
     "desktop:dist:win": "npm run desktop:runtime && npm run db:generate && npm run build && node desktop/prepare.mjs win32 && electron-builder --config desktop/electron-builder.cjs --win --x64",
     "desktop:runtime": "node node_modules/electron/install.js",
     "desktop:smoke": "node desktop/smoke.mjs",
-    "desktop:test": "node --test tests/desktop/*.test.cjs",
+    "desktop:test": "node desktop/test.mjs",
     "desktop:smoke:errors": "node desktop/error-smoke.mjs",
     "desktop:smoke:host": "node desktop/maintenance-smoke.mjs"
   },
   "devDependencies": {
-    "electron": "^42.11.18",
-    "electron-builder": "^26.15.3",
-    "esbuild": "^0.25.12",
-    "rimraf": "^6.0.1"
+    "@electron/rebuild": "4.2.1",
+    "electron": "^44.9.3",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "rimraf": "^6.1.3"
   }
 }

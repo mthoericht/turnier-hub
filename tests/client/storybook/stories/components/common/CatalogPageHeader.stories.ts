@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { ref } from "vue";
 import CatalogPageHeader from "@/components/common/CatalogPageHeader.vue";
 
 const meta: Meta<typeof CatalogPageHeader> = {

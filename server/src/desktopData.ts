@@ -1,17 +1,13 @@
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { access } from "node:fs/promises";
 import { seedDemoData } from "./seed/demoSeed.js";
+import { createDatabaseClient } from "./dbClient.js";
 
 // Imported only by Electron's main process. These functions are never routes.
-function client(file: string): PrismaClient
-{
-  return new PrismaClient({ datasources: { db: { url: `file:${file.replaceAll("\\", "/")}` } } });
-}
-
 async function withDatabase<T>(file: string, action: (db: PrismaClient) => Promise<T>): Promise<T>
 {
   await access(file); // Prisma must not silently create a missing source.
-  const db = client(file);
+  const db = createDatabaseClient(`file:${file.replaceAll("\\", "/")}`);
   try { return await action(db); }
   finally { await db.$disconnect(); }
 }

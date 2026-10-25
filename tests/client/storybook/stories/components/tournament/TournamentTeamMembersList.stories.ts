@@ -18,7 +18,6 @@ export const MitSpielern: Story = {
   args: {
     team: demoTeamWithMembers,
     canEdit: true,
-    showCreator: false,
   },
   render: (args) => ({
     components: { TournamentTeamMembersList },

@@ -55,8 +55,6 @@ function createStorybookRouter()
     history: createMemoryHistory(),
     routes: [
       { path: "/", name: "dashboard", component: { template: "<div />" } },
-      { path: "/login", name: "login", component: { template: "<div />" } },
-      { path: "/signup", name: "signup", component: { template: "<div />" } },
       {
         path: "/tournaments",
         name: "tournaments-list",

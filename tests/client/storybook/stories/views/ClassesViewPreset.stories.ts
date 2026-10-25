@@ -3,7 +3,7 @@ import ClassesViewPreset from "@/views/ClassesViewPreset.vue";
 import {
   resetClassesStoryState,
   setClassesStoryState,
-} from "@/composables/classes/useClassesManagementState";
+} from "../../mocks/useClassesManagementState.mock";
 import type { SchoolClass } from "@turnier-hub/shared";
 
 const meta: Meta<typeof ClassesViewPreset> = {

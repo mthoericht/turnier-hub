@@ -1,4 +1,5 @@
 const path = require("node:path");
+const runtimePackages = require("./runtime-packages.cjs");
 
 module.exports = {
   appId: "de.turnierhub.app",
@@ -7,16 +8,15 @@ module.exports = {
   files: ["main.cjs", "storage.cjs", "diagnostics.cjs", "maintenance.cjs", "host-management.cjs", "host-preload.cjs", "management.html", "management.css", "management.js", "host.html", "host.css", "host.js", "package.json"],
   extraResources: [
     { from: "desktop/runtime", to: "runtime" },
-    // Root node_modules folders are deliberately skipped by builder's generic
-    // resource filter. Copy these two runtime packages explicitly.
-    { from: "desktop/runtime/node_modules/@prisma/client", to: "runtime/node_modules/@prisma/client" },
-    { from: "desktop/runtime/node_modules/.prisma/client", to: "runtime/node_modules/.prisma/client" },
+    ...runtimePackages.map((name) => ({
+      from: `desktop/runtime/node_modules/${name}`, to: `runtime/node_modules/${name}`,
+    })),
     { from: "client/dist", to: "client" },
   ],
   asar: true,
   npmRebuild: false,
   electronDist: path.join(__dirname, "../node_modules/electron/dist"),
-  mac: { target: [{ target: "zip", arch: ["arm64"] }], identity: null, category: "public.app-category.education" },
+  mac: { target: [{ target: "zip", arch: ["arm64"] }], identity: null, minimumSystemVersion: "13.0.0", category: "public.app-category.education" },
   win: { target: [{ target: "nsis", arch: ["x64"] }] },
   nsis: { oneClick: false, allowToChangeInstallationDirectory: true, deleteAppDataOnUninstall: false },
 };

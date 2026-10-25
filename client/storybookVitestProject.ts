@@ -1,4 +1,5 @@
 import path from "node:path";
+import { playwright } from "@vitest/browser-playwright";
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import type { TestProjectConfiguration } from "vitest/config";
 import { clientRoot } from "./vite.shared";
@@ -24,7 +25,7 @@ export function createStorybookVitestProject(): TestProjectConfiguration
       browser: {
         enabled: true,
         headless: true,
-        provider: "playwright",
+        provider: playwright(),
         instances: [
           {
             browser: "chromium",

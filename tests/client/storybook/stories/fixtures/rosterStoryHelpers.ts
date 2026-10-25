@@ -1,23 +1,25 @@
 import type { Player } from "@turnier-hub/shared";
 import type { TournamentTeam } from "@/tournament/tournamentContext";
 
-
 export const demoPlayers: Player[] = [
   {
     id: "p1",
-    name: "Anna Schmidt",
+    firstName: "Anna",
+    lastName: "Schmidt",
     schoolClass: { id: "c1", name: "7a" },
 
   },
   {
     id: "p2",
-    name: "Ben Müller",
+    firstName: "Ben",
+    lastName: "Müller",
     schoolClass: { id: "c1", name: "7a" },
 
   },
   {
     id: "p3",
-    name: "Cleo ohne Klasse",
+    firstName: "Cleo",
+    lastName: "ohne Klasse",
     schoolClass: null,
 
   },

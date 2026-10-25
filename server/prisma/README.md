@@ -1,169 +1,64 @@
-# Prisma-Schema Notizen
+# Prisma schema notes
 
-Dieses Verzeichnis enthält das Prisma-Schema für die Backend-Datenbank.
+`schema.prisma` defines the shared account-free catalog: SchoolClass, Player,
+Tournament, TournamentTeam, TournamentTeamMember and Match. There are no user,
+role or school-tenant models. Class names are globally unique. Players have
+firstName/lastName and an optional class.
 
-## Schnelles mentales Modell
+## Relations and queries
 
-Bei Relations in Prisma gibt es in der Regel:
+Scalar IDs such as `tournamentId`, `homeTeamId` and `awayTeamId` are foreign-key
+fields; `tournament`, `homeTeam` and `awayTeam` are Prisma relation fields used by
+`include`/`select`. A match belongs to one tournament. Both team relations are
+nullable, including an away-team bye. Deleting a tournament cascades its matches;
+deleting a referenced team sets the match's corresponding team ID to null.
 
-- ein skalares Foreign-Key-Feld (`tournamentId`, `homeTeamId`, `awayTeamId`)
-- ein Relationsfeld (`tournament`, `homeTeam`, `awayTeam`)
-
-Skalare Felder nutzt du für direkte ID-Filter und Updates.  
-Relationsfelder nutzt du für `include`, verschachtelte Writes und relationsbasierte Filter.
-
-## Match-Relationen (`model Match`)
-
-Das `Match`-Modell referenziert ein Turnier und bis zu zwei Teams:
-
-- `tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)`
-  - Jedes Match gehört genau zu einem Turnier.
-  - `tournamentId` ist der Foreign Key.
-  - Wenn ein Turnier gelöscht wird, werden alle zugehörigen Matches automatisch gelöscht (`Cascade`).
-
-- `homeTeam TournamentTeam? @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: SetNull)`
-- `awayTeam TournamentTeam? @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: SetNull)`
-  - Beide Team-Relationen sind optional (`?`), daher dürfen `homeTeamId` / `awayTeamId` `NULL` sein.
-  - Wenn ein referenziertes Team gelöscht wird, setzt Prisma den jeweiligen Foreign Key auf `NULL` (`SetNull`) statt das Match zu löschen.
-  - Die Relationsnamen (`"HomeTeam"` / `"AwayTeam"`) sind nötig, weil beide Felder auf dasselbe Zielmodell (`TournamentTeam`) zeigen.
-
-## Indizes
-
-Die folgenden Indizes beschleunigen typische Abfragen:
-
-- `@@index([tournamentId])`: schnellere Abfragen wie "alle Matches von Turnier X".
-- `@@index([homeTeamId])`: schnelle Lookups nach Heimteam.
-- `@@index([awayTeamId])`: schnelle Lookups nach Auswärtsteam.
-
-## TypeScript-Client Nutzung (`include` / `where`)
-
-Prisma erzeugt auf `Match` die Relationsfelder anhand der Schemadefinition:
-
-- `homeTeam` für die Relation `"HomeTeam"`
-- `awayTeam` für die Relation `"AwayTeam"`
-
-### Beide Teams inkludieren
+A typical match query is:
 
 ```ts
 const matches = await prisma.match.findMany({
   where: { tournamentId },
-  include: {
-    homeTeam: true,
-    awayTeam: true,
-  },
+  include: { homeTeam: true, awayTeam: true },
+  orderBy: [{ roundOrder: "asc" }, { slotIndex: "asc" }],
 });
 ```
 
-### `select` nutzen, wenn du nur wenige Felder brauchst
+Treat nullable teams explicitly in the service/UI. Schema integrity does not
+replace tournament-specific validation such as requiring a persisted winner.
 
-`include` liefert komplette verknüpfte Objekte. Wenn du nur Teilmengen brauchst, ist `select` meist besser:
+## Schema changes and databases
 
-```ts
-const matches = await prisma.match.findMany({
-  where: { tournamentId },
-  select: {
-    id: true,
-    homeScore: true,
-    awayScore: true,
-    homeTeam: { select: { id: true, name: true } },
-    awayTeam: { select: { id: true, name: true } },
-  },
-});
-```
+`npm run db:generate` regenerates the client only. Manual `db:push` writes the
+selected database; neither command is versioned migration history. Only apply schema
+experiments to a new explicitly isolated database. SQLite URLs in a manual server
+environment are resolved relative to this schema directory.
 
-### Nach einem konkreten Team filtern (home ODER away)
+The Electron build creates its own fresh empty template. Runtime compares schema
+fingerprints and refuses mismatches; it does not run Prisma CLI or reset an old
+database. Existing prototype/development data must remain intact. Versioned
+standalone upgrades remain an [implementation limit](../../doc/STANDALONE_VALIDATION.md#limits-of-this-evidence).
 
-```ts
-const teamMatches = await prisma.match.findMany({
-  where: {
-    tournamentId,
-    OR: [
-      { homeTeamId: teamId },
-      { awayTeamId: teamId },
-    ],
-  },
-  include: {
-    homeTeam: true,
-    awayTeam: true,
-  },
-});
-```
+Use the root isolated test runner for API/integration checks; see
+[development](../../doc/DEVELOPMENT.md). For normal operation use
+[host management](../../desktop/README.md#host-management), rather than manual
+schema/seed/clear commands against existing data.
 
-### Nach Feldern der Relation filtern
+## Prisma 7 compatibility
 
-```ts
-const matchesWithNamedHomeTeam = await prisma.match.findMany({
-  where: {
-    homeTeam: {
-      is: {
-        name: {
-          contains: "A",
-        },
-      },
-    },
-  },
-  include: {
-    homeTeam: true,
-    awayTeam: true,
-  },
-});
-```
+CLI/client/SQLite adapter are pinned together at 7.10.1. Connection URLs live in
+`server/prisma.config.ts`, not the datasource block. Both the manual CLI config
+and runtime factory preserve schema-relative paths for API-only development.
+The existing `prisma-client-js` generator remains supported by Prisma 7, preserving
+current imports; no prerelease Prisma 8 or generator rewrite is used.
 
-### Nach fehlenden Teams filtern (`NULL`-Foreign-Keys)
+`server/src/dbClient.ts` centralizes the official better-sqlite3 adapter with
+`timestampFormat: "unixepoch-ms"`, retaining Prisma 6’s integer DateTime storage.
+The model/enum definitions and SQLite DDL are unchanged. The build normalizes only
+the relocated connection-URL line before fingerprinting, retaining the v1 ID
+`1ef88f16376a0505a35a11ce2b254ddeef575792e402742f9f59055c801f3262`.
+Actual schema and relationship validation remain active.
 
-```ts
-const incompleteMatches = await prisma.match.findMany({
-  where: {
-    OR: [
-      { homeTeamId: null },
-      { awayTeamId: null },
-    ],
-  },
-});
-```
-
-### Nullable Relations sauber behandeln
-
-Da `homeTeam` und `awayTeam` im Schema optional sind (`TournamentTeam?`), sind die generierten TypeScript-Typen nullable:
-
-```ts
-for (const match of matches)
-{
-  const homeName = match.homeTeam?.name ?? "Offen";
-  const awayName = match.awayTeam?.name ?? "Offen";
-  console.log(`${homeName} vs ${awayName}`);
-}
-```
-
-## Häufiges Query-Muster für Match-Listen
-
-Für UI-Listen kombinierst du typischerweise Filter + Sortierung + Pagination:
-
-```ts
-const pageSize = 20;
-const page = 0;
-
-const result = await prisma.match.findMany({
-  where: { tournamentId },
-  include: {
-    homeTeam: true,
-    awayTeam: true,
-  },
-  orderBy: [
-    { roundOrder: "asc" },
-    { id: "asc" },
-  ],
-  skip: page * pageSize,
-  take: pageSize,
-});
-```
-
-## Nach Schema-Änderungen
-
-Typischer lokaler Ablauf aus dem Repository-Root:
-
-1. `server/prisma/schema.prisma` anpassen
-2. Schema-Änderungen in die DB übernehmen: `npm run db:push`
-3. Prisma-Client-Typen neu generieren: `npm run db:generate`
-
-Wenn du Optionalität (`?`) oder Delete-Verhalten (`onDelete`) geändert hast, prüfe danach die betroffene Service-Logik und das Null-Handling in TypeScript.
+Isolated desktop regression tests construct the old Prisma 6 DDL, restore a v1
+backup with numeric timestamps, preserve roster IDs/scores/timers, and verify that
+new writes retain integer timestamps. This is compatibility, not an automatic
+schema migration; no existing database was used for these tests.
