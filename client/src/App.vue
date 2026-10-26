@@ -4,6 +4,7 @@ import { ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 import ToastHost from "./components/ToastHost.vue";
 import AppIcon from "./components/common/AppIcon.vue";
+import BrandIcon from "./components/common/BrandIcon.vue";
 import EntityDialog from "./components/common/EntityDialog.vue";
 import GlobalTextPromptDialog from "./components/common/GlobalTextPromptDialog.vue";
 import { connectRealtime, disconnectRealtime, realtimeDisconnected } from "./realtime/realtimeClient";
@@ -82,7 +83,7 @@ function navLinkClass(prefix: string): string
             to="/"
             class="flex min-w-0 items-center gap-2 truncate font-display text-base font-semibold tracking-tight text-slate-900 sm:text-lg"
           >
-            <AppIcon name="trophy" class="h-6 w-6 text-blue-600" />
+            <BrandIcon class="h-6 w-6" />
             Turnier-Hub
           </RouterLink>
           <div class="flex shrink-0 items-center gap-1 sm:gap-2">
@@ -117,7 +118,8 @@ function navLinkClass(prefix: string): string
               :class="navLinkClass(item.to)"
               :aria-current="isNavActive(item.to) ? 'page' : undefined"
             >
-              <AppIcon :name="item.icon" class="h-5 w-5" />
+              <BrandIcon v-if="item.icon === 'trophy'" class="h-5 w-5" />
+              <AppIcon v-else :name="item.icon" class="h-5 w-5" />
               {{ item.label }}
             </RouterLink>
           </nav>

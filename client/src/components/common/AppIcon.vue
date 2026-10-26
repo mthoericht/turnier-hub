@@ -36,8 +36,10 @@ withDefaults(
   >
     <template v-if="name === 'trophy'">
       <path d="M8 21h8" />
-      <path d="M12 17v4" />
+      <path d="M12 13v8" />
       <path d="M7 4h10v4a5 5 0 0 1-10 0V4z" />
+      <path d="M7 6H4v2a4 4 0 0 0 4 4" />
+      <path d="M17 6h3v2a4 4 0 0 1-4 4" />
     </template>
     <template v-else-if="name === 'classes'">
       <path d="M3 10h18" />

@@ -40,7 +40,7 @@ ZIP under `release/desktop/`. These commands build; open the resulting app to ru
 it. Build on the native target OS/architecture for the native SQLite driver.
 
 The packaged app defaults to port 3210 and a separate data folder. Its existing
-`Turnier-Hub Prototyp` folder name is retained; it does not follow the app filename.
+`Turnier-Hub` folder name is retained; it does not follow the app filename.
 Old development/prototype data are preserved. Backups require the exact same
 schema; there is no automatic schema migration.
 

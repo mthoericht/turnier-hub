@@ -68,12 +68,12 @@ is separate; the former whole-dataset `reset_all` import is rejected.
 ## Data folders and compatibility
 
 - Development: `.local/desktop-dev/` inside the checkout, ignored by Git.
-- Packaged macOS default: `~/Library/Application Support/Turnier-Hub Prototyp/`.
+- Packaged macOS default: `~/Library/Application Support/Turnier-Hub/`.
 - Each uses `standalone.db`, `standalone-settings.json`, `logs/` and optional `backups/`.
 - Legacy `prototype.db` / `prototype-settings.json` are left untouched. They are
   not automatically imported into the account-free schema. New datasets start empty.
 
-The app filename is `Turnier-Hub.app`; the existing `Turnier-Hub Prototyp` data
+The app filename is `Turnier-Hub.app`; the existing `Turnier-Hub` data
 folder and `TURNIER_HUB_PROTOTYPE_*` configuration names remain for compatibility.
 Renaming the app must not silently select a different dataset.
 

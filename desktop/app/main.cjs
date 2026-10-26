@@ -8,10 +8,10 @@ const { createHostMaintenance } = require("./maintenance.cjs");
 const { installHostManagement } = require("./host-management.cjs");
 
 // Deliberately separate from any future production app and all checkout databases.
-app.setName("Turnier-Hub Prototyp");
+app.setName("Turnier-Hub");
 const dataDir = process.env.TURNIER_HUB_PROTOTYPE_DATA_DIR
   ? path.resolve(process.env.TURNIER_HUB_PROTOTYPE_DATA_DIR)
-  : path.join(app.getPath("appData"), "Turnier-Hub Prototyp");
+  : path.join(app.getPath("appData"), "Turnier-Hub");
 app.setPath("userData", dataDir);
 let window;
 let runtime;

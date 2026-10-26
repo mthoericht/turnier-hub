@@ -16,7 +16,7 @@ module.exports = {
   asar: true,
   npmRebuild: false,
   electronDist: path.join(__dirname, "../node_modules/electron/dist"),
-  mac: { target: [{ target: "zip", arch: ["arm64"] }], identity: null, minimumSystemVersion: "13.0.0", category: "public.app-category.education" },
-  win: { target: [{ target: "nsis", arch: ["x64"] }] },
+  mac: { icon: "client/src/assets/trophy.svg", target: [{ target: "zip", arch: ["arm64"] }], identity: null, minimumSystemVersion: "13.0.0", category: "public.app-category.education" },
+  win: { icon: "client/src/assets/trophy.svg", target: [{ target: "nsis", arch: ["x64"] }] },
   nsis: { oneClick: false, allowToChangeInstallationDirectory: true, deleteAppDataOnUninstall: false },
 };
